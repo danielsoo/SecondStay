@@ -4,7 +4,7 @@ As of 2026-11-14
 
 ## Summary
 
-SecondStay is an AI agent that tells commercial property owners which of their vacant spaces can become furnished housing for stays of 1 to 6 months, what the conversion would cost, and whether it pays back.
+SecondStay is an AI agent that tells commercial property owners which of their vacant spaces can become furnished housing for residential stays, what the conversion would cost, and whether it pays back.
 
 The customer is the building owner. The residents are people a 12-month lease does not fit: interns, travelling nurses, visiting researchers, people relocating.
 
