@@ -1,14 +1,14 @@
 [project]
-name = "sightline"
+name = "secondstay"
 version = "0.1.0"
-description = "Agent that locates a caller inside a building from their phone camera and routes responders to them"
+description = "Agent that finds vacant offices that can become housing"
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
 dev = ["pytest"]
 
 [tool.setuptools]
-packages = ["sightline"]
+packages = ["secondstay"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
