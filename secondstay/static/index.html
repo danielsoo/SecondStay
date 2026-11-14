@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SecondStay · evidence pre-check</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --panel: #ffffff; --ink: #1c1d1f; --muted: #6a6d73; --line: #e3e1da;
+    --accent: #1f4b99; --select: #eef3fb;
+    --found: #1e7a4c; --found-bg: #e4f3ea;
+    --issue: #9a5b00; --issue-bg: #fbefd6;
+    --nodata: #5f646b; --nodata-bg: #ecebe7;
+    --review: #2a55a8; --review-bg: #e3ebfa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151618; --panel: #1e2023; --ink: #ecebe7; --muted: #9a9da3; --line: #303338;
+      --accent: #8fb4f5; --select: #232b3a;
+      --found: #7fd3a4; --found-bg: #17352a;
+      --issue: #f0c070; --issue-bg: #3a2d12;
+      --nodata: #b3b6bb; --nodata-bg: #2b2d31;
+      --review: #9dbcf7; --review-bg: #1d2a45;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+  a { color: var(--accent); }
+  button, select { font: inherit; color: inherit; }
+  header.top { display: flex; align-items: baseline; gap: 16px; padding: 14px 24px 10px; }
+  header.top .brand { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); }
+  header.top .tag { color: var(--muted); font-size: 13px; }
+  .notice { margin: 0 24px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel); color: var(--muted); font-size: 13px; }
+  main { padding: 18px 24px 48px; max-width: 1440px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 28px 0 10px; }
+  .sub { color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge i { font-style: normal; font-size: 10px; }
+  .s-found { color: var(--found); background: var(--found-bg); }
+  .s-issue { color: var(--issue); background: var(--issue-bg); }
+  .s-nodata { color: var(--nodata); background: var(--nodata-bg); }
+  .s-review { color: var(--review); background: var(--review-bg); }
+  .counts { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  /* list of spaces */
+  table.spaces { width: 100%; border-collapse: collapse; }
+  table.spaces th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted);
+    padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.spaces td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.spaces tr:last-child td { border-bottom: 0; }
+  table.spaces tbody tr { cursor: pointer; }
+  table.spaces tbody tr:hover { background: var(--select); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .name { font-weight: 600; }
+
+  /* one space */
+  .spacehead { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 4px 18px; color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .facts b { color: var(--ink); font-weight: 600; }
+  .cols { display: grid; grid-template-columns: minmax(340px, 5fr) 7fr; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .rows { overflow: hidden; }
+  .row { display: block; width: 100%; text-align: left; background: none; border: 0;
+    border-bottom: 1px solid var(--line); padding: 11px 14px; cursor: pointer; }
+  .row:last-child { border-bottom: 0; }
+  .row:hover, .row.on { background: var(--select); }
+  .row.on { box-shadow: inset 3px 0 0 var(--accent); }
+  .row .line1 { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+  .row .req { font-weight: 600; }
+  .row .ev { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .row .more { display: none; margin-top: 8px; font-size: 13px; }
+  .row.on .more { display: block; }
+  .more dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 6px; }
+  .more dd { margin: 0; }
+
+  .evidence { position: sticky; top: 12px; padding: 16px; min-height: 420px; }
+  .evidence h3 { margin: 0 0 2px; font-size: 17px; }
+  .evidence .src { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .evidence iframe { width: 100%; height: 460px; border: 0; border-radius: 8px; background: #000; }
+  .aerial { position: relative; line-height: 0; }
+  .aerial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .aerial .me { fill: rgba(255, 200, 0, 0.18); stroke: #ffc800; stroke-width: 0.6; }
+  .aerial .other { fill: none; stroke: #ffffff; stroke-width: 0.35; stroke-dasharray: 1.2 0.8; }
+  .evidence .aerial img { max-height: none; object-fit: fill; }
+  .legend { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+  .evidence img { width: 100%; max-height: 460px; object-fit: cover; border-radius: 8px; display: block; }
+  .thumbs { display: flex; gap: 6px; margin-top: 6px; }
+  .thumbs img { width: 84px; height: 56px; cursor: pointer; opacity: 0.7; }
+  .thumbs img.on { opacity: 1; outline: 2px solid var(--accent); }
+  table.kv { width: 100%; border-collapse: collapse; margin: 6px 0 12px; }
+  table.kv td { padding: 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.kv td:first-child { color: var(--muted); width: 42%; }
+  table.kv .big { font-size: 20px; font-weight: 650; }
+  table.kv code { color: var(--muted); font-size: 11px; display: block; }
+  .note { font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding: 2px 0 2px 10px; margin: 12px 0 0; }
+  .statement { margin: 0 0 12px; }
+
+  .steps { padding: 4px 16px 14px; }
+  .steps h4 { margin: 14px 0 4px; font-size: 14px; }
+  .steps ul { margin: 0; padding-left: 18px; }
+  .steps li { margin: 3px 0; }
+  .bar { display: flex; justify-content: space-between; align-items: center; }
+  .btn { display: inline-block; border: 1px solid var(--line); background: var(--panel); border-radius: 8px;
+    padding: 6px 12px; text-decoration: none; color: var(--ink); font-size: 13px; font-weight: 600; }
+  .btn:hover { border-color: var(--accent); }
+  select { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; max-width: 280px; }
+  .loading { color: var(--muted); padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#/">SecondStay</a>
+  <span class="tag">Evidence pre-check for housing conversion · Los Angeles</span>
+</header>
+<p class="notice" id="notice">This is a preliminary evidence review, not a legal or code determination. Final decisions are made by LADBS and licensed professionals.</p>
+<main id="app"><p class="loading">Loading…</p></main>
+
+<script>
+const app = document.getElementById("app");
+const STATE_CLASS = {
+  "Evidence found": ["s-found", "●"], "Possible issue": ["s-issue", "▲"],
+  "Not enough data": ["s-nodata", "○"], "Needs professional review": ["s-review", "◆"],
+};
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const num = (v) => (v ? Math.round(v).toLocaleString("en-US") : "–");
+const badge = (state, text) => {
+  const [cls, glyph] = STATE_CLASS[state];
+  return `<span class="badge ${cls}" title="${esc(state)}"><i>${glyph}</i>${esc(text ?? state)}</span>`;
+};
+const counts = (c) => `<div class="counts">${Object.entries(c).map(([s, n]) => badge(s, `${s} ${n}`)).join("")}</div>`;
+const shortCounts = (c) => `<div class="counts">${Object.entries(c).map(([s, n]) => badge(s, n)).join("")}</div>`;
+
+async function api(path) {
+  const response = await fetch(path);
+  if (!response.ok) throw new Error(`Request did not complete (${response.status})`);
+  return response.json();
+}
+
+async function showList() {
+  const data = await api("/api/spaces");
+  document.getElementById("notice").textContent = data.notice;
+  const legend = data.states.map((s) => badge(s)).join(" ");
+  app.innerHTML = `
+    <h1>Office buildings with space on the market</h1>
+    <p class="sub">${data.spaces.length} existing Los Angeles office buildings with a 3D scan, most available space first.
+      Counts show the evidence state of each requirement from records alone, before a scan is read.</p>
+    <p class="counts" style="margin:10px 0 14px">${legend}</p>
+    <div class="panel"><table class="spaces">
+      <thead><tr><th>Building</th><th class="num">Built</th><th class="num">Stories</th><th>Zone</th>
+        <th class="num">Available sq ft</th><th class="num">Asking rent $/sq ft/yr</th>
+        <th class="num">No tenancy on record</th><th class="num">Scans</th><th>Requirements by evidence state</th></tr></thead>
+      <tbody>${data.spaces.map((s) => `
+        <tr data-id="${s.property_id}">
+          <td><div class="name">${esc(s.name || s.address)}</div><div class="sub">${esc(s.name ? s.address : "")}</div></td>
+          <td class="num">${s.year_built ?? "–"}</td>
+          <td class="num">${s.stories ?? "–"}</td>
+          <td>${esc(s.zone ?? "–")}</td>
+          <td class="num">${num(s.available_sqft)}</td>
+          <td class="num">${s.asking_rent_per_sqft_year ? s.asking_rent_per_sqft_year.toFixed(0) : "–"}</td>
+          <td class="num">${s.unaccounted_share == null ? "–" : Math.round(s.unaccounted_share * 100) + "%"}</td>
+          <td class="num">${s.scans}</td>
+          <td>${shortCounts(s.counts)}</td>
+        </tr>`).join("")}</tbody>
+    </table></div>
+    <p class="note">Available space is space being marketed, which can still be occupied. "No tenancy on record" is the share of
+      rentable area without a current tenancy in the data; it is an indication of vacancy, and some tenancies have no area recorded.
+      Asking rents mix service types.</p>`;
+  app.querySelectorAll("tr[data-id]").forEach((tr) => (tr.onclick = () => (location.hash = `#/space/${tr.dataset.id}`)));
+}
+
+function recordView(row) {
+  const filled = row.fields.filter((f) => f.value != null && f.value !== "");
+  return `
+    <div class="src">Source: CoStar commercial property record</div>
+    <p class="statement">${esc(row.evidence)}</p>
+    <table class="kv">${row.fields.map((f, i) => `
+      <tr><td>${esc(f.label)}<code>${esc(f.field)}</code></td>
+      <td class="${i === 0 ? "big" : ""}">${f.value == null || f.value === "" ? '<span class="sub">not recorded</span>' : esc(f.value)}</td></tr>`).join("")}
+    </table>
+    ${filled.length ? "" : '<p class="note">The record has no value for this requirement.</p>'}`;
+}
+
+function scanView(row, data) {
+  const scan = data.scan;
+  if (!scan.model_id) return `<p class="statement">${esc(row.evidence)}</p><p class="note">This building has no 3D scan.</p>`;
+  const key = data.sdk_key ? `&applicationKey=${encodeURIComponent(data.sdk_key)}` : "";
+  const measured = scan.loaded ? `
+    <table class="kv">
+      <tr><td>Floors in the scan</td><td>${scan.floors}</td></tr>
+      <tr><td>Floor area measured</td><td>${num(scan.area_sqft)} sq ft</td></tr>
+      <tr><td>Use recorded on the scan</td><td>${esc(scan.uses.join(", ") || "not recorded")}</td></tr>
+      <tr><td>Room labels in the scan</td><td>${esc(Object.entries(scan.room_kinds).map(([k, n]) => `${k} ${n}`).join(", ") || "none")}</td></tr>
+    </table>` : `<p class="note">${esc(scan.error)}</p>`;
+  return `
+    <div class="src">Source: Matterport 3D scan${scan.name ? " · " + esc(scan.name) : ""}</div>
+    <p class="statement">${esc(row.evidence)}</p>
+    <iframe src="https://my.matterport.com/show/?m=${encodeURIComponent(scan.model_id)}&qs=1&brand=0&help=0${key}" allow="xr-spatial-tracking; fullscreen" allowfullscreen></iframe>
+    ${measured}`;
+}
+
+function outline(rings, box, cls) {
+  const [west, south, east, north] = box;
+  return rings.map((ring) => `<polygon class="${cls}" points="${ring.map(([x, y]) =>
+    `${(((x - west) / (east - west)) * 100).toFixed(2)},${(((north - y) / (north - south)) * 100).toFixed(2)}`).join(" ")}"/>`).join("");
+}
+
+function aerialView(row, data) {
+  const b = data.building, o = data.outside;
+  const photos = b.aerial_urls.length ? b.aerial_urls : (b.photo_url ? [b.photo_url] : []);
+  const photoLabel = b.aerial_urls.length ? "CoStar aerial photo" : "CoStar building photo";
+  const fields = row.fields.length ? `<table class="kv">${row.fields.map((f) => `
+      <tr><td>${esc(f.label)}<code>${esc(f.field)}</code></td>
+      <td>${f.value == null ? '<span class="sub">not measured or recorded</span>' : esc(f.value)}</td></tr>`).join("")}</table>` : "";
+  const sources = [o.loaded ? `Vexcel aerial imagery${o.captured ? ", captured " + esc(o.captured) : ""}` : "", photos.length ? photoLabel : "",
+    row.fields.some((f) => !f.field.startsWith("Vexcel")) ? "CoStar commercial property record" : ""].filter(Boolean);
+  const image = o.loaded ? `
+    <div class="aerial"><img src="/api/spaces/${b.property_id}/aerial.jpg" alt="Vexcel aerial image">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none">${outline(o.neighbors, o.bbox, "other")}${outline(o.footprint, o.bbox, "me")}</svg></div>
+    <p class="legend">Yellow: the footprint matched to this building. Dashed white: other structures nearby.</p>` : "";
+  return `
+    <div class="src">Source: ${sources.join(" · ") || "no image on record"}</div>
+    <p class="statement">${esc(row.evidence)}</p>
+    ${image}
+    ${fields}
+    ${photos.length ? `<div class="thumbs">${photos.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="${photoLabel}" style="opacity:1"></a>`).join("")}</div>
+      <p class="legend">${photoLabel}${photos.length > 1 ? "s" : ""} from the record.</p>` : ""}
+    <p class="note">${o.loaded ? "Height is the highest roof point sampled over the footprint, minus the ground below; it includes rooftop equipment. Distances are measured between footprint outlines. Both are approximate."
+      : esc(o.error)} Location used for imagery: ${b.latitude?.toFixed(5)}, ${b.longitude?.toFixed(5)}.</p>`;
+}
+
+function evidenceView(row, data) {
+  let body;
+  if (row.view === "record") body = recordView(row);
+  else if (row.view === "scan") body = scanView(row, data);
+  else if (row.view === "aerial") body = aerialView(row, data);
+  else if (row.view === "setting") body = `<div class="src">Source: product setting</div><p class="statement">${esc(row.evidence)}</p>
+      <p class="note">SecondStay plans stays of 31 days or longer. This is a setting, not a property of the building.</p>`;
+  else body = `<div class="src">Source: none of our data layers</div><p class="statement">${esc(row.evidence)}</p>
+      <p class="note">Records, 3D scans and aerial imagery cannot answer this requirement. To be confirmed by: ${esc(row.confirmed_by)}.</p>`;
+  return `<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+      <h3>${esc(row.requirement)}</h3>${badge(row.state)}</div>${body}`;
+}
+
+async function showSpace(id, scanId, selected) {
+  const query = scanId ? `?scan=${encodeURIComponent(scanId)}` : "";
+  const data = await api(`/api/spaces/${id}${query}`);
+  const b = data.building;
+  let current = data.rows.find((r) => r.key === selected) || data.rows[0];
+  const scanPicker = b.scans.length > 1 ? `<label class="sub">Scan
+      <select id="scan">${b.scans.map((s, i) => `<option value="${esc(s.model_id)}" ${s.model_id === data.scan.model_id ? "selected" : ""}>
+        ${esc(s.caption || "Scan")} (${i + 1} of ${b.scans.length})</option>`).join("")}</select></label>` : "";
+  app.innerHTML = `
+    <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
+    <div class="spacehead">
+      <div>
+        <h1>${esc(b.name || b.address)}</h1>
+        <div class="sub">${esc(b.address)}, Los Angeles · ${esc(b.property_type)}</div>
+        <div class="facts">
+          <span>Built <b>${b.year_built ?? "–"}</b></span><span>Stories <b>${b.stories ?? "–"}</b></span>
+          <span>Zone <b>${esc(b.zone ?? "–")}</b></span><span>Rentable <b>${num(b.rentable_sqft)} sq ft</b></span>
+          <span>On the market <b>${num(b.available_sqft)} sq ft</b> in ${b.available_spaces} spaces</span>
+          ${b.asking_rent_per_sqft_year ? `<span>Asking <b>$${b.asking_rent_per_sqft_year.toFixed(0)}/sq ft/yr</b></span>` : ""}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">${counts(data.counts)}${scanPicker}</div>
+    </div>
+    <div class="cols">
+      <div class="panel rows" id="rows">${data.rows.map((r) => `
+        <button class="row" data-key="${r.key}">
+          <div class="line1"><span class="req">${esc(r.requirement)}</span>${badge(r.state)}</div>
+          <div class="ev">${esc(r.evidence)}</div>
+          <dl class="more">
+            <dt>What the published rule says</dt><dd>${esc(r.rule)} ${r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" rel="noopener">Source</a>` : ""}</dd>
+            <dt>Data layer</dt><dd>${esc(r.layer)}</dd>
+            <dt>To be confirmed by</dt><dd>${esc(r.confirmed_by)}</dd>
+          </dl>
+        </button>`).join("")}</div>
+      <div class="panel evidence" id="evidence"></div>
+    </div>
+    <div class="bar"><h2>Next steps, by who confirms</h2>
+      <a class="btn" href="/api/spaces/${id}/next-steps.md${query}">Export for an architect</a></div>
+    <div class="panel steps">${data.next_steps.map((g) => `
+      <h4>${esc(g.who)}</h4>
+      <ul>${g.items.map((i) => `<li><b>${esc(i.requirement)}</b> ${badge(i.state)}<br><span class="sub">${esc(i.evidence)}</span></li>`).join("")}</ul>`).join("")}
+    </div>`;
+
+  const select = (key) => {
+    current = data.rows.find((r) => r.key === key);
+    app.querySelectorAll(".row").forEach((el) => el.classList.toggle("on", el.dataset.key === key));
+    const pane = document.getElementById("evidence");
+    pane.innerHTML = evidenceView(current, data);
+    pane.querySelectorAll(".thumbs img").forEach((img) => (img.onclick = () => {
+      pane.querySelector("#aerial").src = img.src;
+      pane.querySelectorAll(".thumbs img").forEach((t) => t.classList.toggle("on", t === img));
+    }));
+  };
+  app.querySelectorAll(".row").forEach((el) => (el.onclick = () => select(el.dataset.key)));
+  const picker = document.getElementById("scan");
+  if (picker) picker.onchange = () => showSpace(id, picker.value, current.key).catch(showError);
+  select(current.key);
+}
+
+function showError(error) { app.innerHTML = `<p class="loading">${esc(error.message)}</p>`; }
+function route() {
+  const match = location.hash.match(/^#\/space\/(\d+)/);
+  app.innerHTML = '<p class="loading">Loading…</p>';
+  (match ? showSpace(match[1]) : showList()).catch(showError);
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>

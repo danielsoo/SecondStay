@@ -27,11 +27,29 @@ condition are out of scope, and all prices are editable assumptions.
 
 ## Status
 
-- [x] Scoring engine (`secondstay/scoring.py`)
-- [x] Cost and payback model (`secondstay/economics.py`)
-- [ ] CoStar, Matterport and Vexcel data adapters
-- [ ] Agent orchestration (deepagents)
-- [ ] Web UI with the Matterport viewer
+- [x] Evidence checklist (`secondstay/checklist.py`)
+- [x] CoStar adapter for Los Angeles offices (`secondstay/costar.py`, notes in `docs/costar-data-notes.md`)
+- [x] Matterport Model API adapter (`secondstay/matterport.py`)
+- [x] Checklist screen (`secondstay/web.py`)
+- [x] Vexcel adapter: height and distance to neighbours (`secondstay/vexcel.py`); street frontage not yet
+- [ ] Agent orchestration (deepagents), panorama inspection
+- [x] Cost and payback model, phase 2 (`secondstay/economics.py`)
+
+## Running the screen
+
+Keep `costar-hackathon-kit` next to this folder (or set `COSTAR_KIT_DIR`), and put the keys in `.env`
+(`MATTERPORT_TOKEN_ID`, `MATTERPORT_TOKEN_SECRET`, `MATTERPORT_SDK_KEY`, `VEXCEL_API_KEY`). Neither is committed.
+
+```bash
+python -m secondstay.web
+```
+
+To read every building's imagery and scans once, so the screen opens from cache and you can see which
+buildings have the most evidence:
+
+```bash
+python -m secondstay.prefetch
+```
 
 ## Development
 

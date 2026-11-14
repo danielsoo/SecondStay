@@ -1,0 +1,22 @@
+[
+  {"key": "sprinklers.install", "requirement": "sprinklers", "title": "Install sprinkler coverage",
+   "certainty": "called_for", "quantity": 40000, "unit": "sqft", "quantity_basis": "Rentable area on record",
+   "scope": "building", "reason": "The record shows no sprinkler system.",
+   "source_url": "https://example.com/bulletin", "confirmed_by": "Fire protection engineer"},
+  {"key": "units.bathroom", "requirement": "units", "title": "Add bathrooms",
+   "certainty": "called_for", "quantity": 22, "unit": "each", "quantity_basis": "25 planned units minus 3 bathrooms in the scan",
+   "scope": "space", "reason": "Scan measures about 16,000 sq ft.",
+   "source_url": null, "confirmed_by": "Architect's layout"},
+  {"key": "egress.add_stair", "requirement": "exits", "title": "Add a second stair",
+   "certainty": "possible", "quantity": 1, "unit": "story", "quantity_basis": "Stories with one stair in the scan",
+   "scope": "building", "reason": "One stair identified on Floor 2. The scan may not cover every stair.",
+   "source_url": "https://example.com/bulletin", "confirmed_by": "Architect and LADBS plan check"},
+  {"key": "seismic.strengthen", "requirement": "seismic", "title": "Seismic strengthening",
+   "certainty": "unknown", "quantity": 40000, "unit": "sqft", "quantity_basis": "Rentable area on record",
+   "scope": "building", "reason": "Not available in our data.",
+   "source_url": "https://example.com/bulletin", "confirmed_by": "Structural engineer"},
+  {"key": "escape.add_openings", "requirement": "escape", "title": "Add escape openings",
+   "certainty": "unknown", "quantity": null, "unit": "each", "quantity_basis": "Not measured",
+   "scope": "space", "reason": "Exterior walls and windows have not been read from the scan yet.",
+   "source_url": "https://example.com/bulletin", "confirmed_by": "Architect on site"}
+]
