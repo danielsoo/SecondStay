@@ -1,185 +1,170 @@
 # SecondStay PRD
 
-As of 2026-11-14
+As of 2026-11-14 (revision 2: evidence pre-check first, cost second)
+
+> SecondStay is a preliminary evidence review, not a legal or code determination.
+> Final decisions are made by the Los Angeles Department of Building and Safety
+> (LADBS) and licensed professionals.
 
 ## Summary
 
-SecondStay is an AI agent that tells commercial property owners which of their vacant spaces can become furnished housing for residential stays, what the conversion would cost, and whether it pays back.
+SecondStay helps owners of vacant commercial space check, requirement by requirement, what evidence exists that the space could be converted to housing under Los Angeles rules, and what still has to be confirmed by a professional.
 
-The customer is the building owner. The residents are people a 12-month lease does not fit: interns, travelling nurses, visiting researchers, people relocating.
+It does not say a conversion is allowed or not allowed. For each published requirement it shows the rule, the evidence found in the data, how strong that evidence is, and who can confirm it.
 
-Pitch: "SecondStay finds which empty commercial spaces could become homes, shows what would have to change, and tells owners whether the numbers justify the next step."
+Pitch: "Before an owner pays an architect, SecondStay shows what the data already says about each conversion requirement, and exactly what is left to verify."
 
-Scope for HackPrinceton: Los Angeles only, office buildings only, preliminary feasibility only.
+Scope for HackPrinceton: Los Angeles only, office and commercial space only, pre-check only.
 
 ## Problem
 
-Owners of vacant offices cannot tell which spaces are worth converting to housing without paying an architect to walk each one.
+An owner with vacant space cannot easily tell whether a conversion to housing is worth pursuing.
 
-- **Offices sit empty while housing is short.** LA City Planning describes office vacancy as historically high since the pandemic and adopted a citywide ordinance in 2026 to encourage conversion.
-- **Most offices are not ready to live in.** They lack showers and kitchens, and the law also requires sprinklers, fire alarms, residential egress and a seismic review.
-- **The cost depends on the specific space.** A bathroom next to an existing restroom is cheap. One 100 feet from the nearest plumbing is not.
-- **Screening is manual today.** An owner with many properties has no fast way to find the few where conversion makes sense.
+- **The rules are spread across documents.** The Citywide Adaptive Reuse Ordinance, the LADBS bulletin and the building codes each add requirements.
+- **Checking them takes paid professional time.** Today the first answer comes after hiring an architect to visit and measure.
+- **Most of the first-pass facts already exist as data.** Building age, size, floors, room dimensions, stair locations and the surroundings are in records, 3D scans and aerial imagery.
+- **Nobody connects that data to the requirements.** So owners either skip the question or pay to learn something a screen could have shown.
 
 ## Users and goals
 
 | Who | What they want | What SecondStay gives them |
 | --- | --- | --- |
-| Building owner or operator (customer) | Income from space that sits empty | A ranked shortlist, a conversion plan and a convert / do not convert verdict per space |
-| Developer or investor | Candidates worth a site visit | Evidence-backed screening before paying for design |
-| Resident (not a user of the product) | A furnished home for a few months | Nothing directly. Their needs set the requirements, such as a private bathroom |
+| Building owner or operator (customer) | To know whether a conversion is worth a professional's time | A requirement-by-requirement evidence checklist and a list of what to verify |
+| Architect or consultant hired next | A head start | The evidence and open items in one document |
+| Future resident (not a user) | A home in a converted space | Nothing directly. They come after a conversion is approved and built |
 
 **Success at the hackathon**
 
-- The agent screens real LA buildings using all three data layers.
-- It rejects at least one building and explains why.
-- Changing one assumption on screen changes the verdict.
-- A practitioner we interviewed confirms the cost assumptions are in a realistic range.
+- The checklist runs on real LA spaces using all three data layers.
+- Every requirement row shows its source, the evidence, and how to confirm it.
+- Clicking a row shows the evidence itself: the scan view, the aerial image, or the record value.
+- No screen states a legal conclusion.
+- A practitioner we interviewed says the checklist matches what they would check first.
+
+## Wording rules
+
+These apply to the UI, the report, the pitch and the README.
+
+**Evidence states (the only four)**
+
+| State | Meaning | When it is used |
+| --- | --- | --- |
+| Evidence found | The data is consistent with the requirement | A record or measurement matches |
+| Possible issue | The data suggests the requirement may not be met | A record or measurement conflicts |
+| Not enough data | The data we have cannot answer it | Field is empty or not visible in the scan |
+| Needs professional review | Data cannot answer this kind of requirement | Sprinklers, seismic performance, historic status |
+
+**Words we do not use:** legal, illegal, compliant, approved, eligible, pass, fail, verdict, "can be converted", "cannot be converted".
+
+**Words we use instead:** pre-check, evidence, indication, "appears consistent with", "may not meet", "to be confirmed by".
+
+**Fixed notice** on every screen and report: "This is a preliminary evidence review, not a legal or code determination. Final decisions are made by LADBS and licensed professionals."
+
+There is no score and no overall result. The summary is a count per state, for example "Evidence found 6 · Possible issue 1 · Needs professional review 4".
+
+## Requirements checked
+
+Each row is one line in the checklist. Sources are the LA City Planning adaptive reuse page and LADBS bulletin IB-BC-2026-164. The full ordinance text has not been read.
+
+| Requirement | What the published rule says | Evidence we look for | Layer | How it is confirmed |
+| --- | --- | --- | --- | --- |
+| Building age | 15 years or older uses the streamlined path; 5 to 15 years goes to discretionary review | Year built | CoStar | LADBS building records |
+| Zone | Multifamily Residential, Commercial, Parking or Public Facilities zones | Zoning value, if present | CoStar | City zoning lookup (ZIMAS) |
+| Unit count | Projects creating five or more residential units | Floor area and room dimensions | Matterport | Architect's layout |
+| Height | Additional systems at 75 feet and above | Stories on record; height seen from the air | CoStar, Vexcel | Survey or building records |
+| Exits per story | Residential egress standards for number of and distance between exits | Stair locations in the scan | Matterport | Architect and LADBS plan check |
+| Escape openings for sleeping rooms | Each sleeping room needs an opening to the outside | Rooms on an exterior wall; what is outside that wall | Matterport, Vexcel | Architect on site |
+| Fire separation distance | Exterior wall and opening rules depend on distance to neighbours | Distance to adjacent buildings | Vexcel | Survey |
+| Fire access and exit discharge | Exits lead to a public way; fire vehicles can reach the building | Street frontage and access routes | Vexcel | Fire Department review |
+| Elevator | Four stories or fewer may not need a gurney-sized elevator | Stories on record | CoStar | LADBS plan check |
+| Stay length | Rentals over 30 consecutive days are outside short-term rental rules | Product setting | n/a | City Planning guidance |
+| Sprinklers | Full sprinkler coverage required | Not in our data | none | Needs professional review |
+| Fire alarm | Required throughout | Not in our data | none | Needs professional review |
+| Seismic | Analysis at 75% of design ground motion, strengthening as required | Not in our data | none | Structural engineer |
+| Historic status | Surveyed or designated resources follow a different review | Not in our data | none | Office of Historic Resources |
+
+Sources: [LA City Planning: Adaptive Reuse](https://planning.lacity.gov/project-review/adaptive-reuse) · [LADBS IB-BC-2026-164](https://dbs.lacity.gov/sites/default/files/efs/forms_and_publications/publications/information-bulletins/building-code/2026/IB-BC-2026-164-Change_Occupancy_Office_Residential.pdf) · [City Planning press release, Feb. 9, 2026](https://planning.lacity.gov/odocument/0fa826b2-52c7-4ab7-ad29-e6edefed4493/Adaptive_Reuse_Ordinance_Feb_2026.pdf) · [Home-Sharing FAQ](https://planning.lacity.gov/ordinances/docs/HomeSharing/FAQ.pdf)
+
+## The screen
+
+The checklist screen for one space is the product. Everything else supports it.
+
+- **Left: the requirement list.** One row per requirement with its evidence state.
+- **Right: the evidence.** Selecting a row shows the evidence itself. Exits: the 3D view with stairs marked. Height: the aerial image. Age: the record value. Each view names its data source.
+- **Each row expands** to show the rule summary with a link to the source, the evidence, and how it is confirmed.
+- **Bottom: next steps.** Every "Needs professional review" and "Not enough data" row, grouped by who confirms it. This exports as a document the owner hands to an architect.
+- **Top: the count per state** and the fixed notice. No score.
+
+A second screen lists the owner's spaces with their counts so they can decide which to look at first.
 
 ## How the agent works
 
-The owner asks: "Which of my vacant spaces could become temporary housing, and what is the lowest-cost way to convert them?"
-
-1. **Find candidates.** Filter the CoStar data for vacant office space in LA.
-2. **Check eligibility.** Keep buildings that are at least 15 years old, in an eligible zone, and large enough for five or more units.
-3. **Inspect the inside.** Read room dimensions and room types from the Matterport scan. Work out how many units fit and how far each new bathroom is from existing plumbing.
-4. **Inspect the outside.** Use Vexcel aerial imagery for daylight clearance to neighbouring buildings, parking and entrances.
-5. **Cost it.** Apply the cost assumptions to the conversion plan.
-6. **Decide.** Compare housing income with what the space earns today, over the time the space is available. Reject what does not pay back.
-7. **Report.** Show a shortlist with evidence, split into observed facts, estimates, and items that need a site inspection.
-
-| Data layer | What the agent takes from it |
-| --- | --- |
-| CoStar building data | Vacant space, year built, floors, size, current office income, nearby residential rents |
-| Matterport 3D scans | Room dimensions, room types, location of existing restrooms and kitchens, windows |
-| Vexcel aerial imagery | Distance to neighbouring buildings, parking, entrances |
+1. **Find spaces.** List vacant commercial space in LA from the CoStar data.
+2. **Link the layers.** Match each space to its Matterport scan and its location for Vexcel.
+3. **Gather evidence per requirement.** Read records, measure from the scan, inspect aerial imagery. Where room types are missing from the scan data, look at the scan's panorama images to find stairs, restrooms and exterior walls.
+4. **Assign an evidence state** to each requirement, with the reason and the source.
+5. **Cross-check.** If two layers disagree, for example stories on record against what the imagery shows, mark the row "Possible issue" and show both.
+6. **Write the next-steps list.**
 
 ## Requirements
 
 **Must have**
 
-- Load the CoStar data and list vacant LA office space.
-- Eligibility screen: building age, zone, five or more units.
-- Pull rooms and dimensions for a building from the Matterport API.
-- Generate a conversion plan: unit count, bathrooms to add, plumbing run to the nearest existing restroom.
-- Cost and payback calculation with a verdict and a stated reason.
-- A web page with the ranked shortlist, the 3D view of the top candidate, and editable assumptions that recalculate the verdict.
-- Every figure labelled as observed, estimated, or needs inspection.
+- Checklist screen for one space with the four evidence states and the fixed notice.
+- Evidence view for each row, using the 3D view, aerial imagery or record values.
+- Evidence gathered from all three layers for at least age, unit count, height, exits and escape openings.
+- Next-steps list grouped by who confirms.
+- Wording rules followed everywhere.
 
 **Should have**
 
-- Vexcel checks for daylight clearance and parking.
-- Two plans per space: most units, and least construction.
-- Markers in the 3D view showing where units and bathrooms would go.
-- The agent built with deepagents, with separate sub-agents for search, interior review, exterior review and reporting.
+- List of spaces with counts per state.
+- Panorama inspection to locate stairs and restrooms when scan labels are missing.
+- Exportable report.
+- The agent built with deepagents, with sub-agents per layer.
+
+**Later: cost and return (phase 2)**
+
+Only for spaces the owner chooses to pursue. Estimates the cost of the work the rules call for and the housing income, with every price an editable assumption that has a source. The calculation exists in `secondstay/economics.py` but is not part of the first screen.
 
 **Out of scope**
 
-- Zoning or permit decisions. The product screens; it does not approve.
-- Structural engineering and hidden plumbing capacity.
-- Matching residents, bookings or payments.
-- Cities other than Los Angeles and building types other than office.
+- Any statement that a conversion is or is not allowed.
+- Structural engineering, hidden plumbing capacity, historic review.
+- Listings for residents, bookings or payments.
+- Cities other than Los Angeles.
 
-## LA rules the product encodes
+## What we know about the data
 
-Conversion is legal in Los Angeles through the Citywide Adaptive Reuse Ordinance (No. 188,793), effective February 1, 2026. The product uses these rules as its eligibility screen and as the list of work it must cost. The full ordinance text has not been read; the points below come from the city's guidance page, press release and the LADBS bulletin.
-
-**Eligibility screen**
-
-| Rule | How the agent checks it |
-| --- | --- |
-| Conversion creates five or more residential units | Unit count from the conversion plan |
-| Building is at least 15 years old (5 to 15 needs discretionary review) | Year built in CoStar data |
-| Located in a Multifamily Residential, Commercial, Parking or Public Facilities zone | Zoning field, if present in the CoStar data |
-| Stays longer than 30 days fall outside short-term rental rules | Product targets 31 days to 6 months |
-
-**Work the law requires, from LADBS bulletin IB-BC-2026-164**
-
-- Full sprinkler coverage of the building.
-- Fire alarm throughout the building.
-- Egress brought to residential standard, with emergency escape openings for sleeping rooms.
-- Seismic analysis at 75% of the design earthquake ground motion, with strengthening as required.
-- Extra systems for buildings 75 feet and taller.
-
-**What is relaxed**
-
-- No minimum unit size beyond the Building Code.
-- Wall insulation and existing windows need not meet the current energy code.
-- Buildings of four stories or fewer may be exempt from the gurney-sized elevator.
-- A partial conversion can request relief from the seismic requirement, case by case.
-
-Consequence for the product: small low-rise buildings that already have sprinklers are the best candidates, so building height and existing sprinklers are inputs to the verdict.
-
-Sources: [LA City Planning: Adaptive Reuse](https://planning.lacity.gov/project-review/adaptive-reuse) · [LADBS IB-BC-2026-164](https://dbs.lacity.gov/sites/default/files/efs/forms_and_publications/publications/information-bulletins/building-code/2026/IB-BC-2026-164-Change_Occupancy_Office_Residential.pdf) · [City Planning press release, Feb. 9, 2026](https://planning.lacity.gov/odocument/0fa826b2-52c7-4ab7-ad29-e6edefed4493/Adaptive_Reuse_Ordinance_Feb_2026.pdf) · [Home-Sharing FAQ](https://planning.lacity.gov/ordinances/docs/HomeSharing/FAQ.pdf)
-
-## Cost and payback model
-
-The model contains no built-in prices. Every price is an input with a source, shown on screen as an editable assumption.
-
-**Inputs**
-
-| Input | Source | Owner | In code today |
-| --- | --- | --- | --- |
-| Area, unit count, bathrooms to add, plumbing run, kitchens to add | Matterport scan | B | Yes |
-| Fit-out cost per sq ft | Research | A | Yes |
-| Cost per bathroom, plumbing cost per ft, cost per kitchen | Research | A | Yes |
-| Sprinkler cost per sq ft, fire alarm cost | Research | A | To add |
-| Seismic evaluation and retrofit cost range | Research | A | To add |
-| Permit and design cost | Research | A | To add |
-| Months to convert | Research | A | Yes |
-| Occupancy, operating cost share | Research | A | Yes |
-| Monthly rent per unit | CoStar data | B | Yes |
-| Current monthly income of the space | CoStar data | B | Yes |
-| Years the space stays available | Owner, set on screen | B | Yes |
-
-**Outputs**
-
-- Conversion cost with a breakdown by item.
-- Monthly net income as housing, and the gain over what the space earns today.
-- Payback period in years.
-- Net gain over the years the space is available.
-- Verdict: convert, or do not convert, with the reason.
-
-**Rejection rules**
-
-- Housing would earn no more than the space earns today.
-- The cost is not recovered within the time the space is available.
-
-Code: `secondstay/economics.py` and `secondstay/scoring.py`.
-
-## Demo plan
-
-The demo runs the agent on three real LA buildings and ends with the verdict changing when one assumption changes.
-
-1. The owner types the question. The agent lists vacant office space and applies the eligibility screen.
-2. **Building 1 is rejected.** A tall building: the high-rise requirements and long plumbing runs make it too costly. The agent states the reason.
-3. **Building 2 is rejected or marginal.** It passes the physical checks but does not pay back in the time available.
-4. **Building 3 is accepted.** A low-rise building with restrooms close to the proposed units. The 3D view shows where units and bathrooms would go.
-5. The presenter changes one assumption, such as construction cost up 30% or the space needed back in two years. The verdict updates live.
-6. The final screen separates observed facts, estimates, and items that need a site inspection.
+- The Matterport Model API works with our keys. About 14,900 scans are available across Houston and Los Angeles.
+- Scans give room dimensions, room boundaries, floor areas, panorama images and coordinates.
+- Most scans are apartments. Office and retail scans number in the hundreds.
+- In one LA office and retail scan we inspected, room types were "Void" or "Other", room names were empty and no objects were detected. So stairs and restrooms may have to be found from panorama images, and many rows may show "Not enough data".
+- Vexcel and the CoStar data have not been loaded yet.
 
 Data rule from CoStar: real floor plans, model IDs and property-identifying data cannot go in the public repo or README. Showing them in the demo video and a temporary deployment is allowed.
 
-## Team split
+## Demo plan
 
-The two roles meet at one file, `assumptions.json`. A fills it; B builds the product that reads it.
+1. The owner opens their list of vacant spaces with the count per evidence state.
+2. They open one space. The checklist appears.
+3. They select "Exits per story". The 3D view shows the stairs the agent found.
+4. They select "Height". The aerial image appears next to the record value.
+5. One row shows "Possible issue" because two layers disagree. The agent shows both.
+6. They open the next-steps list and export it for an architect.
+7. Closing line: "We do not tell the owner the answer. We show what the data says and what is left to confirm."
+
+## Team split
 
 | Area | A: research | B: product |
 | --- | --- | --- |
-| Cost data | Researches every construction and operating figure for LA, each with a low, typical and high value and a source | Builds with placeholder values labelled as placeholders until A's file arrives |
-| Data | None | Keys, CoStar data, Matterport and Vexcel API calls, rents and current income from the data |
-| Product | None | Screening, conversion plan, agent, web page, 3D view |
-| Outside contact | Peri interview with a contractor, architect or broker: name, role, quote, photo | Technical questions at the CoStar table |
-| Submission | Devpost text and sponsor track requirements | Demo buildings, demo flow, video, slides, repo, deployment |
-| Presentation | The problem and the evidence | The live demo |
-
-**Order of work**
-
-1. B hands A an empty `assumptions.json` template.
-2. A starts the Peri outreach and the cost research in parallel.
-3. B builds against placeholders.
-4. A's file replaces the placeholders. No code changes.
-5. Three to four hours before the deadline: A finishes the submission text, B records the demo.
+| Rules | Reads the ordinance text and bulletin; confirms each row of the requirements table and its source | Encodes the rows as data |
+| Practitioner | Peri interview with an architect, contractor or broker: what they check first, and whether our wording is acceptable. Name, role, quote, photo | None |
+| Cost data (phase 2) | Collects construction figures with sources | Keeps the cost model ready |
+| Data | None | Keys, CoStar data, Matterport and Vexcel calls |
+| Product | None | Evidence gathering, checklist screen, evidence views, next-steps export |
+| Submission | Devpost text, sponsor track requirements | Demo spaces, video, slides, repo, deployment |
+| Presentation | The problem, the rules, the wording | The live demo |
 
 ## Tracks, risks and open questions
 
@@ -187,26 +172,26 @@ The two roles meet at one file, `assumptions.json`. A fills it; B builds the pro
 
 | Track | Why it fits |
 | --- | --- |
-| Business and Enterprise (main) | An analysis tool for property owners and investors |
-| CoStar: Inside and Out | All three data layers drive the verdict |
-| Amazon: Practical AI | A multi-step agent that searches, inspects, costs and decides |
+| Business and Enterprise (main) | A due-diligence tool for property owners |
+| CoStar: Inside and Out | Each layer supplies evidence for specific requirements |
+| Amazon: Practical AI | An agent that gathers, cross-checks and explains evidence |
 | LangChain: deepagents | The agent is built with deepagents |
-| Peri: Forward Deployed | Cost assumptions validated with a practitioner we interviewed |
+| Peri: Forward Deployed | Checklist and wording validated with a practitioner |
 
 **Risks**
 
 | Risk | Mitigation |
 | --- | --- |
-| Cost figures look invented | Every figure has a source and is editable on screen; the Peri interview validates the range |
-| Matterport data lacks plumbing or window detail | Use room type and dimensions; mark the rest as needs inspection |
-| Few LA buildings have all three layers | Pick the three demo buildings first, before building features |
-| Judges ask whether this is legal | The LA ordinance section answers it; the product screens and does not approve |
-| Scope grows | Must-have list only until the demo runs end to end |
+| The product is read as giving legal conclusions | Wording rules, fixed notice, no score, practitioner review of the wording |
+| Commercial scans lack room types | Panorama inspection; honest "Not enough data" rows |
+| Few spaces have all three layers | Choose the demo spaces first |
+| A requirement is summarised wrongly | A confirms every row against the source before the demo |
+| Scope grows | Checklist screen first; cost model stays in phase 2 |
 
 **Open questions**
 
-- [ ] Does the CoStar data include zoning, vacancy by floor or suite, and residential rents?
-- [ ] Does the Matterport API mark restrooms and windows, or only room labels and dimensions?
-- [ ] Do the buildings show whether sprinklers already exist?
-- [ ] Which three LA buildings will the demo use?
+- [ ] Does the CoStar data include zoning, year built, stories and vacancy by suite?
+- [ ] What does the Vexcel API return for height and neighbouring buildings?
+- [ ] How many LA commercial scans have usable room types?
+- [ ] Which spaces will the demo use?
 - [ ] Who will the Peri interview be with?
