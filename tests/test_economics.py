@@ -54,3 +54,33 @@ def test_space_already_earning_more_is_rejected():
     e = evaluate(plan(), assumptions(current_monthly_income=9_000))
     assert e.payback_years is None
     assert "no more than the space does today" in e.verdict
+
+
+def test_required_work_and_design_fees_are_added():
+    base = evaluate(plan(), assumptions())
+    more = evaluate(plan(), assumptions(sprinkler_cost_per_sqft=5, seismic_cost_per_sqft=10, permit_design_share=0.1))
+    construction = base.conversion_cost + 4_000 * 15
+    assert more.conversion_cost == pytest.approx(construction * 1.1)
+    assert more.cost_breakdown["sprinklers"] == 20_000
+
+
+def test_empty_assumptions_file_is_refused():
+    from secondstay.economics import load_assumptions
+
+    with pytest.raises(ValueError, match="fitout_cost_per_sqft"):
+        load_assumptions("assumptions.json", monthly_rent_per_unit=2_000)
+
+
+def test_filled_assumptions_file_loads(tmp_path):
+    import json
+
+    from secondstay.economics import load_assumptions
+
+    data = json.load(open("assumptions.json"))
+    for key, entry in data.items():
+        if not key.startswith("_"):
+            entry.update(low=1, typical=2, high=3)
+    path = tmp_path / "a.json"
+    path.write_text(json.dumps(data))
+    a = load_assumptions(str(path), monthly_rent_per_unit=2_000, level="high")
+    assert a.fitout_cost_per_sqft == 3 and a.permit_design_share == 3 and a.monthly_rent_per_unit == 2_000

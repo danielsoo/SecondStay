@@ -1,0 +1,129 @@
+{
+  "_about": "Cost and operating assumptions for Los Angeles. Filled in by research (person A). Every value needs a source. Leave a value as null until it has one; the code refuses to calculate with nulls.",
+  "_confidence_values": [
+    "observed",
+    "estimated",
+    "needs inspection"
+  ],
+  "fitout_cost_per_sqft": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "$/sq ft",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "Interior fit-out for residential use. State what it excludes."
+  },
+  "cost_per_bathroom": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "$/bathroom",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "One new bathroom with shower, fixtures and finishes."
+  },
+  "plumbing_cost_per_ft": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "$/linear ft",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "Extending supply and waste lines from the nearest existing wet wall."
+  },
+  "cost_per_kitchen": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "$/kitchen",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "One kitchenette."
+  },
+  "sprinkler_cost_per_sqft": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "$/sq ft",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "Full sprinkler coverage where none exists."
+  },
+  "fire_alarm_cost_per_sqft": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "$/sq ft",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "Fire alarm throughout."
+  },
+  "seismic_cost_per_sqft": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "$/sq ft",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "Seismic evaluation and strengthening. Wide range expected."
+  },
+  "permit_design_share": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "share of construction cost (0-1)",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "Architect, engineer and permit fees as a share of construction cost."
+  },
+  "months_to_convert": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "months",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "Design, permit and construction time before the first rent."
+  },
+  "occupancy": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "share (0-1)",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "Share of the year units are rented."
+  },
+  "operating_cost_share": {
+    "low": null,
+    "typical": null,
+    "high": null,
+    "unit": "share of rent (0-1)",
+    "source": "",
+    "published": "",
+    "accessed": "",
+    "confidence": "",
+    "notes": "Running costs as a share of rent."
+  }
+}

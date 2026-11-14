@@ -40,6 +40,12 @@ class Assumptions:
     operating_cost_share: float  # share of rent spent on running the units
     # What the owner earns if they leave it as is (0 when it sits empty)
     current_monthly_income: float = 0.0
+    # Work the LADBS bulletin calls for. Zero means "not included", for example
+    # when the building already has sprinklers.
+    sprinkler_cost_per_sqft: float = 0.0
+    fire_alarm_cost_per_sqft: float = 0.0
+    seismic_cost_per_sqft: float = 0.0
+    permit_design_share: float = 0.0  # share of construction cost
 
 
 @dataclass
@@ -54,6 +60,39 @@ class Economics:
     verdict: str
 
 
+def load_assumptions(
+    path: str,
+    monthly_rent_per_unit: float,
+    current_monthly_income: float = 0.0,
+    level: str = "typical",
+) -> Assumptions:
+    """Read assumptions.json. `level` is "low", "typical" or "high".
+
+    Rent and current income are not in the file: they come from the CoStar data.
+    Raises if any value is still empty, so a result is never built on a blank.
+    """
+    import json
+
+    with open(path) as f:
+        data = json.load(f)
+    fields = {}
+    missing = []
+    for key, entry in data.items():
+        if key.startswith("_"):
+            continue
+        value = entry.get(level)
+        if value is None:
+            missing.append(key)
+        fields[key] = value
+    if missing:
+        raise ValueError(f"assumptions.json has no {level} value for: {', '.join(missing)}")
+    return Assumptions(
+        monthly_rent_per_unit=monthly_rent_per_unit,
+        current_monthly_income=current_monthly_income,
+        **fields,
+    )
+
+
 def evaluate(plan: ConversionPlan, a: Assumptions, horizon_years: float = 5.0) -> Economics:
     """`horizon_years` is how long the owner expects the space to stay
     available for housing. A short horizon is what kills most conversions."""
@@ -62,7 +101,11 @@ def evaluate(plan: ConversionPlan, a: Assumptions, horizon_years: float = 5.0) -
         "bathrooms": plan.bathrooms_to_add * a.cost_per_bathroom,
         "plumbing runs": plan.plumbing_run_ft * a.plumbing_cost_per_ft,
         "kitchens": plan.kitchens_to_add * a.cost_per_kitchen,
+        "sprinklers": plan.area_sqft * a.sprinkler_cost_per_sqft,
+        "fire alarm": plan.area_sqft * a.fire_alarm_cost_per_sqft,
+        "seismic": plan.area_sqft * a.seismic_cost_per_sqft,
     }
+    breakdown["design and permits"] = sum(breakdown.values()) * a.permit_design_share
     cost = sum(breakdown.values())
 
     monthly_net = (
