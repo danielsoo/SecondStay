@@ -39,7 +39,7 @@ An owner with vacant space cannot easily tell whether a conversion to housing is
 - Every requirement row shows its source, the evidence, and how to confirm it.
 - Clicking a row shows the evidence itself: the scan view, the aerial image, or the record value.
 - No screen states a legal conclusion.
-- A practitioner we interviewed says the checklist matches what they would check first.
+- Every requirement row is checked against its published source before the demo.
 
 ## Wording rules
 
@@ -159,7 +159,7 @@ Data rule from CoStar: real floor plans, model IDs and property-identifying data
 | Area | A: research | B: product |
 | --- | --- | --- |
 | Rules | Reads the ordinance text and bulletin; confirms each row of the requirements table and its source | Encodes the rows as data |
-| Practitioner | Peri interview with an architect, contractor or broker: what they check first, and whether our wording is acceptable. Name, role, quote, photo | None |
+| Wording | Reviews every screen and the pitch against the wording rules | Applies the fixes |
 | Cost data (phase 2) | Collects construction figures with sources | Keeps the cost model ready |
 | Data | None | Keys, CoStar data, Matterport and Vexcel calls |
 | Product | None | Evidence gathering, checklist screen, evidence views, next-steps export |
@@ -176,13 +176,12 @@ Data rule from CoStar: real floor plans, model IDs and property-identifying data
 | CoStar: Inside and Out | Each layer supplies evidence for specific requirements |
 | Amazon: Practical AI | An agent that gathers, cross-checks and explains evidence |
 | LangChain: deepagents | The agent is built with deepagents |
-| Peri: Forward Deployed | Checklist and wording validated with a practitioner |
 
 **Risks**
 
 | Risk | Mitigation |
 | --- | --- |
-| The product is read as giving legal conclusions | Wording rules, fixed notice, no score, practitioner review of the wording |
+| The product is read as giving legal conclusions | Wording rules, fixed notice, no score, A reviews every screen against the rules |
 | Commercial scans lack room types | Panorama inspection; honest "Not enough data" rows |
 | Few spaces have all three layers | Choose the demo spaces first |
 | A requirement is summarised wrongly | A confirms every row against the source before the demo |
@@ -194,4 +193,3 @@ Data rule from CoStar: real floor plans, model IDs and property-identifying data
 - [ ] What does the Vexcel API return for height and neighbouring buildings?
 - [ ] How many LA commercial scans have usable room types?
 - [ ] Which spaces will the demo use?
-- [ ] Who will the Peri interview be with?
