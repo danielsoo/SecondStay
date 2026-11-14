@@ -33,6 +33,8 @@ ARO_ZONES = {
 }
 
 HIGH_RISE_FT = 75.0
+DIRECT_AGE_YEARS = 15
+MIN_AGE_YEARS = 5
 STORY_FT_RANGE = (8.0, 25.0)  # outside this, imagery height and stories on record do not fit together
 TYPICAL_STORY_FT = 10.0  # our assumption for reading stories as height, not a rule
 
@@ -58,6 +60,8 @@ class SpaceFacts:
     has_sprinklers: Optional[bool] = None
     sprinkler_type: str = ""
     passenger_elevators: Optional[int] = None
+    building_sqft: Optional[float] = None  # rentable building area
+    typical_floor_sqft: Optional[float] = None
     # Matterport
     floor_areas_sqft: list = field(default_factory=list)
     rooms: list = field(default_factory=list)  # list[RoomFact]
@@ -87,7 +91,10 @@ def _has_room_types(facts: SpaceFacts) -> bool:
 
 
 def _age(f: SpaceFacts, year: int) -> Row:
-    rule = "Buildings at least 15 years old use the streamlined path; 5 to 15 years goes to discretionary review."
+    rule = (
+        "Buildings at least 15 years old qualify directly. Buildings at least 5 but under 15 years old "
+        "need Zoning Administrator approval (a Class 1 Conditional Use Permit)."
+    )
     if f.year_built is None:
         state, ev = NO_DATA, "No year built on record."
     else:
@@ -95,9 +102,12 @@ def _age(f: SpaceFacts, year: int) -> Row:
         ev = f"Year built on record: {f.year_built} ({age} years)."
         if age >= 15:
             state = FOUND
+        elif age >= MIN_AGE_YEARS:
+            state = ISSUE
+            ev += " This is under the 15-year threshold, so Zoning Administrator approval would be needed."
         else:
             state = ISSUE
-            ev += " This is under the 15-year threshold for the streamlined path."
+            ev += " This is under the 5-year minimum the city describes for any adaptive reuse path."
     return Row("age", "Building age", rule, ARO_URL, state, ev, "CoStar", "LADBS building records")
 
 
@@ -129,13 +139,47 @@ def _units(f: SpaceFacts) -> Row:
             f"Scan measures about {area:,.0f} sq ft. At our planning assumption of "
             f"{f.planning_unit_sqft:.0f} sq ft per unit and 80% usable area, that is about {units} units."
         )
-        state = FOUND if units >= 5 else ISSUE
-    return Row("units", "Unit count", rule, ARO_URL, state, ev, "Matterport", "Architect's layout")
+        whole = int(f.building_sqft * 0.8 / f.planning_unit_sqft) if f.building_sqft else None
+        if units >= 5:
+            state = FOUND
+        elif whole is not None and whole >= 5:
+            # The scan covers one suite or floor. The building as a whole is what gets converted.
+            state = FOUND
+            ev += (
+                f" The scan covers only part of the building: on the {f.building_sqft:,.0f} sq ft of "
+                f"rentable area on record, the same assumption gives about {whole} units."
+            )
+        elif whole is None:
+            state = NO_DATA
+            ev += " The scan covers too small an area to tell, and no building area is on record."
+        else:
+            state = ISSUE
+    return Row("units", "Unit count", rule, ARO_URL, state, ev, "Matterport, CoStar", "Architect's layout")
+
+
+def top_occupied_ft(f: SpaceFacts) -> Optional[float]:
+    """Rough height of the highest occupied floor, which is what the high-rise rule measures.
+
+    Roof height from imagery includes the top story and rooftop equipment, so the top
+    floor level is taken as the roof height less one story. This is our estimate.
+    """
+    roof = f.height_ft if f.height_ft is not None else f.record_height_ft
+    if roof is not None and f.stories:
+        return roof * (f.stories - 1) / f.stories
+    if roof is not None:
+        return max(0.0, roof - TYPICAL_STORY_FT)
+    if f.stories:
+        return (f.stories - 1) * TYPICAL_STORY_FT
+    return None
 
 
 def _height(f: SpaceFacts) -> Row:
-    rule = "Additional systems apply at 75 feet and above (smokeproof stairs, fire pumps, emergency power)."
+    rule = (
+        "High-rise provisions (smokeproof stair enclosures, fire pumps, emergency power, fire command "
+        "center) apply where the highest occupied level is more than 75 feet above fire department access."
+    )
     stories = f" Stories on record: {f.stories}." if f.stories is not None else ""
+    top = top_occupied_ft(f)
     if f.height_ft is not None and f.record_height_ft is not None and (
         (f.height_ft < HIGH_RISE_FT) != (f.record_height_ft < HIGH_RISE_FT)
     ):
@@ -146,9 +190,9 @@ def _height(f: SpaceFacts) -> Row:
         )
     elif f.height_ft is not None or f.record_height_ft is not None:
         if f.height_ft is not None:
-            height, ev = f.height_ft, f"Height seen in aerial imagery: about {f.height_ft:.0f} ft."
+            ev = f"Height seen in aerial imagery: about {f.height_ft:.0f} ft to the highest roof point."
         else:
-            height, ev = f.record_height_ft, f"Height on record: {f.record_height_ft:.0f} ft."
+            ev = f"Height on record: {f.record_height_ft:.0f} ft."
         ev += stories
         per_story = f.height_ft / f.stories if f.height_ft is not None and f.stories else None
         if per_story is not None and not STORY_FT_RANGE[0] <= per_story <= STORY_FT_RANGE[1]:
@@ -157,18 +201,21 @@ def _height(f: SpaceFacts) -> Row:
                 f" The two sources do not fit together: that is {per_story:.0f} ft per story,"
                 " so they may not describe the same structure."
             )
-        elif height < HIGH_RISE_FT:
-            state = FOUND
         else:
-            state = ISSUE
-            ev += " The additional high-rise systems may apply."
+            ev += f" That puts the highest occupied level at roughly {top:.0f} ft (our estimate)."
+            if top < HIGH_RISE_FT:
+                state = FOUND
+            else:
+                state = ISSUE
+                ev += " The high-rise provisions may apply."
     elif f.stories is not None and f.stories <= 4:
         state, ev = FOUND, f"Stories on record: {f.stories}. Height not yet measured from imagery."
-    elif f.stories is not None and f.stories * TYPICAL_STORY_FT >= HIGH_RISE_FT:
+    elif f.stories is not None and top >= HIGH_RISE_FT:
         state = ISSUE
         ev = (
             f"Stories on record: {f.stories}. At {TYPICAL_STORY_FT:.0f} ft or more per story (our assumption) "
-            "that is likely 75 ft or above, so the additional high-rise systems may apply. Height not yet measured."
+            "the highest occupied level is likely 75 ft or above, so the high-rise provisions may apply. "
+            "Height not yet measured."
         )
     elif f.stories is not None:
         state, ev = NO_DATA, f"Stories on record: {f.stories}. Height not yet measured from imagery."
@@ -178,7 +225,10 @@ def _height(f: SpaceFacts) -> Row:
 
 
 def _exits(f: SpaceFacts) -> Row:
-    rule = "Residential egress standards set the number of exits per story and the distance between them."
+    rule = (
+        "Means of egress follow CBC Chapter 10: exits per story, distance between exits, travel distance, "
+        "and enclosed exit stairways. An existing fire escape in good condition may serve as a second exit."
+    )
     if not _has_room_types(f):
         state, ev = NO_DATA, "The scan has no room types, so stairs could not be identified."
     else:
@@ -197,7 +247,10 @@ def _exits(f: SpaceFacts) -> Row:
 
 
 def _escape(f: SpaceFacts) -> Row:
-    rule = "Each sleeping room needs an emergency escape and rescue opening to the outside."
+    rule = (
+        "Emergency escape and rescue openings for sleeping rooms, where the change of occupancy "
+        "calls for them, follow CEBC 506.4 or 1011.5.6; existing window openings get size tolerances."
+    )
     return Row(
         "escape", "Escape openings for sleeping rooms", rule, BULLETIN_URL, NO_DATA,
         "Exterior walls and windows have not been read from the scan yet.",
@@ -206,7 +259,11 @@ def _escape(f: SpaceFacts) -> Row:
 
 
 def _separation(f: SpaceFacts) -> Row:
-    rule = "Exterior wall and opening requirements depend on the distance to neighbouring buildings."
+    rule = (
+        "Exterior wall ratings depend on fire separation distance (CBC 705.5). The bulletin says a change "
+        "from office to residential generally does not call for a higher rating, and existing unrated "
+        "openings may stay."
+    )
     if f.neighbor_gap_ft is None:
         state, ev = NO_DATA, "Distance to neighbouring buildings has not been measured from imagery yet."
     else:
@@ -226,7 +283,10 @@ def _access(f: SpaceFacts) -> Row:
 
 
 def _elevator(f: SpaceFacts) -> Row:
-    rule = "Buildings of four stories or fewer may not need a gurney-sized elevator."
+    rule = (
+        "At least one gurney-sized elevator car must serve all occupied levels (CBC 3002.4.1a). "
+        "Buildings of four stories or fewer may not need one."
+    )
     if f.stories is None:
         state, ev = NO_DATA, "No stories on record."
     elif f.stories <= 4:
@@ -249,7 +309,7 @@ def _stay(f: SpaceFacts) -> Row:
 
 
 def _sprinklers(f: SpaceFacts) -> Row:
-    rule = "Residential occupancy requires full sprinkler coverage."
+    rule = "The new residential occupancy must be fully sprinklered (NFPA 13, or 13R where permitted)."
     kind = f" ({f.sprinkler_type})" if f.sprinkler_type else ""
     if f.has_sprinklers is None:
         state, ev, layer = REVIEW, "Not available in our data.", "None"
@@ -263,8 +323,8 @@ def _sprinklers(f: SpaceFacts) -> Row:
 
 def _review_rows() -> list:
     items = [
-        ("alarm", "Fire alarm", "A fire alarm is required throughout the building.", "Fire protection engineer"),
-        ("seismic", "Seismic", "Analysis at 75% of design ground motion, with strengthening as required.", "Structural engineer"),
+        ("alarm", "Fire alarm", "A fire alarm is required throughout the building (NFPA 72, CBC 907.2).", "Fire protection engineer"),
+        ("seismic", "Seismic", "The building is analysed at 75% of the design earthquake ground motion and strengthened as required (CEBC 506.5.3 or 1006.3).", "Structural engineer"),
     ]
     rows = [
         Row(k, name, rule, BULLETIN_URL, REVIEW, "Not available in our data.", "None", who)
@@ -273,7 +333,7 @@ def _review_rows() -> list:
     rows.append(
         Row(
             "historic", "Historic status",
-            "Surveyed or designated historic resources follow a different review.",
+            "Surveyed historic resources need Administrative Review; designated resources and HPOZ properties need a Conditional Use Permit.",
             ARO_URL, REVIEW, "Not available in our data.", "None", "Office of Historic Resources",
         )
     )

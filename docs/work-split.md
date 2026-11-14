@@ -50,7 +50,7 @@ The change list in the middle is the only thing that passes between the two team
 | --- | --- | --- |
 | Question answered | Given the evidence, what do the published rules call for in this building? | Given that list, what does it cost, and how does the total move when the list changes? |
 | Takes in | Building facts (`SpaceFacts`) and checklist rows | A change list, a price book, rent figures |
-| Hands over | `changes_for(facts, rows)` returning a list of `Change` | `estimate(changes, prices, income)` returning cost lines, totals and payback |
+| Hands over | `changes_for(facts, rows, current_year)` returning a list of `Change` | `estimate(changes, prices, income)` returning cost lines, totals and payback |
 | Files owned | `secondstay/changes.py`, `secondstay/checklist.py`, `tests/test_changes.py`, `tests/test_checklist.py`, `docs/requirements-research.md` | `secondstay/costing.py`, `secondstay/economics.py`, `secondstay/rents.py`, `assumptions.json`, `tests/test_costing.py`, `tests/test_economics.py`, `tests/fixtures/sample_changes.json`, `docs/cost-sources.md` |
 | Research | The adaptive reuse ordinance, LADBS bulletin IB-BC-2026-164, the building code sections they cite | Los Angeles construction costs per change, soft costs, apartment rents, operating costs |
 | Never decides | What anything costs | Whether a change is called for |
@@ -92,25 +92,30 @@ A requirement with "Evidence found" produces no change. The mapping from evidenc
 
 ### Starting catalog of change keys
 
-A owns this list and may add to it. B prices every key in it. The "when" column is a first draft from the product spec, not yet checked against the ordinance text; checking it is A's first task.
+A owns this list and may add to it. B prices every key in it. Revised on 2026-11-14 after reading the sources; see `docs/requirements-research.md` for the reasons and the decision table.
 
-| Key | Unit | Quantity comes from | From requirement | Draft "when" |
+| Key | Unit | Quantity comes from | From requirement | When |
 | --- | --- | --- | --- | --- |
-| `sprinklers.install` | sqft | Building rentable area | Sprinklers | Record shows no system |
+| `planning.conditional_use_permit` | lump | 1 | Building age, Zone | 5 to under 15 years old, or a manufacturing zone |
+| `historic.review` | lump | 1 | Historic status | Always, unknown until checked |
+| `sprinklers.install` | sqft | Building rentable area | Sprinklers | Record shows no system, or nothing on record |
 | `sprinklers.verify_coverage` | lump | 1 | Sprinklers | System on record, coverage not recorded |
 | `fire_alarm.install` | sqft | Building rentable area | Fire alarm | Always, until evidence exists |
+| `highrise.smokeproof_stairs` | each | Number of exit stairs (not known yet) | Height | Highest occupied level near or above 75 ft |
+| `highrise.fire_pump_water_supply` | lump | 1 | Height | Same |
+| `highrise.emergency_power` | lump | 1 | Height | Same |
+| `highrise.fire_command_center` | lump | 1 | Height | Same |
+| `highrise.smoke_control` | lump | 1 | Height | Same |
+| `elevator.gurney_car` | each | 1 | Elevator | More than four stories |
+| `elevator.fire_service_access` | each | 1 | Elevator | Highest occupied level above 120 ft |
 | `seismic.evaluate` | lump | 1 | Seismic | Always |
 | `seismic.strengthen` | sqft | Building rentable area | Seismic | Unknown until evaluated |
-| `highrise.systems` | lump | 1 | Height | Height 75 ft or above |
 | `egress.add_stair` | story | Stories lacking a second stair | Exits per story | Scan shows fewer than two stairs on a story |
 | `escape.add_openings` | each | Sleeping rooms without an exterior opening | Escape openings | Not derivable yet |
-| `elevator.upgrade` | each | 1 | Elevator | More than four stories |
-| `separation.wall_upgrade` | linear_ft | Wall length facing a close neighbour | Fire separation | Not derivable yet |
-| `historic.review` | lump | 1 | Historic status | Unknown until checked |
 | `units.fitout` | sqft | Scan floor area, or rentable area | Unit count | Always, for the space converted |
 | `units.bathroom` | each | Units minus existing bathrooms | Unit count | Always |
 | `units.kitchen` | each | Units | Unit count | Always |
-| `units.plumbing_run` | linear_ft | Distance from new wet rooms to existing ones | Unit count | Stretch goal |
+| `units.plumbing_run` | linear_ft | Distance from new wet rooms to existing ones | Unit count | Not produced yet |
 
 ### Sample change list for B to build against
 

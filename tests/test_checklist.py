@@ -113,3 +113,16 @@ def test_matterport_model_to_facts():
     assert facts.floor_areas_sqft == [1000.0, 0.0]
     assert facts.rooms[0].kind == "Office" and facts.rooms[0].area_sqft == 250.0
     assert facts.rooms[1].kind == "" and facts.rooms[1].floor == ""
+
+
+def test_small_scan_is_read_against_the_whole_building():
+    small = dict(floor_areas_sqft=[155], rooms=[])
+    with_area = by_key(build_checklist(two_floor_office(building_sqft=40000.0, **small), 2026))["units"]
+    assert with_area.state == FOUND and "only part of the building" in with_area.evidence
+    without = by_key(build_checklist(two_floor_office(**small), 2026))["units"]
+    assert without.state == NO_DATA
+
+
+def test_height_rule_reads_the_highest_occupied_level():
+    row = by_key(build_checklist(two_floor_office(stories=6, height_ft=84), 2026))["height"]
+    assert row.state == FOUND and "roughly 70 ft" in row.evidence  # roof at 84 ft, top floor one story lower

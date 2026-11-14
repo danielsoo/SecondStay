@@ -268,4 +268,6 @@ def to_facts(b: Building, scan: Optional[SpaceFacts] = None) -> SpaceFacts:
     facts.has_sprinklers = b.has_sprinklers
     facts.sprinkler_type = b.sprinkler_type
     facts.passenger_elevators = b.passenger_elevators
+    facts.building_sqft = b.rentable_sqft
+    facts.typical_floor_sqft = b.typical_floor_sqft
     return facts

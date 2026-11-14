@@ -16,7 +16,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import costar, matterport, vexcel
-from .checklist import NOTICE, STATES, build_checklist, next_steps, summary
+from .changes import CERTAINTIES, changes_for, to_dicts
+from .checklist import NOTICE, STATES, build_checklist, next_steps, summary, top_occupied_ft
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(__file__).resolve().parent / "static"
@@ -68,7 +69,13 @@ def read_outside(b: costar.Building, fetch: bool = True) -> vexcel.Outside:
     """What Vexcel imagery shows for the building. Cached under data/raw/, which is git-ignored."""
     cached = OUTSIDE_CACHE / f"{b.property_id}.json"
     if cached.exists():
-        return vexcel.load(cached.read_text())
+        outside = vexcel.load(cached.read_text())
+        if fetch and outside.neighbors and not outside.neighbor_heights_ft and vexcel.configured():
+            try:  # caches written before the 3D view have no neighbour heights
+                cached.write_text(vexcel.dump(vexcel.add_neighbor_heights(outside)))
+            except Exception:
+                pass
+        return outside
     if b.latitude is None or b.longitude is None:
         return vexcel.Outside(error="The record has no location, so imagery could not be looked up.")
     if not vexcel.configured():
@@ -107,6 +114,23 @@ def outside_fields(o: vexcel.Outside) -> dict:
     }
 
 
+def best_cached_scan(b: costar.Building) -> str:
+    """The scan with room labels, then the largest measured area, among those already read."""
+    best, best_rank = "", (False, 0.0)
+    for scan in b.scans:
+        cached = SCAN_CACHE / f"{scan.model_id}.json"
+        if not cached.exists():
+            continue
+        facts = matterport.to_facts(json.loads(cached.read_text()))
+        rank = (
+            any(r.kind not in ("", "Void", "Other") for r in facts.rooms),
+            sum(a for a in facts.floor_areas_sqft if a),
+        )
+        if rank > best_rank:
+            best, best_rank = scan.model_id, rank
+    return best
+
+
 def record_fields(b: costar.Building) -> dict:
     """Record values shown as evidence, per requirement: (label, value, CoStar field)."""
     sprinklers = {True: "Yes", False: "No", None: None}[b.has_sprinklers]
@@ -139,13 +163,16 @@ def building_card(b: costar.Building) -> dict:
 
 def space_payload(b: costar.Building, model_id: str = "") -> dict:
     scan_ids = [s.model_id for s in b.scans]
-    model_id = model_id if model_id in scan_ids else (scan_ids[0] if scan_ids else "")
+    if model_id not in scan_ids:
+        model_id = best_cached_scan(b) or (scan_ids[0] if scan_ids else "")
     model, scan_error = read_scan(model_id) if model_id else (None, "This building has no scan.")
     facts = costar.to_facts(b, matterport.to_facts(model) if model else None)
     outside = read_outside(b)
     if outside.loaded:
         vexcel.to_facts(outside, facts)
-    rows = build_checklist(facts, datetime.date.today().year)
+    year = datetime.date.today().year
+    rows = build_checklist(facts, year)
+    changes = changes_for(facts, rows, year)
     fields = record_fields(b)
     for key, extra in outside_fields(outside).items():
         fields[key] = fields.get(key, []) + extra
@@ -168,6 +195,9 @@ def space_payload(b: costar.Building, model_id: str = "") -> dict:
         "scan": scan,
         "sdk_key": os.environ.get("MATTERPORT_SDK_KEY", ""),
         "outside": {**asdict(outside), "loaded": outside.loaded},
+        "top_occupied_ft": top_occupied_ft(facts),
+        "changes": to_dicts(changes),
+        "change_counts": {c: sum(1 for x in changes if x.certainty == c) for c in CERTAINTIES},
         "counts": summary(rows),
         "rows": [
             {
@@ -199,6 +229,8 @@ def list_payload(buildings: list) -> dict:
         outside = read_outside(b, fetch=False)
         if outside.loaded:
             vexcel.to_facts(outside, facts)
+        card["height_ft"] = outside.height_ft
+        card["footprint_sqft"] = outside.footprint_sqft
         card["counts"] = summary(build_checklist(facts, year))
         spaces.append(card)
     return {"notice": NOTICE, "states": STATES, "spaces": spaces}

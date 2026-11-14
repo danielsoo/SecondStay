@@ -1,39 +1,46 @@
 # SecondStay
 
-An agent that tells commercial property owners which of their vacant spaces can
-become housing, what the conversion would cost, and whether it pays back.
+An evidence pre-check for owners of vacant commercial space in Los Angeles. For each published
+requirement on converting offices to housing, it shows the rule, the evidence found in the data, how
+strong that evidence is, and who confirms it. It then lists the work the rules call for.
+
+> This is a preliminary evidence review, not a legal or code determination. Final decisions are made
+> by LADBS and licensed professionals.
+
+There is no score and no overall result. See `PRD.md` for the product and its wording rules.
 
 Built at HackPrinceton on three data layers for the same address:
 
-| Layer | What the agent reads from it |
+| Layer | What it supplies |
 |---|---|
-| CoStar building data | Vacancy, floor size, stories, age |
-| Matterport 3D scans | Window-to-core depth, floor height, window coverage |
-| Vexcel aerial imagery | Distance to neighboring buildings, parking |
+| CoStar building data | Year built, zone, stories, sprinklers, elevators, space on the market, tenancies |
+| Matterport 3D scans | Floor area, room types and stairs where the scan has them |
+| Vexcel aerial imagery | Footprint, roof height, distance to neighbouring structures, the top-down image |
 
 ## How it works
 
-1. **Find** high-vacancy office buildings in the CoStar data.
-2. **Inspect the inside** using the Matterport scan.
-3. **Inspect the outside** using Vexcel aerial imagery.
-4. **Score and explain**: a 0-100 feasibility score, the evidence behind each
-   criterion, dealbreakers, and an estimated unit count.
-5. **Cost and payback**: what has to be added (bathrooms, plumbing runs,
-   kitchens), what that costs, the expected rental income, and whether it pays
-   back within the time the space is available.
+1. **Find** existing Los Angeles office buildings with a scan in the CoStar data.
+2. **Link the layers**: each building to its Matterport scans and its Vexcel location.
+3. **Gather evidence** per requirement and give it one of four states: Evidence found, Possible issue,
+   Not enough data, Needs professional review.
+4. **List the work** the published rules call for, each item with a quantity, a source and how certain
+   it is (`docs/requirements-research.md`).
+5. **Show it**: a 3D view of the building in its surroundings, the requirement list, the evidence for
+   each row, and a next-steps list to hand to an architect.
 
-This is a preliminary screen. Zoning, permits, financing and structural
-condition are out of scope, and all prices are editable assumptions.
+Cost and payback are phase 2 (`secondstay/economics.py`) and are not on the screen yet.
+Who works on what is in `docs/work-split.md`.
 
 ## Status
 
 - [x] Evidence checklist (`secondstay/checklist.py`)
 - [x] CoStar adapter for Los Angeles offices (`secondstay/costar.py`, notes in `docs/costar-data-notes.md`)
 - [x] Matterport Model API adapter (`secondstay/matterport.py`)
-- [x] Checklist screen (`secondstay/web.py`)
+- [x] Work the rules call for (`secondstay/changes.py`, sources in `docs/requirements-research.md`)
+- [x] Checklist screen with a 3D view of each building (`secondstay/web.py`, three.js)
 - [x] Vexcel adapter: height and distance to neighbours (`secondstay/vexcel.py`); street frontage not yet
 - [ ] Agent orchestration (deepagents), panorama inspection
-- [x] Cost and payback model, phase 2 (`secondstay/economics.py`)
+- [ ] Cost model connected to the list of work, phase 2 (`secondstay/economics.py`)
 
 ## Running the screen
 

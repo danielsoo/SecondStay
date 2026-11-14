@@ -72,3 +72,32 @@ def test_cached_imagery_fills_height_and_separation(tmp_path, monkeypatch):
     assert rows["height"]["state"] == "Evidence found" and "about 42 ft" in rows["height"]["evidence"]
     assert rows["separation"]["state"] == "Needs professional review" and "12 ft" in rows["separation"]["evidence"]
     assert any(f["value"] == "about 42 ft" for f in rows["height"]["fields"])
+
+
+def test_payload_lists_the_work_the_rules_call_for(tmp_path, monkeypatch):
+    data = payload(tmp_path, monkeypatch)
+    keys = {c["key"] for c in data["changes"]}
+    assert {"seismic.evaluate", "sprinklers.verify_coverage", "units.fitout"} <= keys
+    assert sum(data["change_counts"].values()) == len(data["changes"])
+    assert data["top_occupied_ft"] == 20  # 3 stories, no height: two stories at 10 ft
+
+
+def test_the_most_informative_cached_scan_opens_first(tmp_path, monkeypatch):
+    import json
+
+    monkeypatch.setattr(web, "SCAN_CACHE", tmp_path)
+    monkeypatch.setattr(web, "OUTSIDE_CACHE", tmp_path)
+    monkeypatch.delenv("VEXCEL_API_KEY", raising=False)
+    b = building()
+    b.scans = [Scan("EMPTY00001"), Scan("LABELLED01"), Scan("BIGGER0001")]
+    room = {"floor": {"label": "Floor 1"}, "classifications": [{"label": "Office", "confidence": 0.9}],
+            "dimensionEstimates": {"area": 200.0}}
+    models = {
+        "EMPTY00001": {"floors": [{"dimensionEstimates": {"area": 0}}], "rooms": []},
+        "LABELLED01": {"floors": [{"dimensionEstimates": {"area": 900.0}}], "rooms": [room]},
+        "BIGGER0001": {"floors": [{"dimensionEstimates": {"area": 5000.0}}], "rooms": []},
+    }
+    for model_id, model in models.items():
+        (tmp_path / f"{model_id}.json").write_text(json.dumps(model))
+    assert web.space_payload(b)["scan"]["model_id"] == "LABELLED01"
+    assert web.space_payload(b, "BIGGER0001")["scan"]["model_id"] == "BIGGER0001"
