@@ -2003,7 +2003,7 @@ function rowVisual(row, data) {
   if (topic && topic.count && data.outside.loaded) {
     return `<h3 style="margin-top:18px">Where city permits name the work</h3>${stage}
       <p class="legend">3D view of the building, raised to its roof height. Amber floors are named in ${esc(topic.label.toLowerCase())} permits; deeper amber means more permits. Floors are spread evenly (our assumption); permits without a floor are not shown. Drag to turn the view.</p>
-      ${permitTimeline(topic)}`;
+      ${permitTimeline(topic)}<div data-permit-years></div>`;
   }
   if (row.key === "age") return ageTimeline(b.year_built);
   if (row.key === "units") return unitsGraphic(row);
@@ -2374,6 +2374,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     app.querySelectorAll(".row").forEach((el) => el.classList.toggle("on", el.dataset.key === key));
     document.getElementById("evidence").innerHTML = evidenceView(current, data);
     mountEvidence3D(document.querySelector("#evidence [data-scene3d]"), data, current.key);
+    import("/static/permit_years.mjs").then((m) => m.mountPermitYears(document.querySelector("#evidence [data-permit-years]"), data.building.property_id)).catch(() => {});
     showScanViewer(current.view === "scan");
     if (viewMode === "building" && ["units", "exits", "escape", "elevator"].includes(key)) showScene("isolated");
     else if (viewMode === "tour") return;
@@ -2423,7 +2424,7 @@ function mountAgent(host, buildingId, spaceId, scanId) {
   const draw = (run, limit = run.events.length) => {
     const entries = run.events.slice(0, limit);
     el("log").innerHTML = entries.filter(e => e.stage !== "finished").map(e => `<li>${esc(e.message)}
-      <small>${esc(new Date(e.at).toLocaleTimeString())}${e.stage ? " · tool selected" : ""}</small></li>`).join("");
+      <small>${esc(new Date(e.at).toLocaleTimeString())}${e.stage ? (e.by && e.by !== "lead" ? ` · delegated to ${esc(e.by)}` : " · tool selected") : ""}</small></li>`).join("");
     for (const event of entries.filter(e => e.stage === "finished" && (e.observation?.unavailable || e.observation?.error))) {
       const item = document.createElement("li");
       item.textContent = `${event.action.replaceAll("_", " ")}: ${event.observation.unavailable || event.observation.error}`;

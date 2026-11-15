@@ -204,3 +204,45 @@ def test_city_records_feed_the_agent_checklist(review, monkeypatch):
     assert out['permits_by_topic'] == {'sprinklers': 3} and out['zoning_map'] == [{'zone': 'C2-1'}]
     review.execute('inspect_gaps')
     assert seen and seen[-1] == loaded[:2]  # the checklist the agent records includes the city evidence
+
+
+def test_lead_delegates_to_two_specialists_through_the_real_graph(review, monkeypatch):
+    pytest.importorskip('deepagents')
+    from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
+    from langchain_core.messages import AIMessage
+    from secondstay import evidence
+
+    class Scripted(FakeMessagesListChatModel):
+        def bind_tools(self, tools, **kwargs):
+            seen_tools.append({t.name if hasattr(t, 'name') else t.get('name') for t in tools})
+            return self
+
+    seen_tools = []
+    monkeypatch.setattr(evidence, 'load', lambda b: ({'topics': {'sprinklers': {'count': 3}}}, {'zoning': []}, None))
+    call = lambda name, args, i: AIMessage(content='', tool_calls=[{'name': name, 'args': args, 'id': f'c{i}', 'type': 'tool_call'}])
+    script = [call('evidence_step', {'action': a}, i) for i, a in
+              enumerate(['inspect_gaps', 'read_record', 'read_scan', 'read_outside', 'read_streets'])]
+    script += [call('task', {'description': 'Read the city records for this parcel.', 'subagent_type': 'city-records-reader'}, 10),
+               call('city_step', {'action': 'read_city_records'}, 11), AIMessage(content='Three sprinkler permits on record.'),
+               call('task', {'description': 'Read the plan image for stairs.', 'subagent_type': 'image-reader'}, 20),
+               call('image_step', {'action': 'read_plan'}, 21), AIMessage(content='No image offline.'),
+               call('evidence_step', {'action': 'read_city_records'}, 30),  # the lead cannot read delegated sources itself
+               call('evidence_step', {'action': 'cross_check'}, 31), call('evidence_step', {'action': 'write_review'}, 32),
+               AIMessage(content='Recorded.')]
+    result = agent.run_review(review, Scripted(responses=script))
+    assert result['status'] == 'completed', result['events'][-1]
+    by = {(e['action'], e['by']) for e in result['events'] if e.get('stage') == 'started'}
+    assert ('read_city_records', 'city-records-reader') in by and ('read_plan', 'image-reader') in by
+    assert ('read_city_records', 'lead') not in by
+    for tools in seen_tools:  # neither the lead nor a specialist can reach files or a shell
+        assert not tools & {'ls', 'read_file', 'write_file', 'edit_file', 'glob', 'grep', 'execute'}
+    assert any('task' in t and 'evidence_step' in t for t in seen_tools)
+    assert any(t >= {'city_step'} and 'task' not in t for t in seen_tools)
+
+
+def test_streets_read_before_the_footprint_do_not_count(review):
+    review.execute('read_streets')
+    assert 'read_streets' not in {k for k, v in review.calls.items() if v}
+    for action in ('inspect_gaps', 'read_record', 'read_scan', 'read_outside', 'cross_check'):
+        review.execute(action)
+    assert 'read_streets' in review.execute('write_review').get('remaining', [])

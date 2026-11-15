@@ -656,7 +656,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, (STATIC / url.path[1:]).read_bytes(), kind + "; charset=utf-8")
         if re.fullmatch(r"/api/spaces/\d+/cost", url.path):
             return self._cost(url, {})
-        if url.path in ("/static/floor_explorer.mjs", "/static/floor_motion.mjs", "/static/plan_trace.mjs", "/static/opening_layout.mjs", "/static/floor_accounting.mjs"):
+        if url.path in ("/static/floor_explorer.mjs", "/static/floor_motion.mjs", "/static/plan_trace.mjs", "/static/opening_layout.mjs", "/static/floor_accounting.mjs",
+                        "/static/permit_years.mjs"):
             return self._send(200, (STATIC / url.path.rsplit("/", 1)[1]).read_bytes(), "text/javascript; charset=utf-8")
         floor_route = re.fullmatch(r"/api/spaces/(\d+)/floor-geometry", url.path)
         if floor_route:
@@ -725,10 +726,12 @@ class Handler(BaseHTTPRequestHandler):
             if not path.exists():
                 return self._json({"error": "Not found"}, 404)
             return self._send(200, path.read_bytes(), "image/jpeg")
-        match = re.fullmatch(r"/api/spaces/(\d+)(/next-steps\.md|/aerial\.jpg|/surface\.json)?", url.path)
+        match = re.fullmatch(r"/api/spaces/(\d+)(/next-steps\.md|/aerial\.jpg|/surface\.json|/permit-years\.json)?", url.path)
         building = self.buildings.get(int(match.group(1))) if match else None
         if building is None:
             return self._json({"error": "Not found"}, 404)
+        if match.group(2) == "/permit-years.json":
+            return self._json(*permit_years(building))
         if match.group(2) == "/surface.json":
             try:
                 return self._json(read_surface(building))
@@ -748,6 +751,26 @@ class Handler(BaseHTTPRequestHandler):
                 {"Content-Disposition": 'attachment; filename="secondstay-next-steps.md"'},
             )
         return self._json(payload)
+
+
+_permit_years_cache: dict = {}
+
+
+def permit_years(b: costar.Building) -> tuple:
+    """(payload, status): permits per year on the parcel, from the Tiger Data continuous aggregate."""
+    from . import tiger
+    if b.property_id not in _permit_years_cache:
+        try:
+            years = tiger.permit_years(b.property_id)
+        except tiger.NotConfigured as error:
+            return {"error": str(error)}, 503
+        except Exception:
+            return {"error": "The permit store could not be read"}, 502
+        _permit_years_cache[b.property_id] = {
+            "years": years,
+            "source": "LADBS permits matched by parcel number · Tiger Data continuous aggregate building_permits_yearly",
+        }
+    return _permit_years_cache[b.property_id], 200
 
 
 def _warm_agent() -> None:

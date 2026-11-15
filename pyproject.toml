@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 [project.optional-dependencies]
 dev = ["pytest"]
 sheets = ["pillow"]  # contact sheets of panoramas
+db = ["psycopg[binary]>=3.2,<4"]  # Tiger Data store: python -m secondstay.tiger
 agent = ["deepagents==0.7.38", "langchain-groq>=1.1,<2", "langchain-openai>=1.8,<2", "langchain-google-genai>=4.5,<5", "pillow"]
 
 [tool.setuptools]

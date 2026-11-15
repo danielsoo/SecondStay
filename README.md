@@ -99,8 +99,13 @@ there is no default model and no assumption that calls are free.
 Open a building or suite and choose **Run evidence review** beside the 3D view. The deepagents
 model selects validated actions through `evidence_step`: inspect missing evidence, read records,
 read scan geometry, inspect panorama/plan images, read aerial measurements and streets,
-cross-check, then record a checklist and next steps. The built-in planning tool is available;
-arbitrary filesystem access, shell execution and delegation are excluded. The selected scope
+cross-check, then record a checklist and next steps. The built-in planning tool is available,
+and the lead agent delegates with deepagents' `task` tool to two declared sub-agents:
+`city-records-reader` (LADBS permits, zoning, county height, seismic and historic records) and
+`image-reader` (panorama and plan images, read from images, not measured). Each sub-agent sees only
+its own evidence tool; they share the review, so the same call budget and source limits apply.
+A tool allowlist hides filesystem and shell tools from the lead and both sub-agents, and no
+general-purpose sub-agent is created. The panel marks steps a sub-agent ran. The selected scope
 is fixed before the model starts, so it cannot supply unrelated building or scan identifiers.
 
 The tool observations update typed facts. Existing checklist and change-list functions determine
