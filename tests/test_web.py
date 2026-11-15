@@ -171,3 +171,17 @@ def test_selecting_a_suite_shows_only_that_suite(tmp_path, monkeypatch):
     assert "Suite 300 is listed at 4,200 sq ft" in rows["units"]["evidence"]
     assert web.space_payload(b)["space"] is None
     assert web.space_payload(b, "MODEL0001", "11")["scan"]["model_id"] == ""
+
+
+def test_measure_lines_follow_the_stated_gaps():
+    from secondstay import streets, vexcel
+
+    me = [(-118.0, 34.0), (-117.9998, 34.0), (-117.9998, 34.0002), (-118.0, 34.0002), (-118.0, 34.0)]
+    other = [(-117.9997, 34.0), (-117.9995, 34.0), (-117.9995, 34.0002), (-117.9997, 34.0002), (-117.9997, 34.0)]
+    outside = vexcel.Outside(footprint=[me], neighbors=[other])
+    road = streets.Street("Main Street", "secondary", [(-118.0004, 33.999), (-118.0004, 34.001)], 120.0)
+    lines = web.measure_lines(outside, [road])
+    assert abs(lines["separation"]["feet"] - 0.0001 * 111320 * 0.829 * 3.28084) < 1.5
+    assert lines["access"]["label"] == "Closest public street: Main Street"
+    assert lines["access"]["points"][1][0] == -118.0004
+    assert web.measure_lines(vexcel.Outside(), []) == {}

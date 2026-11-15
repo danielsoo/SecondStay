@@ -55,3 +55,13 @@ def test_drawn_outline_drops_tracing_jitter_but_keeps_corners():
     assert clean[0] == clean[-1]
     square = [(0, 0), (10 * k, 0), (10 * k, 10 * k), (0, 10 * k), (0, 0)]
     assert simplify_ring(square) == square  # nothing to remove
+
+
+def test_closest_pair_gives_the_measured_gap_and_its_end_points():
+    from secondstay.vexcel import closest_pair, parse_rings
+    a = parse_rings(square(0, 0, 20)["properties"]["footprint.wkt"])
+    b = parse_rings(square(30, 5, 10)["properties"]["footprint.wkt"])
+    here, there, feet = closest_pair(a, b)
+    assert abs(feet - 10 * 3.28084) < 0.5
+    assert abs((here[0] - LON) / M_LON - 20) < 0.2 and abs((there[0] - LON) / M_LON - 30) < 0.2
+    assert closest_pair(a, []) is None

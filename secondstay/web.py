@@ -167,6 +167,23 @@ def outside_fields(o: vexcel.Outside) -> dict:
     }
 
 
+def measure_lines(o: vexcel.Outside, streets_found: list) -> dict:
+    """End points of the measured gaps, so each evidence image can show the distance it states."""
+    lines = {}
+    if o.loaded and o.neighbors:
+        pair = vexcel.closest_pair(o.footprint, o.neighbors)
+        if pair:
+            lines["separation"] = {"points": [pair[0], pair[1]], "feet": pair[2],
+                                   "label": "Closest other structure"}
+    street = streets.frontage(streets_found) if streets_found else None
+    if o.loaded and street:
+        pair = vexcel.closest_pair(o.footprint, [list(street.points)])
+        if pair:
+            lines["access"] = {"points": [pair[0], pair[1]], "feet": pair[2],
+                               "label": f"Closest public street: {street.name}" if street.name else "Closest public street"}
+    return lines
+
+
 def best_cached_scan(b: costar.Building) -> str:
     """The scan with room labels, then the largest measured area, among those already read."""
     best, best_rank = "", (False, False, False, 0.0)
@@ -296,6 +313,7 @@ def space_payload(b: costar.Building, model_id: str = "", space_id: str = "") ->
             "reading_from": stand_in if reading and (not image or image["url"] != stand_in["url"]) else None,
         },
         "top_occupied_ft": top_occupied_ft(facts),
+        "measure_lines": measure_lines(outside, found),
         "streets": [asdict(s) | {"public": s.public} for s in found],
         "changes": to_dicts(changes),
         "permits": permit_summary,

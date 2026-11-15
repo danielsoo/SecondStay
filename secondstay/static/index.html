@@ -189,6 +189,29 @@
   .legend { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
   .thumbs { display: flex; gap: 6px; margin-top: 10px; }
   .thumbs img { width: 84px; height: 56px; object-fit: cover; border-radius: 6px; }
+  .thumbs.large img { width: 100%; max-width: 360px; height: auto; max-height: 240px; }
+  .aerial .street { fill: none; stroke: var(--amber); stroke-width: 0.9; stroke-linecap: round; opacity: 0.85; }
+  .aerial .dim { stroke: #fff; vector-effect: non-scaling-stroke; stroke-width: 2.5px; }
+  .aerial .dim-end { fill: #fff; }
+  .aerial .dim-tag { position: absolute; transform: translate(-50%, -140%); line-height: 1.2; font: 600 12px var(--mono);
+    color: #0b111b; background: #fff; padding: 2px 6px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+  .stage.scene3d { height: 420px; margin-top: 10px; border-radius: 10px; }
+  .stage.scene3d .tag3d { font-size: 10.5px; }
+  .flat-view { margin-top: 8px; } .flat-view summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+  .flat-view .aerial { margin-top: 8px; }
+  .height-profile { width: 100%; height: auto; display: block; margin-top: 8px; background: var(--panel2); border-radius: 8px; }
+  .height-profile .hp-building { fill: rgba(90, 209, 255, 0.14); stroke: var(--accent); stroke-width: 1.5; }
+  .height-profile .hp-story { stroke: rgba(90, 209, 255, 0.35); stroke-width: 0.6; }
+  .height-profile .hp-suite { fill: rgba(90, 209, 255, 0.55); }
+  .height-profile .hp-ground { stroke: var(--muted); stroke-width: 2; }
+  .height-profile .hp-rule { stroke: var(--amber); stroke-width: 1.5; stroke-dasharray: 6 4; }
+  .height-profile .hp-top { stroke: var(--found); stroke-width: 1.2; }
+  .height-profile .hp-roof { stroke: var(--ink); stroke-width: 1.2; }
+  .height-profile .hp-county { stroke: var(--review); stroke-width: 1.2; stroke-dasharray: 2 3; }
+  .height-profile .hp-label { fill: var(--ink); font: 12px var(--mono); }
+  .height-profile .hp-suite-text { fill: var(--accent); }
+  .height-profile .hp-leader { fill: none; stroke: var(--muted); stroke-width: 0.8; }
+  .height-profile .hp-muted { fill: var(--muted); }
   table.kv { width: 100%; border-collapse: collapse; margin: 6px 0 12px; }
   table.kv td { padding: 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
   table.kv td:first-child { color: var(--muted); width: 42%; }
@@ -903,24 +926,300 @@ function outline(rings, box, cls) {
     `${(((x - west) / (east - west)) * 100).toFixed(2)},${(((north - y) / (north - south)) * 100).toFixed(2)}`).join(" ")}"/>`).join("");
 }
 
+// Position in percent of the aerial image for a (longitude, latitude) point.
+function toImage([x, y], [west, south, east, north]) {
+  return [((x - west) / (east - west)) * 100, ((north - y) / (north - south)) * 100];
+}
+
+// A measured gap drawn on the aerial image: the line, its end caps and a distance tag.
+function dimensionLine(line, box) {
+  if (!line) return { svg: "", tag: "" };
+  const [a, b] = line.points.map((p) => toImage(p, box));
+  const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  const svg = `<line class="dim" x1="${a[0].toFixed(2)}" y1="${a[1].toFixed(2)}" x2="${b[0].toFixed(2)}" y2="${b[1].toFixed(2)}"/>
+    <circle class="dim-end" cx="${a[0].toFixed(2)}" cy="${a[1].toFixed(2)}" r="0.7"/><circle class="dim-end" cx="${b[0].toFixed(2)}" cy="${b[1].toFixed(2)}" r="0.7"/>`;
+  const tag = `<span class="dim-tag" style="left:${mid[0].toFixed(1)}%;top:${mid[1].toFixed(1)}%">about ${Math.round(line.feet)} ft</span>`;
+  return { svg, tag };
+}
+
+function streetLines(streets, box) {
+  return (streets || []).filter((s) => s.public && s.points.length > 1).map((s) =>
+    `<polyline class="street" points="${s.points.map((p) => toImage(p, box).map((v) => v.toFixed(2)).join(",")).join(" ")}"/>`).join("");
+}
+
+// Side view drawn to scale from the heights on record: what the high-rise rule actually measures.
+function heightProfile(data) {
+  const b = data.building, o = data.outside;
+  const roof = o.height_ft ?? b.record_height_ft;
+  const stories = b.stories;
+  if (roof == null) return "";
+  const county = data.public_records?.county_height?.feet ?? null;
+  const top = data.top_occupied_ft;
+  const W = 520, H = 400, ground = 360, x0 = 36, x1 = 120, lx = 160;
+  const span = Math.max(roof, county || 0, 75) * 1.06;
+  const y = (ft) => ground - (ft / span) * (ground - 22);
+  const story = stories ? roof / stories : null;
+  const floorLines = story ? Array.from({ length: stories - 1 }, (_, i) =>
+    `<line class="hp-story" x1="${x0}" x2="${x1}" y1="${y(story * (i + 1)).toFixed(1)}" y2="${y(story * (i + 1)).toFixed(1)}"/>`).join("") : "";
+  // The listing's floor, or the floor being looked at in the 3D view when no listing is chosen.
+  const viewed = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("floor")) || null;
+  const floor = Number(data.floor) || viewed;
+  const floorText = data.floor ? `Floor ${floor}: this listing` : `Floor ${floor}: floor in view`;
+  const marks = [
+    { ft: 75, cls: "hp-rule", text: "75 ft: high-rise line", full: true },
+    top != null && { ft: top, cls: "hp-top", text: `Top occupied level: about ${Math.round(top)} ft (estimate)` },
+    { ft: roof, cls: "hp-roof", text: `Roof, ${o.height_ft != null ? "from imagery" : "CoStar record"}: about ${Math.round(roof)} ft` },
+    county != null && { ft: county, cls: "hp-county", text: `LA County ${data.public_records.county_height.year} survey: about ${Math.round(county)} ft` },
+    story && floor && floor <= stories && { ft: story * (floor - 0.5), cls: "hp-suite-mark", text: floorText, suite: true },
+  ].filter(Boolean).map((m) => ({ ...m, line: y(m.ft) }));
+  // Spread labels so close heights stay readable; each keeps a leader to its own line.
+  const placed = [...marks].sort((p, q) => p.line - q.line);
+  placed.forEach((m, i) => { m.label = Math.max(m.line, i ? placed[i - 1].label + 16 : 12); });
+  for (let i = placed.length - 1; i >= 0; i--) {
+    const limit = i === placed.length - 1 ? ground - 6 : placed[i + 1].label - 16;
+    placed[i].label = Math.min(placed[i].label, limit);
+  }
+  const suite = story && floor && floor <= stories
+    ? `<rect class="hp-suite" x="${x0}" width="${x1 - x0}" y="${y(story * floor).toFixed(1)}" height="${(y(story * (floor - 1)) - y(story * floor)).toFixed(1)}"/>` : "";
+  const drawn = marks.map((m) => `
+      ${m.suite ? "" : `<line class="${m.cls}" x1="${m.full ? 12 : x0 - 6}" x2="${x1 + 6}" y1="${m.line.toFixed(1)}" y2="${m.line.toFixed(1)}"/>`}
+      <polyline class="hp-leader" points="${x1 + 6},${m.line.toFixed(1)} ${lx - 6},${m.label.toFixed(1)}"/>
+      <text class="hp-label${m.suite ? " hp-suite-text" : ""}" x="${lx}" y="${(m.label + 4).toFixed(1)}">${esc(m.text)}</text>`).join("");
+  return `<svg class="height-profile" viewBox="0 0 ${W} ${H}" role="img" aria-label="Side view of the building heights">
+      <rect class="hp-building" x="${x0}" y="${y(roof).toFixed(1)}" width="${x1 - x0}" height="${(ground - y(roof)).toFixed(1)}"/>
+      ${floorLines}${suite}${drawn}
+      <line class="hp-ground" x1="12" x2="${W - 12}" y1="${ground}" y2="${ground}"/>
+      <text class="hp-label hp-muted" x="${x0}" y="${ground + 22}">Ground under the building (0 ft)</text>
+    </svg>
+    <p class="legend">Side view drawn to scale from the measured and recorded heights; not a photo.${story ? ` Floor lines are spread evenly, about ${story.toFixed(1)} ft apart (our assumption).` : ""} The rule measures from the fire department access level, which is taken here as the ground under the building and has not been measured.</p>`;
+}
+
+// The same staging as the floor view, reused for the evidence rows that the outside of the building answers.
+// height: the building at its roof height with level planes for the heights the high-rise rule turns on.
+// separation: the building and its neighbours at their measured heights, with the closest gap drawn.
+// access: the building on its block, public streets laid on the ground, and the gap to the closest one.
+// zone: the building and its neighbours on the wider aerial image of the area.
+let sceneStage = null;
+const SCENE_ROWS = ["height", "separation", "access", "zone"];
+function mountEvidence3D(host, data, key) {
+  if (sceneStage) { sceneStage.dispose(); sceneStage = null; }
+  if (!host) return;
+  const b = data.building, o = data.outside, d = heightData(data);
+  const stage = makeStage(host, { bloom: false }), { scene, camera, controls, ticks } = stage;
+  sceneStage = stage;
+  controls.autoRotate = false;
+  scene.fog = null; scene.background = new THREE.Color(0x101827);
+  const sun = new THREE.DirectionalLight(0xffead3, 0.8); sun.position.set(-40, 90, 50); scene.add(sun);
+  const FT = 0.3048;
+  const [w, s, e, n] = o.bbox, lat = (s + n) / 2, lon = (w + e) / 2;
+  const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+  const local = ([x, y]) => [(x - lon) * kx, (y - lat) * ky];
+  const rings = o.footprint.map((ring) => ring.map(local));
+  const pts = rings.flat(), xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 10);
+  const world = (p, y = 0) => { const [x, z] = local(p); return new THREE.Vector3(x - cx, y, -(z - cy)); };
+  const shapeOf = (ring) => new THREE.Shape(ring.map(local).map(([x, y]) => new THREE.Vector2(x - cx, y - cy)));
+  const shapes = o.footprint.map(shapeOf);
+  const roofM = (d.roof ?? 30) * FT;
+  // Aerial image on the ground, as in the floor view; the zone row uses the wider picture of the area.
+  // Like the floor view: the detailed image near the building over the wider image of the area.
+  // The height row reads better on a plain ground: a flat photo of rooftops under a raised model looks out of place there.
+  const layers = key === "height" ? [] : key === "zone" ? [[o.context_bbox, "?context=1", -0.05]] : [[o.bbox, "", -0.05], [o.context_bbox, "?context=1", -0.15]];
+  if (key === "height") {
+    const size = Math.max(span * 4, roofM * 2.2);
+    const plain = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 64).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x162231 }));
+    plain.position.y = -0.06; scene.add(plain);
+    const cell = 25 * FT, grid = new THREE.GridHelper(Math.round(size / cell) * cell, Math.round(size / cell), 0x2a3a52, 0x1f2c3f);
+    grid.position.y = -0.03; scene.add(grid);
+    // The footprint on the ground, so the base of the model reads as standing on its own outline.
+    shapes.forEach((shape) => {
+      const base = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x0b111b, transparent: true, opacity: 0.6 }));
+      base.position.y = 0.01; scene.add(base);
+    });
+  }
+  for (const [box, suffix, elevation] of layers) {
+    if (!box?.length) continue;
+    const groundMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry((box[2] - box[0]) * kx, (box[3] - box[1]) * ky).rotateX(-Math.PI / 2), groundMat);
+    ground.position.copy(world([(box[0] + box[2]) / 2, (box[1] + box[3]) / 2], elevation)); ground.visible = false; scene.add(ground);
+    new THREE.TextureLoader().load(`/api/spaces/${b.property_id}/aerial.jpg${suffix}`, (texture) => {
+      if (!host.isConnected) { texture.dispose(); return; }
+      texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 8; groundMat.map = texture; groundMat.needsUpdate = true; ground.visible = true;
+    });
+  }
+  const tag = (text, at, cls = "", center = [0.5, 1.2]) => {
+    const el = document.createElement("span"); el.className = "tag3d " + cls; el.textContent = text;
+    const t = new CSS2DObject(el); t.center.set(...center); t.position.copy(at); scene.add(t); return t;
+  };
+  const line = (points, color, onTop = false) => {
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color, depthTest: !onTop }));
+    if (onTop) l.renderOrder = 10;
+    scene.add(l); return l;
+  };
+  const massing = (shape, heightM, color, opacity, edge) => {
+    const g = new THREE.ExtrudeGeometry(shape, { depth: Math.max(heightM, 0.3), bevelEnabled: false }).rotateX(-Math.PI / 2);
+    scene.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, transparent: true, opacity, roughness: 0.8, side: THREE.DoubleSide, depthWrite: false })));
+    scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: edge, transparent: true, opacity: 0.7 })));
+  };
+  // This building.
+  shapes.forEach((shape) => massing(shape, roofM, key === "height" ? 0xb8c4cc : 0x5ad1ff, key === "height" ? 0.35 : 0.42, 0x5ad1ff));
+  // Neighbours at their measured heights; ones without a reading stay as outlines on the ground.
+  if (key !== "height") o.neighbors.forEach((ring, i) => {
+    const ft = (o.neighbor_heights_ft || [])[i];
+    if (ft != null) massing(shapeOf(ring), ft * FT, 0xe8eef8, 0.22, 0xffffff);
+    else line(ring.map((p) => world(p, 0.2)), 0xffffff);
+  });
+
+  if (key === "height") {
+    const outline = (y, color, opacity) => shapes.forEach((shape) => {
+      scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(shape.getPoints().map((p) => new THREE.Vector3(p.x, y, -p.y))),
+        new THREE.LineBasicMaterial({ color, transparent: true, opacity })));
+    });
+    if (d.story) for (let i = 1; i < d.stories; i++) outline(d.story * i * FT, 0x5ad1ff, 0.28);
+    if (d.story && d.floor) shapes.forEach((shape) => {
+      const g = new THREE.ExtrudeGeometry(shape, { depth: d.story * FT, bevelEnabled: false }).rotateX(-Math.PI / 2);
+      const slab = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x5ad1ff, transparent: true, opacity: 0.7, emissive: 0x1f5670 }));
+      slab.position.y = d.story * (d.floor - 1) * FT; scene.add(slab);
+    });
+    // Level planes, with labels on a pole beside the building.
+    const size = span * 1.5, poleX = span * 0.75 + 4;
+    d.marks.filter((m) => !m.suite).forEach((m) => {
+      const y = m.ft * FT, color = { "hp-rule": 0xffc24a, "hp-top": 0x5fe0a0, "hp-roof": 0xe8eef8, "hp-county": 0x8fb8ff }[m.cls];
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: m.cls === "hp-rule" ? 0.22 : 0.1, side: THREE.DoubleSide, depthWrite: false }));
+      plane.position.y = y; scene.add(plane);
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2)), new THREE.LineBasicMaterial({ color }));
+      edge.position.y = y; scene.add(edge);
+    });
+    line([new THREE.Vector3(poleX, 0, 0), new THREE.Vector3(poleX, roofM * 1.04, 0)], 0x8493a8);
+    spreadLabels(d.marks.map((m) => ({ ...m })), (d.roof ?? 30) * 0.055).forEach((m) => {
+      const at = m.ft * FT, labelAt = m.label * FT;
+      line([new THREE.Vector3(poleX, at, 0), new THREE.Vector3(poleX + 3, labelAt, 0)], 0x8493a8);
+      tag(m.text, new THREE.Vector3(poleX + 3.5, labelAt, 0), { "hp-rule": "amber", "hp-suite-mark": "cyan" }[m.cls] || "", [0, 0.5]);
+    });
+    const mid = roofM * 0.52, size2 = Math.max(roofM, span) * 1.7;
+    camera.position.set(poleX * 0.6 + size2 * 0.45, mid + size2 * 0.16, size2);
+    controls.target.set(poleX * 0.6, mid, 0); controls.maxPolarAngle = Math.PI * 0.49; controls.update();
+  } else if (key === "separation" || key === "access") {
+    if (key === "access") (data.streets || []).filter((st) => st.public && st.points.length > 1).forEach((st) => {
+      // A flat ribbon on the ground for each public street.
+      const path = st.points.map((p) => world(p, 0.3));
+      for (let i = 1; i < path.length; i++) {
+        const a = path[i - 1], c = path[i], len = a.distanceTo(c);
+        if (len < 0.01) continue;
+        const strip = new THREE.Mesh(new THREE.PlaneGeometry(len, 3).rotateX(-Math.PI / 2),
+          new THREE.MeshBasicMaterial({ color: 0xffc24a, transparent: true, opacity: 0.55, depthWrite: false }));
+        strip.position.copy(a.clone().add(c).multiplyScalar(0.5));
+        strip.rotation.y = -Math.atan2(c.z - a.z, c.x - a.x);
+        scene.add(strip);
+      }
+    });
+    const gap = (data.measure_lines || {})[key];
+    let focus = new THREE.Vector3(0, roofM * 0.2, 0);
+    if (gap) {
+      // The measured gap, raised a little above the ground with posts at both ends.
+      // Drawn over the buildings so the gap stays visible from any angle.
+      const h = 2, [a, c] = gap.points.map((p) => world(p, h));
+      // A solid bar rather than a hairline, so a gap of a few metres still reads at this scale.
+      const bar = (from, to, r) => {
+        const len = from.distanceTo(to); if (len < 0.01) return;
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 10), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+        m.position.copy(from.clone().add(to).multiplyScalar(0.5));
+        m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
+        m.renderOrder = 10; scene.add(m);
+      };
+      bar(a, c, 0.6);
+      [a, c].forEach((p) => bar(new THREE.Vector3(p.x, 0, p.z), p.clone().setY(h + 6), 0.35));
+      [a, c].forEach((p) => { const dot = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false })); dot.renderOrder = 11; dot.position.copy(p); scene.add(dot); });
+      const mid = a.clone().add(c).multiplyScalar(0.5);
+      tag(`${gap.label}: about ${Math.round(gap.feet)} ft`, mid.clone().setY(h + 8));
+      focus = new THREE.Vector3(mid.x * 0.5, 0, mid.z * 0.5);
+    }
+    // A steep view from above, so the ground between tall buildings can be seen.
+    const size = Math.max(span * 3, roofM * 2.1);
+    camera.position.set(focus.x + size * 0.25, size * 1.2, focus.z + size * 0.5);
+    controls.target.copy(focus); controls.maxPolarAngle = Math.PI * 0.49; controls.update();
+  } else {
+    const size = Math.max(span * 5, roofM * 1.8);
+    camera.position.set(size * 0.35, size * 0.95, size * 0.75);
+    controls.target.set(0, 0, 0); controls.maxPolarAngle = Math.PI * 0.49; controls.update();
+  }
+  ticks.push(() => { if (!host.isConnected && sceneStage === stage) { stage.dispose(); sceneStage = null; } });
+}
+
+// Shared by the 3D view and the drawing fallback: the heights shown and their labels.
+function heightData(data) {
+  const b = data.building, o = data.outside;
+  const roof = o.height_ft ?? b.record_height_ft;
+  const stories = b.stories || null;
+  const county = data.public_records?.county_height?.feet ?? null;
+  const top = data.top_occupied_ft;
+  const story = stories && roof != null ? roof / stories : null;
+  const viewed = Number(new URLSearchParams(location.hash.split("?")[1] || "").get("floor")) || null;
+  const floorNo = Number(data.floor) || viewed;
+  const floor = story && floorNo && floorNo <= stories ? floorNo : null;
+  const marks = roof == null ? [] : [
+    { ft: 75, cls: "hp-rule", text: "75 ft: high-rise line", full: true },
+    top != null && { ft: top, cls: "hp-top", text: `Top occupied: about ${Math.round(top)} ft (estimate)` },
+    { ft: roof, cls: "hp-roof", text: `Roof, ${o.height_ft != null ? "from imagery" : "CoStar record"}: about ${Math.round(roof)} ft` },
+    county != null && { ft: county, cls: "hp-county", text: `LA County ${data.public_records.county_height.year} survey: about ${Math.round(county)} ft` },
+    floor && { ft: story * (floor - 0.5), cls: "hp-suite-mark", text: data.floor ? `Floor ${floor}: this listing` : `Floor ${floor}: floor in view`, suite: true },
+  ].filter(Boolean);
+  return { roof, stories, story, floor, marks };
+}
+
+// Spread label heights apart by at least `gap` (in the marks' own units), keeping their order.
+function spreadLabels(marks, gap) {
+  const sorted = marks.sort((p, q) => q.ft - p.ft);
+  sorted.forEach((m, i) => { m.label = i ? Math.min(m.ft, sorted[i - 1].label - gap) : m.ft; });
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const floor = i === sorted.length - 1 ? gap * 0.5 : sorted[i + 1].label + gap;
+    sorted[i].label = Math.max(sorted[i].label, floor);
+  }
+  return sorted;
+}
+
 function aerialView(row, data) {
   const b = data.building, o = data.outside;
   const photos = b.aerial_urls.length ? b.aerial_urls : (b.photo_url ? [b.photo_url] : []);
   const photoLabel = b.aerial_urls.length ? "CoStar aerial photo" : "CoStar building photo";
   const sources = [o.loaded ? `Vexcel aerial imagery${o.captured ? ", captured " + esc(o.captured) : ""}` : "",
+    row.key === "access" && (data.streets || []).length ? "OpenStreetMap streets" : "",
+    row.key === "height" && data.public_records?.county_height ? "LA County building outlines" : "",
     row.fields.some((f) => !f.field.startsWith("Vexcel")) ? "CoStar commercial property record" : ""].filter(Boolean);
-  const image = o.loaded ? `
-    <div class="aerial"><img src="/api/spaces/${b.property_id}/aerial.jpg" alt="Vexcel aerial image">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none">${outline(o.neighbors, o.bbox, "other")}${outline(o.footprint, o.bbox, "me")}</svg></div>
-    <p class="legend">Blue: the footprint matched to this building. Dashed white: other structures nearby. The same data drives the 3D view above.</p>` : "";
+  const photoBlock = photos.length ? `<div class="thumbs${row.key === "height" ? " large" : ""}">${photos.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="${photoLabel}"></a>`).join("")}</div>
+      <p class="legend">${photoLabel}${photos.length > 1 ? "s" : ""} from the record${row.key === "height" ? ": the building seen from the side" : ""}.</p>` : "";
+  let visual = "";
+  if (row.key === "height") {
+    const d = heightData(data);
+    visual = (o.loaded && d.roof != null ? `<div class="stage scene3d" data-scene3d><div class="gl"></div><div class="labels"></div></div>
+      <p class="legend">3D view drawn to scale from the measured and recorded heights; drag to turn it. The building shape is the footprint traced from imagery, raised to the roof height; the grid on the ground is 25 ft.${d.story ? ` Floor lines are spread evenly, about ${d.story.toFixed(1)} ft apart (our assumption).` : ""} Level planes mark the heights listed. The rule measures from the fire department access level, which is taken here as the ground under the building and has not been measured.</p>`
+      : heightProfile(data)) + photoBlock;
+  } else if (o.loaded) {
+    const line = (data.measure_lines || {})[row.key];
+    const dim = dimensionLine(line, o.bbox);
+    const streetsSvg = row.key === "access" ? streetLines(data.streets, o.bbox) : "";
+    const legend = row.key === "access"
+      ? "3D view: this building raised to its roof height on the aerial image; yellow bands are public streets from OpenStreetMap; the white line is the measured gap to the closest public street."
+      : "3D view: this building (blue) and the structures around it, each raised to the roof height measured from imagery; outlines on the ground had no height reading. The white line is the measured gap to the closest structure.";
+    visual = `<div class="stage scene3d" data-scene3d><div class="gl"></div><div class="labels"></div></div>
+      <p class="legend">${legend}${line ? ` ${esc(line.label)}: about ${Math.round(line.feet)} ft.` : ""} Drag to turn the view.</p>
+      <details class="flat-view"><summary>Flat aerial view</summary>
+      <div class="aerial"><img src="/api/spaces/${b.property_id}/aerial.jpg" alt="Vexcel aerial image" loading="lazy">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none">${streetsSvg}${outline(o.neighbors, o.bbox, "other")}${outline(o.footprint, o.bbox, "me")}${dim.svg}</svg>${dim.tag}</div></details>${photoBlock}`;
+  } else {
+    visual = photoBlock;
+  }
+  const note = row.key === "height"
+    ? (o.height_ft != null ? "Imagery height is the highest roof point sampled over the footprint, minus the ground below; it includes rooftop equipment. The highest occupied level is our estimate: roof height less one story." : "No height was measured from imagery; the record value is shown.")
+    : (o.loaded ? "Distances are measured between outlines traced from imagery: read from images, not measured on site." : esc(o.error));
   return `<div class="src">SOURCE · ${sources.join(" · ") || "no image on record"}</div>
     <p class="statement">${esc(row.evidence)}</p>
     ${row.fields.length ? fieldTable(row, false) : ""}
-    ${image}
-    ${photos.length ? `<div class="thumbs">${photos.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="${photoLabel}"></a>`).join("")}</div>
-      <p class="legend">${photoLabel}${photos.length > 1 ? "s" : ""} from the record.</p>` : ""}
-    <p class="note">${o.loaded ? "Height is the highest roof point sampled over the footprint, minus the ground below; it includes rooftop equipment. The highest occupied level is our estimate: roof height less one story. Distances are measured between footprint outlines."
-      : esc(o.error)}</p>`;
+    ${visual}
+    <p class="note">${note}</p>`;
 }
 
 function planView(data) {
@@ -941,9 +1240,27 @@ function planView(data) {
     </table><p class="legend">${esc(r.reader)} · read from the image, not measured</p>` : '<p class="legend">This plan has not been read yet.</p>'}`;
 }
 
+// Real pictures that show what a record row is about; rows with no fitting picture get none.
+function recordPictures(row, data) {
+  const b = data.building, o = data.outside;
+  if (row.key === "age") {
+    const photos = b.photo_url ? [b.photo_url] : b.aerial_urls;
+    if (!photos.length) return "";
+    return `<h3 style="margin-top:18px">The building on record</h3>
+      <div class="thumbs large">${photos.slice(0, 1).map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="CoStar building photo"></a>`).join("")}</div>
+      <p class="legend">CoStar building photo from the record. The age itself comes from the recorded completion year, not from the photo.</p>`;
+  }
+  if (row.key === "zone" && o.loaded && o.context_bbox?.length) {
+    return `<h3 style="margin-top:18px">The area around the building</h3>
+      <div class="stage scene3d" data-scene3d><div class="gl"></div><div class="labels"></div></div>
+      <p class="legend">Vexcel aerial imagery${o.captured ? ", captured " + esc(o.captured) : ""}, with this building (blue) and nearby structures raised to their measured roof heights. Drag to turn the view. The zone comes from the record and the City zoning lookup; the picture shows the surrounding uses only.</p>`;
+  }
+  return "";
+}
+
 function evidenceView(row, data) {
   let body;
-  if (row.view === "record") body = recordView(row) + (row.key === "elevator" ? planView(data) : "");
+  if (row.view === "record") body = recordView(row) + recordPictures(row, data) + (row.key === "elevator" ? planView(data) : "");
   else if (row.view === "scan") body = scanView(row, data) + (row.key === "exits" ? planView(data) : "");
   else if (row.view === "aerial") body = aerialView(row, data);
   else if (row.view === "setting") body = `<div class="src">SOURCE · product setting</div><p class="statement">${esc(row.evidence)}</p>
@@ -1191,6 +1508,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     current = data.rows.find((r) => r.key === key);
     app.querySelectorAll(".row").forEach((el) => el.classList.toggle("on", el.dataset.key === key));
     document.getElementById("evidence").innerHTML = evidenceView(current, data);
+    mountEvidence3D(document.querySelector("#evidence [data-scene3d]"), data, current.key);
     showScanViewer(current.view === "scan");
     if (viewMode === "building" && ["units", "exits", "escape", "elevator"].includes(key)) showScene("isolated");
     else if (viewMode === "tour") return;

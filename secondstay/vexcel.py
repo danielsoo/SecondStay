@@ -117,6 +117,43 @@ def _ring_to_ring(first, second) -> float:
     )
 
 
+def _nearest_on_segment(p, a, b):
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length = dx * dx + dy * dy
+    t = 0.0 if length == 0 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / length))
+    return (a[0] + t * dx, a[1] + t * dy)
+
+
+def closest_pair(first: list, second: list) -> Optional[tuple]:
+    """Closest points between two sets of outlines (rings or polylines), in (longitude, latitude).
+
+    Returns (point on first, point on second, distance in feet), or None when either side is empty.
+    Used to draw the measured gap on the image; the distance matches the measurement used in the review.
+    """
+    points = [p for line in first + second for p in line]
+    if not any(first) or not any(second):
+        return None
+    lon0, lat0 = points[0]
+    to_m = _grid(lat0, lon0)
+    kx = 111320.0 * math.cos(math.radians(lat0))
+    back = lambda q: (round(q[0] / kx + lon0, 7), round(q[1] / 110540.0 + lat0, 7))
+    a_lines = [[to_m(p) for p in line] for line in first if line]
+    b_lines = [[to_m(p) for p in line] for line in second if line]
+    best = None
+    for here, there, flip in ((a_lines, b_lines, False), (b_lines, a_lines, True)):
+        for line in here:
+            for p in line:
+                for other in there:
+                    for a, b in zip(other, other[1:]):
+                        q = _nearest_on_segment(p, a, b)
+                        d = math.hypot(p[0] - q[0], p[1] - q[1])
+                        if best is None or d < best[2]:
+                            best = (q, p, d) if flip else (p, q, d)
+    if best is None:
+        return None
+    return back(best[0]), back(best[1]), round(best[2] * M_TO_FT, 1)
+
+
 def _area(ring) -> float:
     return abs(sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(ring, ring[1:]))) / 2
 
