@@ -21,6 +21,42 @@ async function request(url, options) {
   if (!response.ok) throw new Error(data.error || 'Cost calculation unavailable');
   return data;
 }
+const plain = (v) => String(v ?? '').replace(/_/g, ' ');
+const qty = (q, unit) => q == null ? 'quantity not known' : `${Math.round(q).toLocaleString('en-US')} ${unit === 'sqft' ? 'sq ft' : unit === 'each' ? '' : unit}`.trim();
+function photosView(data) {
+  const m = data.minimum || {}, p = data.photos || {};
+  const figures = m.low == null ? '<p class="sub">No called-for work has a price yet, so there is no minimum figure.</p>' : `
+    <div class="cost-band"><div class="expected"><span>Minimum</span><b>${money(m.low)}</b></div>
+      <div><span>Typical</span><b>${money(m.typical)}</b></div></div>`;
+  const la = data.la_prices || {}, laPrices = la.prices || {};
+  const perUnit = unit => unit === 'each' ? 'each' : unit === 'sqft' ? 'per sq ft' : `per ${unit}`;
+  const evidence = e => `<details class="la-permits"><summary>Based on ${e.permits} LA permits, ${esc(e.period[0])} to ${esc(e.period[1])}: ${money(e.rate.low)} / ${money(e.rate.typical)} / ${money(e.rate.high)} ${perUnit(e.unit)}</summary>
+      <p class="sub">${esc(e.notes)} ${esc(e.excludes)}</p>
+      <table><thead><tr><th>Permit</th><th>Issued</th><th>Declared value</th><th>Per unit</th><th>Scope (model summary)</th></tr></thead><tbody>
+      ${e.examples.map(x => `<tr><td>${esc(x.permit)}</td><td>${esc(x.issued)}</td><td>${money(x.value)}</td><td>${money(x.per_unit)}</td><td>${esc(x.scope)}</td></tr>`).join('')}</tbody></table>
+      <p class="sub"><a href="${esc(e.source)}" target="_blank" rel="noopener">Open the LADBS permit dataset</a></p></details>`;
+  const included = (m.included || []).map(i => `<li><b>${esc(i.title)}</b> · ${esc(qty(i.quantity, i.unit))} · from ${money(i.low)}<br><span class="sub">${esc(i.basis)}</span>
+    ${laPrices[i.key] ? evidence(laPrices[i.key]) : `<br><span class="sub">Price source: ${/^https?:/.test(i.source || '') ? `<a href="${esc(i.source)}" target="_blank" rel="noopener">published source</a>` : esc(i.source)}</span>`}</li>`).join('');
+  const bench = Object.entries(la.benchmarks || {}).map(([k, e]) => `<li>${esc(e.measures || k)}: ${money(e.rate.low)} / ${money(e.rate.typical)} / ${money(e.rate.high)} ${perUnit(e.unit)} across ${e.permits} permits</li>`).join('')
+    + (la.published || []).map(f => `<li>${esc(f.measures)}: <b>${money(f.value)}</b> per ${esc(f.unit)} (${esc(f.year)}) · <a href="${esc(f.source)}" target="_blank" rel="noopener">source</a><br><span>${esc(f.note)}</span></li>`).join('');
+  const quote = (m.to_quote || []).map(i => `<li><b>${esc(i.title)}</b> · ${esc(qty(i.quantity, i.unit))}<br><span class="sub">${esc(i.reason)}</span></li>`).join('');
+  let photos;
+  if (!p.available) photos = `<p class="sub">${esc(p.reason)}</p>`;
+  else if (!p.read) photos = `<p>An AI model can check this space's 3D tour photos for things tied to the rules: sprinkler heads, fire alarm devices, exit signs, water lines already here, and windows for light and escape. What it sees adjusts the work list above; it never sets a price.</p>
+    <button type="button" class="btn" data-read-photos>Check the photos with AI</button>${p.reason && p.reason !== 'Not read yet.' ? `<p class="sub">${esc(p.reason)}</p>` : ''}`;
+  else photos = `<ul class="cost-factors">${(p.considered || []).map(f => `<li><b>${esc(f.label)}</b>: ${esc(plain(f.seen))}<br>
+      <span class="sub">${esc(f.effect)}${f.evidence ? ' Seen: ' + esc(f.evidence) + '.' : ''}</span></li>`).join('')}</ul>
+    <p class="sub">Photos ${esc(p.method)} by ${esc(p.model)}. ${esc(p.notes)}</p>`;
+  return `<section class="cost-photos"><h3>The least the published rules call for</h3>${figures}
+    <p class="sub">Called-for work only, each at the low end of its price range, plus soft costs and contingency. Finishes and upgrades are not included. This is not a quote: a site visit and contractor pricing set the real figure.</p>
+    ${included ? `<h4>Included in the minimum</h4><ul class="cost-factors">${included}</ul>` : ''}
+    ${quote ? `<h4>Also called for, not priced yet: needs a quote</h4><ul class="cost-factors to-quote">${quote}</ul>
+      <p class="sub">The minimum above leaves these out, so the real minimum is higher by their cost.</p>` : ''}
+    <p class="sub">Not in the minimum: ${m.possible || 0} possible and ${m.unknown || 0} unknown items that depend on confirmation (see "Work the published rules call for").</p>
+    ${la.built ? `<p class="sub">Prices marked "LA permits" come from ${la.permits_kept.toLocaleString('en-US')} Los Angeles building permits a language model read once (of ${la.permits_read.toLocaleString('en-US')} candidates), built ${esc(la.built)}. Values are what applicants declared, which tends to run below final cost.</p>` : ''}
+    ${bench ? `<details><summary>For comparison: other Los Angeles figures (not added to the minimum)</summary><ul class="sub">${bench}</ul></details>` : ''}
+    <h4>What the tour photos show</h4>${photos}</section>`;
+}
 function resultsView(data) {
   const result = data.scenarios[data.scenario], pay = result.payback;
   const years = v => v == null ? 'No payback' : `${v.toFixed(1)} years`;
@@ -55,6 +91,7 @@ export async function mountCosts(root, url) {
     if (!root.isConnected) return;
     const defaults = data.defaults, lines = data.scenarios.base.lines;
     root.innerHTML = `<h2>Conversion costs and income</h2><p class="cost-warning">Residential scope: ${esc(data.scope)}. Building-wide work is included at building quantities; costs are not allocated to a suite. Confirm that each quantity belongs in your project.</p>
+      <div data-photos>${photosView(data)}</div>
       <form><div class="cost-controls"><label>Scenario<select name="scenario">${Object.entries(scenarios).map(([k,v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
       ${input('units', defaults.income.units, 'Housing units (income only)', '1')}${input('horizon_years', 5, 'Comparison horizon (years)')}</div>
       <p class="sub">Unit count is a planning assumption, not a layout determination. Changing income units does not change work quantities; edit those below.</p>
@@ -75,6 +112,12 @@ export async function mountCosts(root, url) {
       <button class="btn" type="submit">Recalculate</button><p data-status role="status" aria-live="polite"></p></form>
       <div data-results>${resultsView(data)}</div>`;
     const form = root.querySelector('form'), status = root.querySelector('[data-status]');
+    let readPhotos = false;
+    const bindPhotos = () => {
+      const button = root.querySelector('[data-read-photos]');
+      if (button) button.onclick = () => { readPhotos = true; button.disabled = true; button.textContent = 'Checking the photos…'; form.requestSubmit(); };
+    };
+    bindPhotos();
     const field = name => form.elements.namedItem(name);
     const readRange = name => Object.fromEntries(levels.map(k => [k, numeric(field(`${name}.${k}`))]));
     const nullableRange = name => { const v = readRange(name); return Object.values(v).every(x => x == null) ? null : v; };
@@ -84,7 +127,7 @@ export async function mountCosts(root, url) {
       event.preventDefault();
       const button = form.querySelector('[type="submit"]'); button.disabled = true;
       status.textContent = 'Calculating…';
-      const options = {scenario:field('scenario').value, selected_keys:lines.filter(c => field(`pick.${c.key}`).checked).map(c => c.key),
+      const options = {read_photos:readPhotos, scenario:field('scenario').value, selected_keys:lines.filter(c => field(`pick.${c.key}`).checked).map(c => c.key),
         income:{units:numeric(field('units')), horizon_years:numeric(field('horizon_years')), monthly_rent_per_unit:nullableRange('rent'), current_monthly_income:nullableRange('current')},
         quantities:Object.fromEntries(lines.map(c => [c.key,numeric(field(`quantity.${c.key}`))])),
         prices:Object.fromEntries(lines.map(c => [c.key,{fixed:readRange(`price.${c.key}.fixed`), rate:readRange(`price.${c.key}.rate`)}])),
@@ -95,9 +138,10 @@ export async function mountCosts(root, url) {
         const result = await request(url, options);
         if (!root.isConnected) return;
         root.querySelector('[data-results]').innerHTML = resultsView(result);
-        status.textContent = 'Results updated. Edited values are Team assumptions.';
+        root.querySelector('[data-photos]').innerHTML = photosView(result); bindPhotos();
+        status.textContent = readPhotos ? 'Photos checked. The work list and minimum now reflect them.' : 'Results updated. Edited values are Team assumptions.';
       } catch (error) { status.textContent = `Could not recalculate: ${error.message}. Previous results remain below.`; }
-      finally { controls.forEach(el => { el.disabled = false; }); }
+      finally { readPhotos = false; controls.forEach(el => { el.disabled = false; }); }
     };
   } catch (error) { root.textContent = `Cost inputs unavailable: ${error.message}`; }
 }

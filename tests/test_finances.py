@@ -13,6 +13,12 @@ from secondstay.economics import spread
 from test_web import building, payload
 
 
+@pytest.fixture(autouse=True)
+def price_book_only(monkeypatch):
+    """These checks cover assumptions.json on its own; the LA permit overlay is tested in test_la_costs.py."""
+    monkeypatch.setattr(finances.la_costs, "load", lambda: None)
+
+
 @pytest.fixture
 def context(tmp_path, monkeypatch):
     monkeypatch.setattr(finances.costar, "kit_dir", lambda: tmp_path)

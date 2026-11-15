@@ -5,7 +5,7 @@ from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
 
-from . import costar, costing, rents
+from . import costar, cost_reading, costing, la_costs, rents
 from .changes import from_dicts
 from .economics import LEVELS, entry_issue, number, range_issue, spread
 
@@ -48,16 +48,21 @@ def checked_range(value, label, *, nullable=False, maximum=None):
 
 
 def calculate(context, options):
-    object_fields(options, ("scenario", "selected_keys", "income", "prices", "globals", "quantities"), "Request")
+    object_fields(options, ("scenario", "selected_keys", "income", "prices", "globals", "quantities", "read_photos"),
+                  "Request")
     scenario = options.get("scenario", "base")
     if not isinstance(scenario, str) or scenario not in costing.SCENARIOS:
         raise ValueError("Unknown scenario")
     changes = from_dicts(context["changes"])
+    photos = photo_reading(context, options.get("read_photos") is True)
+    if photos.get("read"):
+        changes, photos["considered"] = cost_reading.apply(changes, photos.pop("reading"))
     keys = {c.key for c in changes}
     selected = options.get("selected_keys", [c.key for c in changes if c.certainty == "called_for"])
     if not isinstance(selected, list) or any(not isinstance(k, str) or k not in keys for k in selected):
         raise ValueError("Select only changes in this space's change list")
     book = costing.load_prices(PRICE_PATH)
+    la_book = with_la_prices(book)
     rent = rent_seed(context["building"])
     kitchen = next((c for c in changes if c.key == "units.kitchen"), None)
     income = {"units": kitchen.quantity if kitchen else None,
@@ -112,4 +117,57 @@ def calculate(context, options):
     results.update(defaults=defaults, income=income, rent=rent, scenario=scenario,
                    sensitivity=costing.sensitivity(changes, book, income, scenario, selected_keys=selected))
     results["scope"] = ((kitchen.scope + ": " + kitchen.quantity_basis) if kitchen else "Residential unit count unknown")
+    results["photos"] = photos
+    results["minimum"] = minimum(results["scenarios"]["base"])
+    results["la_prices"] = la_book
     return results
+
+
+def with_la_prices(book):
+    """Use the Los Angeles permit price book where it has a price; keep the earlier entry's source in its notes."""
+    la = la_costs.load()
+    if not la:
+        return None
+    for key, entry in la["prices"].items():
+        earlier = book.entries.get(key) or {}
+        notes = entry["notes"]
+        if earlier.get("source"):
+            notes += f" Earlier team price, kept for comparison: {earlier['source']}."
+        book.entries[key] = {k: v for k, v in entry.items() if k not in ("examples", "permits", "period")} | {"notes": notes}
+    return {"built": la["built"], "permits_read": la["permits_read"], "permits_kept": la["permits_kept"],
+            "prices": la["prices"], "benchmarks": la["benchmarks"], "published": la.get("published", [])}
+
+
+def minimum(base):
+    """The least the published rules call for: called-for work only, at the low end of each price."""
+    called = [line for line in base["lines"] if line["certainty"] == "called_for"]
+    priced = [line for line in called if line["status"] == "priced"]
+    total = base.get("total") or {}
+    return {"low": total.get("low"), "typical": total.get("typical"),
+            "included": [{"key": l["key"], "title": l["title"], "quantity": l["quantity"], "unit": l["unit"],
+                          "low": l["cost"]["low"], "typical": l["cost"]["typical"], "basis": l["quantity_basis"],
+                          "source": l["source"], "rate": l["rate"]} for l in priced],
+            "to_quote": [{"title": l["title"], "quantity": l["quantity"], "unit": l["unit"], "reason": l["reason"],
+                          "basis": l["quantity_basis"]} for l in called if l["status"] != "priced"],
+            "possible": sum(1 for l in base["lines"] if l["certainty"] == "possible"),
+            "unknown": sum(1 for l in base["lines"] if l["certainty"] == "unknown")}
+
+
+def photo_reading(context, read_now=False):
+    """The scan's requirement-related photo reading; sent to a model only when asked."""
+    scan = (context.get("scan") or {}).get("model_id") or ""
+    if not scan:
+        return {"available": False, "read": False,
+                "reason": "No 3D tour is on record for this space, so there are no photos to read."}
+    reading = cost_reading.cached(scan)
+    if reading is None and read_now:
+        try:
+            reading = cost_reading.read(scan)
+        except (ValueError, LookupError) as error:  # missing model settings, no panoramas, or an unusable answer
+            return {"available": True, "read": False, "reason": str(error)}
+        except Exception as error:  # provider or network failure; never echo details that may hold credentials
+            return {"available": True, "read": False, "reason": f"The photos could not be read ({type(error).__name__})."}
+    if reading is None:
+        return {"available": True, "read": False, "reason": "Not read yet."}
+    return {"available": True, "read": True, "reading": reading, "method": reading.get("method"),
+            "model": reading.get("model"), "notes": reading.get("notes", ""), "read_at": reading.get("read_at")}

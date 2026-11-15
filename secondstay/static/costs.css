@@ -26,3 +26,20 @@
   .cost-range { gap: 6px; }
   .costs input { padding: 7px 4px; }
 }
+
+.cost-photos { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 0 0 18px; }
+.cost-photos h3 { margin-top: 0; }
+.cost-band { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.cost-band > div { flex: 1 1 140px; border-radius: 8px; padding: 10px 12px; background: rgba(255,255,255,0.04); }
+.cost-band span { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.cost-band b { font-size: 24px; }
+.cost-band .expected { outline: 1px solid #5fe0a0; }
+.cost-band .muted b { font-size: 18px; color: var(--muted); }
+.cost-factors { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
+.cost-factors .dir { font-size: 12px; margin-left: 6px; }
+.cost-factors .d-1 { color: #5fe0a0; } .cost-factors .d1 { color: #ffb36b; } .cost-factors .d0 { color: var(--muted); }
+.cost-factors.to-quote li { border-left: 3px solid #ffb36b; padding-left: 8px; }
+.la-permits { margin-top: 4px; font-size: 13px; }
+.la-permits summary { cursor: pointer; color: #8fd3e8; }
+.la-permits table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+.la-permits th, .la-permits td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); }
