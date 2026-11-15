@@ -195,6 +195,21 @@
   .aerial .dim-end { fill: #fff; }
   .aerial .dim-tag { position: absolute; transform: translate(-50%, -140%); line-height: 1.2; font: 600 12px var(--mono);
     color: #0b111b; background: #fff; padding: 2px 6px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+  .viz { width: 100%; height: auto; display: block; margin-top: 10px; background: var(--panel2); border-radius: 8px; padding: 6px 0; }
+  .viz .tl-axis { stroke: var(--muted); stroke-width: 1; } .viz .tl-dot { fill: var(--amber); opacity: 0.85; }
+  .viz .tl-text { fill: var(--ink); font: 11px var(--mono); } .viz .tl-text.strong { font-weight: 700; }
+  .viz .tl-text.muted { fill: var(--muted); } .viz .tl-text.dark { fill: #0b111b; }
+  .viz .age-old { fill: var(--found); opacity: 0.55; } .viz .age-mid { fill: var(--amber); opacity: 0.55; } .viz .age-new { fill: var(--nodata); opacity: 0.35; }
+  .viz .age-mark { stroke: var(--ink); stroke-width: 2; }
+  .viz .area-all { fill: var(--nodata); } .viz .area-use { fill: var(--accent); } .viz .unit-cell { fill: var(--accent); opacity: 0.75; }
+  .viz .day { fill: var(--nodata); opacity: 0.4; } .viz .day.over { fill: var(--found); opacity: 0.9; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin-top: 12px; }
+  .card { display: flex; gap: 10px; align-items: flex-start; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .card b { display: block; font-size: 13px; } .card span { display: block; font-size: 12.5px; color: var(--muted); } .card a { font-size: 12.5px; }
+  .card .card-icon { font-size: 20px; line-height: 1; width: 24px; text-align: center; color: var(--muted); }
+  .card.ok { border-color: #1d4a36; } .card.ok .card-icon { color: var(--found); }
+  .card.warn { border-color: #5a4518; } .card.warn .card-icon { color: var(--amber); }
+  .card.open .card-icon { color: var(--review); }
   .stage.scene3d { height: 420px; margin-top: 10px; border-radius: 10px; }
   .stage.scene3d .tag3d { font-size: 10.5px; }
   .flat-view { margin-top: 8px; } .flat-view summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
@@ -1001,6 +1016,8 @@ function heightProfile(data) {
 // zone: the building and its neighbours on the wider aerial image of the area.
 let sceneStage = null;
 const SCENE_ROWS = ["height", "separation", "access", "zone"];
+// Rows answered by city permit records: which topic, and what the work counts are called.
+const PERMIT_TOPIC = { elevator: "elevator", sprinklers: "sprinklers", alarm: "alarm", exits: "stairs" };
 function mountEvidence3D(host, data, key) {
   if (sceneStage) { sceneStage.dispose(); sceneStage = null; }
   if (!host) return;
@@ -1025,8 +1042,9 @@ function mountEvidence3D(host, data, key) {
   // Aerial image on the ground, as in the floor view; the zone row uses the wider picture of the area.
   // Like the floor view: the detailed image near the building over the wider image of the area.
   // The height row reads better on a plain ground: a flat photo of rooftops under a raised model looks out of place there.
-  const layers = key === "height" ? [] : key === "zone" ? [[o.context_bbox, "?context=1", -0.05]] : [[o.bbox, "", -0.05], [o.context_bbox, "?context=1", -0.15]];
-  if (key === "height") {
+  const topicKey = PERMIT_TOPIC[key], plainGround = key === "height" || !!topicKey;
+  const layers = plainGround ? [] : key === "zone" ? [[o.context_bbox, "?context=1", -0.05]] : [[o.bbox, "", -0.05], [o.context_bbox, "?context=1", -0.15]];
+  if (plainGround) {
     const size = Math.max(span * 4, roofM * 2.2);
     const plain = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 64).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: 0x162231 }));
@@ -1064,9 +1082,9 @@ function mountEvidence3D(host, data, key) {
     scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: edge, transparent: true, opacity: 0.7 })));
   };
   // This building.
-  shapes.forEach((shape) => massing(shape, roofM, key === "height" ? 0xb8c4cc : 0x5ad1ff, key === "height" ? 0.35 : 0.42, 0x5ad1ff));
+  shapes.forEach((shape) => massing(shape, roofM, plainGround ? 0xb8c4cc : 0x5ad1ff, plainGround ? (topicKey ? 0.16 : 0.35) : 0.42, 0x5ad1ff));
   // Neighbours at their measured heights; ones without a reading stay as outlines on the ground.
-  if (key !== "height") o.neighbors.forEach((ring, i) => {
+  if (!plainGround) o.neighbors.forEach((ring, i) => {
     const ft = (o.neighbor_heights_ft || [])[i];
     if (ft != null) massing(shapeOf(ring), ft * FT, 0xe8eef8, 0.22, 0xffffff);
     else line(ring.map((p) => world(p, 0.2)), 0xffffff);
@@ -1098,6 +1116,38 @@ function mountEvidence3D(host, data, key) {
       const at = m.ft * FT, labelAt = m.label * FT;
       line([new THREE.Vector3(poleX, at, 0), new THREE.Vector3(poleX + 3, labelAt, 0)], 0x8493a8);
       tag(m.text, new THREE.Vector3(poleX + 3.5, labelAt, 0), { "hp-rule": "amber", "hp-suite-mark": "cyan" }[m.cls] || "", [0, 0.5]);
+    });
+    const mid = roofM * 0.52, size2 = Math.max(roofM, span) * 1.7;
+    camera.position.set(poleX * 0.6 + size2 * 0.45, mid + size2 * 0.16, size2);
+    controls.target.set(poleX * 0.6, mid, 0); controls.maxPolarAngle = Math.PI * 0.49; controls.update();
+  } else if (topicKey) {
+    // Each floor where a permit names work is filled; deeper colour for more permits. Floors are spread evenly (our assumption).
+    const topic = data.permits?.topics?.[topicKey] || { floors: {} };
+    const counts = Object.entries(topic.floors || {}).map(([f, c]) => [Number(f), c]).filter(([f]) => f >= 1 && f <= (d.stories || 0));
+    const most = Math.max(1, ...counts.map(([, c]) => c));
+    const story = d.story || roofM / FT / Math.max(1, d.stories || 1);
+    for (let i = 1; i < (d.stories || 1); i++) shapes.forEach((shape) => {
+      scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(shape.getPoints().map((pt) => new THREE.Vector3(pt.x, story * i * FT, -pt.y))),
+        new THREE.LineBasicMaterial({ color: 0x5ad1ff, transparent: true, opacity: 0.25 })));
+    });
+    counts.forEach(([f, c]) => shapes.forEach((shape) => {
+      const g = new THREE.ExtrudeGeometry(shape, { depth: story * FT * 0.82, bevelEnabled: false }).rotateX(-Math.PI / 2);
+      const slab = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xffc24a, emissive: 0x4a3510, transparent: true, opacity: 0.35 + 0.55 * (c / most) }));
+      slab.position.y = story * (f - 1) * FT + story * FT * 0.09; scene.add(slab);
+    }));
+    if (d.floor) shapes.forEach((shape) => {
+      scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(shape.getPoints().map((pt) => new THREE.Vector3(pt.x, story * (d.floor - 0.5) * FT, -pt.y))),
+        new THREE.LineBasicMaterial({ color: 0x5ad1ff })));
+    });
+    const poleX = span * 0.75 + 4;
+    line([new THREE.Vector3(poleX, 0, 0), new THREE.Vector3(poleX, roofM * 1.02, 0)], 0x8493a8);
+    const marks = counts.length <= 8
+      ? counts.map(([f, c]) => ({ ft: story * (f - 0.5), text: `Floor ${f}: ${c} permit${c > 1 ? "s" : ""}` }))
+      : [{ ft: story * (d.stories - 0.5), text: `Work named on ${counts.length} of ${d.stories} floors` }];
+    if (d.floor) marks.push({ ft: story * (d.floor - 0.5), text: data.floor ? `Floor ${d.floor}: this listing` : `Floor ${d.floor}: floor in view`, cyan: true });
+    spreadLabels(marks, (d.roof ?? 30) * 0.055).forEach((m) => {
+      line([new THREE.Vector3(poleX, m.ft * FT, 0), new THREE.Vector3(poleX + 3, m.label * FT, 0)], 0x8493a8);
+      tag(m.text, new THREE.Vector3(poleX + 3.5, m.label * FT, 0), m.cyan ? "cyan" : "amber", [0, 0.5]);
     });
     const mid = roofM * 0.52, size2 = Math.max(roofM, span) * 1.7;
     camera.position.set(poleX * 0.6 + size2 * 0.45, mid + size2 * 0.16, size2);
@@ -1240,6 +1290,111 @@ function planView(data) {
     </table><p class="legend">${esc(r.reader)} · read from the image, not measured</p>` : '<p class="legend">This plan has not been read yet.</p>'}`;
 }
 
+// Pictures for rows that would otherwise be text only. Each is drawn from the same records the row states.
+function permitTimeline(topic) {
+  const recs = (topic.records || []).filter((r) => /^\d{4}/.test(r.issued || ""));
+  if (!recs.length) return "";
+  const years = recs.map((r) => Number(r.issued.slice(0, 4)));
+  const start = Math.min(Number(String(topic.first).slice(0, 4)) || Math.min(...years), ...years), end = new Date().getFullYear();
+  const W = 520, H = 92, x = (yr) => 16 + ((yr - start) / Math.max(1, end - start)) * (W - 32);
+  const byYear = {}; years.forEach((y) => (byYear[y] = (byYear[y] || 0) + 1));
+  const step = Math.min(7, 44 / Math.max(...Object.values(byYear)));
+  const dots = Object.entries(byYear).map(([y, c]) => Array.from({ length: c }, (_, i) =>
+    `<circle cx="${x(+y).toFixed(1)}" cy="${(52 - i * step).toFixed(1)}" r="${Math.min(3, step / 2 + 0.6).toFixed(1)}" class="tl-dot"/>`).join("")).join("");
+  const ticks = [start, Math.round((start + end) / 2), end].map((y) =>
+    `<line x1="${x(y)}" x2="${x(y)}" y1="60" y2="66" class="tl-axis"/><text x="${x(y)}" y="80" text-anchor="middle" class="tl-text">${y}</text>`).join("");
+  return `<svg class="viz" viewBox="0 0 ${W} ${H}" role="img" aria-label="Permits by year">
+      <line x1="16" x2="${W - 16}" y1="60" y2="60" class="tl-axis"/>${ticks}${dots}</svg>
+    <p class="legend">Each dot is one permit by the year it was issued${recs.length < topic.count ? `; the latest ${recs.length} of ${topic.count} are shown` : ""}. Permits record work that was filed, not what is installed today.</p>`;
+}
+
+function ageTimeline(year) {
+  if (!year) return "";
+  const now = new Date().getFullYear(), start = Math.min(year - 5, now - 60), W = 520, H = 96;
+  const x = (yr) => 16 + ((yr - start) / (now - start)) * (W - 32);
+  return `<svg class="viz" viewBox="0 0 ${W} ${H}" role="img" aria-label="Building age against the 5 and 15 year lines">
+      <rect x="${x(start)}" y="30" width="${x(now - 15) - x(start)}" height="18" class="age-old"/>
+      <rect x="${x(now - 15)}" y="30" width="${x(now - 5) - x(now - 15)}" height="18" class="age-mid"/>
+      <rect x="${x(now - 5)}" y="30" width="${x(now) - x(now - 5)}" height="18" class="age-new"/>
+      <line x1="${x(year)}" x2="${x(year)}" y1="18" y2="58" class="age-mark"/>
+      <text x="${x(year)}" y="13" text-anchor="middle" class="tl-text strong">Built ${year}</text>
+      <text x="${x(now - 15)}" y="72" text-anchor="middle" class="tl-text">${now - 15}</text>
+      <text x="${x(now - 5)}" y="26" text-anchor="middle" class="tl-text">${now - 5}</text>
+      <text x="${x(now)}" y="72" text-anchor="end" class="tl-text">${now}</text>
+      <text x="${x(start)}" y="90" class="tl-text muted">built 15+ years ago</text>
+      <text x="${x(now - 15) + 4}" y="90" class="tl-text muted">5 to 15</text>
+    </svg>
+    <p class="legend">Green: built at least 15 years ago. Amber: 5 to 15 years, which the ordinance routes through a Zoning Administrator. Grey: under 5 years.</p>`;
+}
+
+function unitsGraphic(row) {
+  const area = Number((row.evidence.match(/([\d,]+) sq ft of rentable area/) || [])[1]?.replace(/,/g, ""));
+  const units = Number((row.evidence.match(/about ([\d,]+) units/) || [])[1]?.replace(/,/g, ""));
+  if (!area || !units) return "";
+  const usable = Math.round(area * 0.8), per = Math.max(1, Math.ceil(units / 120)), cells = Math.ceil(units / per);
+  const grid = Array.from({ length: cells }, (_, i) => `<rect x="${16 + (i % 30) * 16.4}" y="${118 + Math.floor(i / 30) * 16.4}" width="13" height="13" rx="2" class="unit-cell"/>`).join("");
+  const W = 520, rows = Math.ceil(cells / 30), H = 130 + rows * 16.4;
+  const bar = (y, w, cls, text) => `<rect x="16" y="${y}" width="${w}" height="22" rx="4" class="${cls}"/><text x="24" y="${y + 15}" class="tl-text strong dark">${esc(text)}</text>`;
+  return `<svg class="viz" viewBox="0 0 ${W} ${H.toFixed(0)}" role="img" aria-label="From floor area to units">
+      ${bar(8, W - 32, "area-all", `${num(area)} sq ft rentable area on record`)}
+      ${bar(40, (W - 32) * 0.8, "area-use", `${num(usable)} sq ft usable (80%, our assumption)`)}
+      <text x="16" y="88" class="tl-text">÷ 500 sq ft per unit (our assumption) =</text>
+      <text x="16" y="106" class="tl-text strong">about ${num(units)} units${per > 1 ? ` · each square is ${per} units` : ""}</text>
+      ${grid}</svg>
+    <p class="legend">A planning estimate from the recorded area, not a layout. Unit sizes and the usable share are set by the architect's layout.</p>`;
+}
+
+function stayCalendar(row) {
+  const days = Number((row.evidence.match(/(\d+) days/) || [])[1]) || 31;
+  const W = 520, cell = 15.2, H = 70;
+  const boxes = Array.from({ length: days }, (_, i) => `<rect x="${16 + i * cell}" y="20" width="${cell - 3}" height="22" rx="3" class="${i < 30 ? "day" : "day over"}"/>`).join("");
+  return `<svg class="viz" viewBox="0 0 ${W} ${H}" role="img" aria-label="Minimum stay against the 30 day line">${boxes}
+      <line x1="${16 + 30 * cell - 1.5}" x2="${16 + 30 * cell - 1.5}" y1="12" y2="50" class="age-mark"/>
+      <text x="16" y="62" class="tl-text">Day 1</text><text x="${16 + 30 * cell - 1.5}" y="10" text-anchor="middle" class="tl-text strong">30 days</text>
+      <text x="${16 + days * cell}" y="62" text-anchor="end" class="tl-text">Day ${days}</text></svg>
+    <p class="legend">Each box is one night of the planned minimum stay; stays past day 30 are outside the short-term rental rules.</p>`;
+}
+
+function recordCards(cards) {
+  return `<div class="cards">${cards.map((c) => `<div class="card ${c.tone}"><span class="card-icon">${c.icon}</span>
+      <div><b>${esc(c.title)}</b><span>${esc(c.text)}</span>${c.link ? `<a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.linkText)}</a>` : ""}</div></div>`).join("")}</div>`;
+}
+
+function rowVisual(row, data) {
+  const b = data.building, pub = data.public_records || {};
+  const topicKey = PERMIT_TOPIC[row.key], topic = data.permits?.topics?.[topicKey];
+  const stage = `<div class="stage scene3d" data-scene3d><div class="gl"></div><div class="labels"></div></div>`;
+  if (topic && topic.count && data.outside.loaded) {
+    return `<h3 style="margin-top:18px">Where city permits name the work</h3>${stage}
+      <p class="legend">3D view of the building, raised to its roof height. Amber floors are named in ${esc(topic.label.toLowerCase())} permits; deeper amber means more permits. Floors are spread evenly (our assumption); permits without a floor are not shown. Drag to turn the view.</p>
+      ${permitTimeline(topic)}`;
+  }
+  if (row.key === "age") return ageTimeline(b.year_built);
+  if (row.key === "units") return unitsGraphic(row);
+  if (row.key === "stay") return stayCalendar(row);
+  if (row.key === "seismic") {
+    const fz = pub.fault_zone;
+    return recordCards([
+      { icon: "⚑", tone: "warn", title: "Analysis", text: "Called for in every conversion: 75% of the design earthquake." },
+      fz ? { icon: "≋", tone: "warn", title: "Alquist-Priolo fault zone", text: `Inside the zone on the ${fz.quad} map${fz.released ? `, released ${fz.released}` : ""}.`, link: fz.map, linkText: "Open the state map" }
+         : { icon: "≋", tone: "ok", title: "Alquist-Priolo fault zone", text: "Not inside a mapped zone." },
+      { icon: "◍", tone: pub.liquefaction ? "warn" : "ok", title: "Liquefaction zone", text: pub.liquefaction ? "Inside a mapped zone." : "Not inside a mapped zone." },
+      { icon: "▦", tone: pub.ndc ? "warn" : "ok", title: "Non-ductile concrete list", text: pub.ndc ? "On LADBS's retrofit list." : "Not on LADBS's retrofit list." },
+    ]);
+  }
+  if (row.key === "historic") {
+    const listed = (pub.historic || []).length;
+    const photo = b.photo_url ? `<div class="thumbs large"><a href="${esc(b.photo_url)}" target="_blank" rel="noopener"><img src="${esc(b.photo_url)}" alt="CoStar building photo"></a></div>
+      <p class="legend">CoStar building photo from the record: the exterior a historic review would look at.</p>` : "";
+    return recordCards([
+      { icon: "★", tone: listed ? "warn" : "ok", title: "Historic-Cultural Monument, HPOZ", text: listed ? `${listed} listing${listed > 1 ? "s" : ""} on record.` : "No listing covers the site." },
+      { icon: "☆", tone: listed ? "warn" : "ok", title: "National and California Registers", text: listed ? "See the listing on record." : "No listing covers the site." },
+      { icon: "?", tone: "open", title: "SurveyLA", text: "Surveyed resources were not checked." },
+    ]) + photo;
+  }
+  return "";
+}
+
 // Real pictures that show what a record row is about; rows with no fitting picture get none.
 function recordPictures(row, data) {
   const b = data.building, o = data.outside;
@@ -1260,11 +1415,14 @@ function recordPictures(row, data) {
 
 function evidenceView(row, data) {
   let body;
-  if (row.view === "record") body = recordView(row) + recordPictures(row, data) + (row.key === "elevator" ? planView(data) : "");
-  else if (row.view === "scan") body = scanView(row, data) + (row.key === "exits" ? planView(data) : "");
+  const visual = rowVisual(row, data);
+  if (row.view === "record") body = recordView(row) + recordPictures(row, data) + visual + (row.key === "elevator" ? planView(data) : "");
+  else if (row.view === "scan") body = scanView(row, data) + (row.key === "units" ? visual : "") + (row.key === "exits" ? planView(data) + visual : "");
   else if (row.view === "aerial") body = aerialView(row, data);
   else if (row.view === "setting") body = `<div class="src">SOURCE · product setting</div><p class="statement">${esc(row.evidence)}</p>
-      <p class="note">SecondStay plans stays of 31 days or longer. This is a setting, not a property of the building.</p>`;
+      ${visual}<p class="note">SecondStay plans stays of 31 days or longer. This is a setting, not a property of the building.</p>`;
+  else if (visual) body = `<div class="src">SOURCE · ${esc(row.layer)}</div><p class="statement">${esc(row.evidence)}</p>${visual}
+      <p class="note">To be confirmed by: ${esc(row.confirmed_by)}.</p>`;
   else body = `<div class="src">SOURCE · none of our data layers</div><p class="statement">${esc(row.evidence)}</p>
       <p class="note">Records, 3D scans and aerial imagery cannot answer this requirement. To be confirmed by: ${esc(row.confirmed_by)}.</p>`;
   return `<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
