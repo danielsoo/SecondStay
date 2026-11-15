@@ -10,7 +10,7 @@ call for, prices it from real Los Angeles permits, and estimates what the homes 
 > This is a preliminary evidence review, not a legal or code determination. Final decisions are made
 > by LADBS and licensed professionals.
 
-There is no score and no overall result. Before an owner pays an architect, SecondStay shows what the
+Before an owner pays an architect, SecondStay shows what the
 data already says about each requirement, and exactly what is left to verify.
 
 Built at HackPrinceton Fall 2026.
@@ -59,7 +59,7 @@ Built at HackPrinceton Fall 2026.
 | Government | California Geological Survey | Liquefaction zones and Alquist-Priolo fault zones |
 | Open data | OpenStreetMap | Street frontage for fire access; transit, schools, parks and groceries near each building |
 
-The three sponsor layers (CoStar, Matterport, Vexcel) describe the same address from inside, from the
+The three CoStar layers (CoStar dataset, Matterport, Vexcel) describe the same address from inside, from the
 market and from above. Public records are joined by parcel number or location, never by name.
 
 ## The 14 requirements
