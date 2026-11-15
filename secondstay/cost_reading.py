@@ -165,3 +165,57 @@ def apply(changes: list, reading: dict) -> tuple:
     considered = [{"key": k, "label": LABELS[k], "seen": seen[k], "effect": notes[k], "evidence": evidence.get(k, "")}
                   for k in FIELDS]
     return out, considered
+
+
+def screen_scans(buildings: list, every: bool = False) -> list:
+    """The scans the building screens open first: each building's default scan and each listed space's best scan.
+    With ``every``, all scans of every building."""
+    from . import matterport, web
+
+    def rank(model_id):
+        model, _ = web.read_scan(model_id)
+        return matterport.scan_rank(matterport.to_facts(model or {}))
+
+    picked = []
+    for b in buildings:
+        if every:
+            picked += [s.model_id for s in b.scans]
+            continue
+        picked.append(web.best_cached_scan(b) or (b.scans[0].model_id if b.scans else ""))
+        for space in b.spaces:
+            if space["scans"]:
+                picked.append(max(space["scans"], key=rank))
+    return list(dict.fromkeys(m for m in picked if m))
+
+
+def main(argv=None) -> None:
+    """Read the photos once for every scan the screens open, so the check is already there when someone looks.
+    Readings are cached under data/raw/requirement_readings/ and copied into the demo deployment.
+    Usage: python -m secondstay.cost_reading [--all] [--workers 4]"""
+    import argparse
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from . import costar, web
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument("--all", action="store_true", help="every scan, not only the ones the screens open first")
+    parser.add_argument("--workers", type=int, default=4)
+    args = parser.parse_args(argv)
+    web.load_env()
+    scans = [m for m in screen_scans(costar.published(costar.load_buildings()), args.all) if cached(m) is None]
+    print(f"{len(scans)} scans to read", flush=True)
+    done = failed = 0
+    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+        jobs = {pool.submit(read, m): m for m in scans}
+        for job in as_completed(jobs):
+            try:
+                job.result(); done += 1
+            except Exception as error:  # report and move on; a failed scan is retried on the next run
+                failed += 1
+                print(f"  {jobs[job]}: {type(error).__name__}: {str(error)[:120]}", flush=True)
+            if (done + failed) % 10 == 0:
+                print(f"  {done + failed} of {len(scans)} · {done} read · {failed} failed", flush=True)
+    print(f"Finished: {done} read, {failed} failed, {len(scans) - done - failed} left", flush=True)
+
+
+if __name__ == "__main__":
+    main()

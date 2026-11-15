@@ -15,8 +15,15 @@ function source(entry) {
   const url = /^https?:\/\//.test(entry?.source || '') ? `<a href="${esc(entry.source)}" target="_blank" rel="noopener">Source</a>` : esc(entry?.source || 'No source; not priced');
   return `<p class="sub">${url} · ${esc(entry?.confidence)}${entry?.published ? ' · published ' + esc(entry.published) : ''}${entry?.accessed ? ' · accessed ' + esc(entry.accessed) : ''}<br>${esc(entry?.notes)} ${esc(entry?.excludes)}</p>`;
 }
-async function request(url, options) {
-  const response = await fetch(url, options === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(options)});
+async function request(url, options, limitMs = 0) {
+  const init = options === undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(options)};
+  if (limitMs) init.signal = AbortSignal.timeout(limitMs);
+  let response;
+  try { response = await fetch(url, init); }
+  catch (error) {
+    if (error.name === 'TimeoutError') throw new Error(`no answer after ${Math.round(limitMs / 1000)} seconds. The check keeps running on the server; try again in a minute and a finished result opens at once`);
+    throw error;
+  }
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Cost calculation unavailable');
   return data;
@@ -41,15 +48,16 @@ function photosView(data) {
   const quote = (m.to_quote || []).map(i => `<li><b>${esc(i.title)}</b> · ${esc(qty(i.quantity, i.unit))}<br><span class="sub">${esc(i.reason)}</span></li>`).join('');
   let photos;
   if (!p.available) photos = `<p class="sub">${esc(p.reason)}</p>`;
+  else if (!p.read && p.can_read === false) photos = `<p class="sub">${esc(p.reason)}</p>`;
   else if (!p.read) photos = `<p class="sub">AI checks the tour photos for sprinkler heads, alarm devices, exit signs, water lines and windows, and updates the work list. It never sets a price.</p>
-    <button type="button" class="btn" data-read-photos>Check the photos with AI</button>${p.reason && p.reason !== 'Not read yet.' ? `<p class="sub">${esc(p.reason)}</p>` : ''}`;
+    <button type="button" class="btn" data-read-photos>Check the photos with AI</button><p class="sub">Usually under a minute; the first check of a tour also gathers its photos.</p>${p.reason && p.reason !== 'Not read yet.' ? `<p class="sub">${esc(p.reason)}</p>` : ''}`;
   else photos = `<ul class="cost-factors">${(p.considered || []).map(f => `<li><b>${esc(f.label)}</b>: ${esc(plain(f.seen))}<br>
       <span class="sub">${esc(f.effect)}${f.evidence ? ' Seen: ' + esc(f.evidence) + '.' : ''}</span></li>`).join('')}</ul>
     <p class="sub">Photos ${esc(p.method)} by ${esc(p.model)}. ${esc(p.notes)}</p>`;
   const nIncluded = (m.included || []).length, nQuote = (m.to_quote || []).length;
   return `<section class="cost-photos"><h3>Cost details</h3>${figures}
     <p class="cost-sum">${nIncluded} priced item${nIncluded === 1 ? '' : 's'}${nQuote ? ` · <span class="to-quote-count">${nQuote} still to quote</span>` : ''} · not a quote</p>
-    <details class="fold"><summary>What is in this figure</summary>
+    <details class="fold" data-panel="what"><summary>What is in this figure</summary>
       <p class="sub">Called-for work at the low end of LA prices, plus soft costs and contingency. A site visit and contractor pricing set the real figure.</p>
       ${included ? `<ul class="cost-factors">${included}</ul>` : ''}
       ${quote ? `<h4>Still to quote, not in the figure</h4><ul class="cost-factors to-quote">${quote}</ul>` : ''}
@@ -58,7 +66,7 @@ function photosView(data) {
       ${la.built ? `<p class="sub">LA prices: ${la.permits_kept.toLocaleString('en-US')} building permits read by a language model, built ${esc(la.built)}. Declared values run below final cost.</p>` : ''}
       ${bench ? `<details><summary>Other LA figures, for comparison</summary><ul class="sub">${bench}</ul></details>` : ''}
     </details>
-    <details class="fold"><summary>Tour photo check${p.read ? '' : p.available ? ' · not run yet' : ''}</summary>${photos}</details></section>`;
+    <details class="fold" data-panel="photos"><summary>Tour photo check${p.read ? '' : p.available ? ' · not run yet' : ''}</summary>${photos}</details></section>`;
 }
 // What the homes could earn: the AI-chosen comparables, the neighbourhood, and the rent range computed from them.
 const PLACE_LABELS = {rail_station:'Rail station', fire_station:'Fire station', police:'Police station', hospital:'Hospital',
@@ -71,9 +79,10 @@ function incomeView(data) {
   const figure = per ? `<p class="sub">${money(per.low)} to ${money(per.high)} a month per home${units ? ` · ${units.toLocaleString('en-US')} homes` : ''}${netYear != null ? ` · ${money(netYear)} a year after vacancy and operating costs` : ''} · asking rents, not achieved.</p>`
     : `<p class="sub">${esc(rent.reason || 'No rent figure yet.')}</p>`;
   if (!r.read) {
-    return `<details class="fold income-fold"><summary>What the homes could earn${per ? ` · ${money(per.typical)} a month per home` : ''}</summary>${figure}
+    return `<details class="fold income-fold" data-panel="income"><summary>What the homes could earn${per ? ` · ${money(per.typical)} a month per home` : ''}</summary>${figure}
       <p class="sub">${per ? 'Now: every studio floor plan within 3 miles. ' : ''}AI can pick the nearby communities that resemble this tower, using their neighbourhoods (stations, fire and police, shops, parks, schools); the rent is then computed from their floor plans.</p>
       <button type="button" class="btn" data-read-income>Research the income with AI</button>
+      <div class="ai-progress" data-income-progress hidden></div>
       ${r.reason && r.reason !== 'Not researched yet.' ? `<p class="sub">${esc(r.reason)}</p>` : ''}</details>`;
   }
   const t = r.target?.profile || {};
@@ -99,7 +108,9 @@ function incomeView(data) {
     r.furnished ? `Furnished corporate housing nearby: ${money(r.furnished.median)} per home across ${r.furnished.plans} plans.` : '',
     r.rentals?.count ? `Homes for rent nearby (Homes.com): ${r.rentals.count}, ${r.rentals.leased} with an agreed rent; median ${money(r.rentals.median_rent)} a month.` : '',
   ].filter(Boolean).map(e => `<li>${esc(e)}</li>`).join('');
-  return `<details class="fold income-fold"><summary>What the homes could earn${per ? ` · ${money(per.typical)} a month per home · researched` : ''}</summary>${figure}${chart}
+  return `<details class="fold income-fold" data-panel="income"><summary>What the homes could earn${per ? ` · ${money(per.typical)} a month per home · researched` : ''}</summary>${figure}${chart}
+    <button type="button" class="btn" data-read-income>Research again with AI</button>
+    <div class="ai-progress" data-income-progress hidden></div>
     <details class="fold"><summary>The neighbourhood</summary><ul class="cost-factors">${Object.keys(PLACE_LABELS).map(place).join('')}</ul>
       <p class="sub">${r.places_note ? esc(r.places_note) : `From OpenStreetMap, ${r.places_found} public places within 4 miles. The same profile was read for every community compared.`}</p></details>
     <details class="fold"><summary>Comparables chosen by AI · ${(r.comparables || []).length} of ${r.considered}</summary><ul class="cost-factors">${comps}</ul>
@@ -142,7 +153,7 @@ export async function mountCosts(root, url, onData = () => {}) {
     const defaults = data.defaults, lines = data.scenarios.base.lines;
     onData(data);
     root.innerHTML = `<div data-photos>${photosView(data)}</div><div data-income>${incomeView(data)}</div>
-      <details class="fold cost-more"><summary>Scenarios, income and assumptions</summary>
+      <details class="fold cost-more" data-panel="more"><summary>Scenarios, income and assumptions</summary>
       <p class="cost-warning">Residential scope: ${esc(data.scope)}. Building-wide work is counted at building quantities.</p>
       <form><div class="cost-controls"><label>Scenario<select name="scenario">${Object.entries(scenarios).map(([k,v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
       ${input('units', defaults.income.units, 'Housing units (income only)', '1')}${input('horizon_years', 5, 'Comparison horizon (years)')}</div>
@@ -163,17 +174,73 @@ export async function mountCosts(root, url, onData = () => {}) {
       <p class="sub">Edits last on this screen only and reset when you switch spaces or scans.</p>
       <button class="btn" type="submit">Recalculate</button><p data-status role="status" aria-live="polite"></p></form>
       <div data-results>${resultsView(data)}</div></details>`;
+    // Sub-tabs: the figure stays on top and one part of the detail shows at a time.
+    const SUBTABS = [['what', 'What is in the figure'], ['photos', 'Photo check'], ['income', 'What it could earn'], ['more', 'Scenarios and assumptions']];
+    root.classList.add('tabbed');
+    root.dataset.sub = root.dataset.sub || 'what';
+    root.insertAdjacentHTML('afterbegin', `<nav class="cost-subtabs" role="tablist" aria-label="Cost details">${SUBTABS.map(([k, v]) =>
+      `<button type="button" role="tab" data-sub="${k}">${v}</button>`).join('')}</nav>`);
+    const openPanels = () => root.querySelectorAll('[data-panel]').forEach(d => { d.open = true; });
+    const showSub = (k) => { root.dataset.sub = k; root.querySelectorAll('.cost-subtabs [data-sub]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.sub === k))); };
+    root.querySelectorAll('.cost-subtabs [data-sub]').forEach(b => { b.onclick = () => showSub(b.dataset.sub); });
+    openPanels(); showSub(root.dataset.sub);
     const form = root.querySelector('form'), status = root.querySelector('[data-status]');
-    let readPhotos = false;
+    let readPhotos = false, clock = 0;
     const bindPhotos = () => {
       const button = root.querySelector('[data-read-photos]');
-      if (button) button.onclick = () => { readPhotos = true; button.disabled = true; button.textContent = 'Checking the photos…'; form.requestSubmit(); };
+      if (button) button.onclick = () => {
+        readPhotos = true; button.disabled = true;
+        const started = Date.now(), tick = () => { button.textContent = `Checking the photos… ${Math.round((Date.now() - started) / 1000)} s`; };
+        tick(); clock = setInterval(tick, 1000); form.requestSubmit();
+      };
     };
     bindPhotos();
     let readIncome = false;
+    // Live progress while the research runs: the server reports its stage; the bar eases toward the next one.
+    const progressUrl = url.replace(/\/cost(\?.*)?$/, '/income-progress');
+    let watch = 0;
+    const watchIncome = () => {
+      const box = root.querySelector('[data-income-progress]');
+      if (!box) return;
+      box.hidden = false; box.classList.remove('done');
+      box.innerHTML = '<span class="ring" aria-hidden="true"></span><span class="msg">Starting the research…</span><span class="pct">1%</span><div class="bar"><span></span></div>';
+      let shown = 1, target = 3, ceiling = 30;
+      const paint = (msg) => {
+        shown = Math.min(ceiling - 1, Math.max(shown, target) + Math.max(0.15, (ceiling - shown) * 0.02));
+        box.querySelector('.pct').textContent = `${Math.round(shown)}%`;
+        box.querySelector('.bar span').style.width = `${shown}%`;
+        if (msg) box.querySelector('.msg').textContent = msg;
+      };
+      const next = { 3: 35, 35: 55, 55: 88, 88: 99 };
+      watch = setInterval(async () => {
+        let msg = '';
+        try {
+          const p = await (await fetch(progressUrl)).json();
+          if (p.running) { target = p.percent; ceiling = next[p.percent] ?? 99; msg = p.message; }
+        } catch {}
+        paint(msg);
+      }, 1000);
+    };
+    const stopIncome = (ok) => {
+      clearInterval(watch);
+      const box = root.querySelector('[data-income-progress]');
+      if (!box || box.hidden) return;
+      box.classList.add('done');
+      box.querySelector('.pct').textContent = ok ? '100%' : '–';
+      box.querySelector('.bar span').style.width = ok ? '100%' : '0';
+      box.querySelector('.msg').textContent = ok ? 'Research finished' : 'The research stopped';
+    };
+    let aiAllowed = true;
+    fetch('/api/agent').then(r => r.json()).then(c => { aiAllowed = c.ai_allowed !== false; bindIncome(); }).catch(() => {});
     const bindIncome = () => {
       const button = root.querySelector('[data-read-income]');
-      if (button) button.onclick = () => { readIncome = true; button.disabled = true; button.textContent = 'Researching the neighbourhood and comparables… about a minute'; form.requestSubmit(); };
+      if (!button) return;
+      if (!aiAllowed) {
+        button.disabled = true;
+        if (!button.nextElementSibling?.classList.contains('ai-locked')) button.insertAdjacentHTML('afterend', '<p class="ai-locked">AI runs open with the judges\' link.</p>');
+        return;
+      }
+      button.onclick = () => { readIncome = true; button.disabled = true; button.textContent = 'Researching…'; showSub('income'); watchIncome(); form.requestSubmit(); };
     };
     bindIncome();
     const field = name => form.elements.namedItem(name);
@@ -194,17 +261,24 @@ export async function mountCosts(root, url, onData = () => {}) {
       const controls = [...form.querySelectorAll('input, select, button')];
       controls.forEach(el => { el.disabled = true; });
       try {
-        const result = await request(url, options);
+        // The AI reads can take a while; give up waiting after a set time rather than spin without end.
+        const result = await request(url, options, readIncome ? 240000 : readPhotos ? 150000 : 60000);
         if (!root.isConnected) return;
         root.querySelector('[data-results]').innerHTML = resultsView(result);
         root.querySelector('[data-photos]').innerHTML = photosView(result); bindPhotos(); onData(result);
+        if (readIncome) stopIncome(Boolean(result.income_research?.read));
         root.querySelector('[data-income]').innerHTML = incomeView(result); bindIncome();
-        if (readIncome) root.querySelector('[data-income] > details').open = true; // show what was just researched
+        openPanels();
+        if (readIncome) showSub('income'); else if (readPhotos) showSub('photos'); // show what was just read
         if (readIncome && result.income_research?.read) levels.forEach(k => { field(`rent.${k}`).value = result.income.monthly_rent_per_unit?.[k] ?? ''; });
         status.textContent = readIncome ? (result.income_research?.read ? 'Income researched. The rent and payback now use the chosen comparables.' : 'The income research did not finish; the earlier rent is kept.')
           : readPhotos ? 'Photos checked. The work list and minimum now reflect them.' : 'Results updated. Edited values are Team assumptions.';
-      } catch (error) { status.textContent = `Could not recalculate: ${error.message}. Previous results remain below.`; }
-      finally { readPhotos = false; readIncome = false; controls.forEach(el => { el.disabled = false; }); }
+      } catch (error) {
+        status.textContent = `Could not recalculate: ${error.message}. Previous results remain below.`;
+        const photoButton = root.querySelector('[data-read-photos]');
+        if (readPhotos && photoButton) { photoButton.disabled = false; photoButton.textContent = 'Check the photos with AI'; photoButton.insertAdjacentHTML('afterend', `<p class="sub">${esc(error.message)}.</p>`); }
+      }
+      finally { clearInterval(clock); if (readIncome) stopIncome(false); readPhotos = false; readIncome = false; controls.forEach(el => { el.disabled = false; }); }
     };
   } catch (error) { root.textContent = `Cost inputs unavailable: ${error.message}`; }
 }

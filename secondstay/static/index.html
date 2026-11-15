@@ -8,6 +8,24 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="/costs.css">
+<script>
+  // The judges' link (?judge=…) unlocks the AI runs on the public demo; the key is kept in this browser only.
+  (() => {
+    const url = new URL(location.href), key = url.searchParams.get("judge");
+    try { if (key) localStorage.setItem("secondstay-judge", key); } catch {}
+    if (key) { url.searchParams.delete("judge"); history.replaceState(null, "", url.pathname + url.search + url.hash); }
+    let saved = key; try { saved = saved || localStorage.getItem("secondstay-judge"); } catch {}
+    if (!saved) return;
+    const send = window.fetch.bind(window);
+    window.fetch = (input, init = {}) => {
+      const target = new URL(typeof input === "string" ? input : input.url, location.href);
+      if (target.origin !== location.origin) return send(input, init);
+      const headers = new Headers(init.headers || (typeof input === "string" ? undefined : input.headers));
+      headers.set("X-Judge-Key", saved);
+      return send(input, { ...init, headers });
+    };
+  })();
+</script>
 <script type="importmap">
 { "imports": {
     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -345,7 +363,27 @@
 .head-actions { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .field { display: inline-flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .field select { color: var(--ink); font-size: 13px; padding: 6px 8px; min-width: 120px; }
-.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+/* Check with AI sits inside the rules list, as a strip under its heading */
+.checklist .agent-panel { max-height: none; overflow: visible; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel2); }
+.agent-bar { display: flex; align-items: center; gap: 14px; }
+.agent-mark { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 10px; background: var(--ink); color: #FFFFFF; font: 700 12px var(--sans); }
+.agent-intro { flex: 1; min-width: 0; }
+.agent-intro b { font-size: 14px; }
+.agent-intro p { margin: 2px 0 0; font-size: 12.5px; }
+.agent-intro .agent-status { color: var(--ink); font-weight: 500; }
+.checklist .agent-actions { margin: 0; flex: none; align-items: center; }
+.agent-steps { margin-top: 8px; }
+.agent-steps > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--accent); }
+.agent-steps .agent-log { margin: 10px 0 0; columns: 2 320px; column-gap: 32px; }
+.agent-steps .agent-log li { break-inside: avoid; }
+@media (max-width: 700px) { .agent-bar { flex-wrap: wrap; } .checklist .agent-actions { width: 100%; } }
+/* Cost details is a tab beside the 3D views: it takes the stage's place at the column's full width */
+.scene-column .costs { order: 2; margin: 0; padding: 20px 24px; display: none; }
+.scene-column.cost-mode .costs { display: flex; }
+.scene-column.cost-mode .stage, .scene-column.cost-mode #floor-directory, .scene-column.cost-mode .floor-resource-bar,
+.scene-column.cost-mode .floor-detail, .scene-column.cost-mode .floor-ledger, .scene-column.cost-mode .floor-coverage { display: none !important; }
+.kpi.hero { cursor: pointer; }
 .scene-column { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .scene-column .stage { order: 2; height: 600px; }
 .scene-column .floor-coverage, .scene-column .floor-ledger { order: 3; margin: 0; }
@@ -533,6 +571,9 @@ table.kv code, .evidence .src code { display: none; }
 .kpi.hero .k, .kpi.hero .s { color: #B6BDC7; }
 .kpi .v.found { color: var(--found); } .kpi .v.issue { color: var(--issue); }
 @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* narrow screens: big figures shrink to fit their card, and the header keeps only the logo */
+@media (max-width: 560px) { .kpi { padding: 14px; } .kpi .v { font-size: 20px; } .kpi .v .of { font-size: 13px; } }
+@media (max-width: 700px) { header.top .tag { display: none; } }
 
 /* requirements as tiles with a status icon */
 .checklist .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; padding: 12px; max-height: none; overflow: visible; }
@@ -774,8 +815,9 @@ function stopScene() { if (live) { live.dispose(); live = null; } tip.style.disp
 
 function makeStage(host, options = {}) {
   const gl = host.querySelector(".gl"), labelHost = host.querySelector(".labels");
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+  // Full-width stages on a retina screen cost four times the pixels at 2x; 1.5x looks the same and keeps frames smooth.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   gl.appendChild(renderer.domElement);
   const labels = new CSS2DRenderer({ element: labelHost });
   // Plan images cannot be read as textures (their host sends no cross-origin header), so they are laid in as page elements.
@@ -790,17 +832,23 @@ function makeStage(host, options = {}) {
   scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8578, 1.0));
   const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(120, 260, 80); scene.add(sun);
 
-  const composer = new EffectComposer(renderer);
-  composer.addPass(new RenderPass(scene, camera));
-  if (options.bloom === true) composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.6, 0.72)); // flat theme: no glow unless asked
-  composer.addPass(new OutputPass());
+  // Post-processing only when a glow is asked for; otherwise draw straight to the screen and skip two extra full-screen draws.
+  const composer = options.bloom === true ? new EffectComposer(renderer) : null;
+  if (composer) {
+    composer.addPass(new RenderPass(scene, camera));
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.6, 0.72));
+    composer.addPass(new OutputPass());
+  }
 
   const size = () => {
     const w = host.clientWidth, h = host.clientHeight;
-    renderer.setSize(w, h); composer.setSize(w, h); labels.setSize(w, h); flat.setSize(w, h);
+    renderer.setSize(w, h); composer?.setSize(w, h); labels.setSize(w, h); flat.setSize(w, h);
     camera.aspect = w / h; camera.updateProjectionMatrix();
   };
   const watcher = new ResizeObserver(size); watcher.observe(host); size();
+  // Draw only while the stage is on screen: scrolling past the landing map frees the page to scroll smoothly.
+  let onScreen = true;
+  const seen = new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; }); seen.observe(host);
   renderer.domElement.addEventListener("pointerdown", () => { controls.autoRotate = false; });
 
   const ticks = [];
@@ -810,16 +858,47 @@ function makeStage(host, options = {}) {
     if (!alive) return;
     frame = requestAnimationFrame(loop);
     const t = clock.getElapsedTime();
+    if (!onScreen) return;
     ticks.forEach((fn) => fn(t));
-    controls.update(); composer.render(); flat.render(scene, camera); labels.render(scene, camera);
+    controls.update(); composer ? composer.render() : renderer.render(scene, camera); flat.render(scene, camera); labels.render(scene, camera);
+    declutter(labelHost);
   };
   loop();
   const dispose = () => {
-    alive = false; cancelAnimationFrame(frame); watcher.disconnect(); controls.dispose();
+    alive = false; cancelAnimationFrame(frame); watcher.disconnect(); seen.disconnect(); controls.dispose();
     scene.traverse((o) => { o.geometry?.dispose(); if (o.material) [].concat(o.material).forEach((m) => { m.map?.dispose(); m.dispose(); }); });
-    composer.dispose(); renderer.dispose(); gl.replaceChildren(); labelHost.replaceChildren(); flatHost.remove();
+    composer?.dispose(); renderer.dispose(); gl.replaceChildren(); labelHost.replaceChildren(); flatHost.remove();
   };
   return { scene, camera, controls, renderer, ticks, dispose };
+}
+
+// Labels in a 3D view can land on top of one another (three heights a few feet apart) or past the view's edge.
+// After each frame: keep every label inside the view, then walk them top to bottom and move any label that
+// overlaps one already placed to just below it. The 3D renderer rewrites each position every frame, so the
+// nudge never accumulates, and a label only moves while it would otherwise collide.
+const LABEL_GAP = 3, LABEL_EDGE = 6;
+function declutter(labelHost) {
+  const els = [];
+  for (const el of labelHost.children) if (el.style.display !== "none") els.push(el); // hidden by CSS: zero size, dropped below
+  if (!els.length) return;
+  const box = labelHost.getBoundingClientRect();
+  if (!box.width) return;
+  const items = els.map((el) => { const r = el.getBoundingClientRect(); return { el, l: r.left - box.left, t: r.top - box.top, w: r.width, h: r.height }; })
+    .filter((it) => it.w && it.h).sort((a, b) => a.t - b.t || a.l - b.l);
+  const placed = [];
+  for (const it of items) {
+    let left = Math.min(Math.max(it.l, LABEL_EDGE), Math.max(LABEL_EDGE, box.width - LABEL_EDGE - it.w));
+    let top = Math.max(it.t, LABEL_EDGE);
+    for (let moved = true, guard = 0; moved && guard < placed.length + 1; guard++) {
+      moved = false;
+      for (const p of placed) {
+        if (left < p.l + p.w && left + it.w > p.l && top < p.t + p.h + LABEL_GAP && top + it.h + LABEL_GAP > p.t) { top = p.t + p.h + LABEL_GAP; moved = true; }
+      }
+    }
+    placed.push({ l: left, t: top, w: it.w, h: it.h });
+    const dx = Math.round(left - it.l), dy = Math.round(top - it.t);
+    if (dx || dy) it.el.style.transform += ` translate(${dx}px, ${dy}px)`;
+  }
 }
 
 function tag(text, cls = "") {
@@ -2326,6 +2405,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
             <button class="btn" data-scene-mode="isolated" aria-pressed="false">Floor</button>
             <button class="btn" data-scene-mode="exploded" aria-pressed="false" hidden>Stacked floors</button>
             ${data.scan.model_id ? '<button class="btn" data-scene-mode="tour" aria-pressed="false">Walk-through</button>' : ""}
+            <button class="btn" data-scene-mode="cost" aria-pressed="false">Cost details</button>
           </div>
           <label class="field">Floor <select id="floor-picker" aria-label="Selected building floor">${(marketFloors.length ? marketFloors : Array.from({length:b.stories || 1},(_,i)=>(b.stories || 1)-i)).map(n=>`<option value="${n}" ${n===chosenFloor?"selected":""}>${n}</option>`).join("")}</select></label>
         </nav>
@@ -2344,6 +2424,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
             ${metric("On the market", num(b.available_sqft), " sq ft")}
           </div>
         </div>
+        <section class="panel costs" id="costs" aria-label="Cost details: the least the published rules call for"></section>
         <section class="panel floor-detail" id="floor-detail" hidden>
           <h3 id="floor-title"></h3>
           <details class="fold"><summary>About this floor's sources</summary>
@@ -2362,6 +2443,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
         </section>
         <section class="panel checklist">
           <div class="checklist-head"><h3>What the rules ask for <span class="hint">Select one to see the evidence</span></h3>${stateBar(data.counts)}</div>
+          <div class="agent-panel" id="agent-panel" aria-label="Check with AI"></div>
           <div class="rows" id="rows">${data.rows.map((r) => `
             <button class="row" data-key="${r.key}" title="${esc(r.state)}">
               <span class="tile-icon ${BAR_CLASS[r.state] || ""}" aria-hidden="true">${STATE_GLYPH[r.state] || "·"}</span>
@@ -2374,10 +2456,6 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
             </button>`).join("")}</div>
         </section>
       </div>
-      <aside class="side">
-        <section class="panel costs" id="costs" aria-label="Least the published rules call for"></section>
-        <section class="panel agent-panel" id="agent-panel" aria-label="Evidence agent"></section>
-      </aside>
     </div>
     <div class="drawer-scrim" id="drawer-scrim" hidden></div>
     <section class="panel evidence drawer" id="evidence-drawer" aria-label="Evidence for the selected requirement" aria-hidden="true">
@@ -2477,8 +2555,8 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     view.innerHTML = `<iframe title="Matterport 3D tour" allow="xr-spatial-tracking; fullscreen" allowfullscreen src="${esc(url)}"></iframe>
       <div class="tour-bar"><span><button class="btn" data-tour-back>← Back to floor plan</button>
         <b>Matterport 3D tour</b>${name ? " · " + esc(name) : ""} · photographed as listed</span>
-        <span><a class="btn" href="#costs">Cost and income estimate ↓</a> <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open in new tab</a></span></div>`;
-    view.querySelector('a[href="#costs"]').onclick = event => { event.preventDefault(); document.getElementById("costs")?.scrollIntoView({ behavior: "smooth" }); };
+        <span><a class="btn" href="#costs">Cost details</a> <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open in new tab</a></span></div>`;
+    view.querySelector('a[href="#costs"]').onclick = event => { event.preventDefault(); showCostTab(true); };
     view.querySelector("[data-tour-back]").onclick = () => leaveTour();
   }
   const selectedName = () => data.scan.suite ? `Suite ${data.scan.suite}` : (sp?.suite ? `Suite ${sp.suite}` : "");
@@ -2538,7 +2616,19 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     document.getElementById("scene-column").dataset.mode = mode; // floor controls show only in the floor views
     rememberScene();
   }
-  document.querySelectorAll("[data-scene-mode]").forEach(el => el.onclick = () => showScene(el.dataset.sceneMode));
+  const sceneColumn = document.getElementById("scene-column");
+  function showCostTab(on) {
+    sceneColumn.classList.toggle("cost-mode", on);
+    document.querySelectorAll("[data-scene-mode]").forEach(el => el.setAttribute("aria-pressed", String(on ? el.dataset.sceneMode === "cost" : el.dataset.sceneMode === viewMode)));
+  }
+  document.querySelectorAll("[data-scene-mode]").forEach(el => el.onclick = () => {
+    const mode = el.dataset.sceneMode;
+    if (mode === "cost") return showCostTab(true);
+    const wasCost = sceneColumn.classList.contains("cost-mode");
+    showCostTab(false);
+    if (!wasCost || mode !== viewMode) showScene(mode);
+  });
+  document.getElementById("kpi-cost")?.closest(".kpi")?.addEventListener("click", () => { showCostTab(true); sceneColumn.scrollIntoView({ behavior: "smooth", block: "start" }); });
   document.getElementById("floor-resource").onchange = event => { data.interiorAsset = event.target.value; showScene("isolated"); };
   updateFloorControls();
   document.getElementById("floor-picker").onchange = event => showScene("isolated", event.target.value);
@@ -2587,12 +2677,16 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
 
 function mountAgent(host, buildingId, spaceId, scanId) {
   let timer = null;
-  host.innerHTML = `<h2>Check with AI</h2><p class="sub">An AI agent reads every record for this building, cross-checks them and lists what to confirm next. The latest check is shown; run it again when the records change.</p>
+  host.innerHTML = `<div class="agent-bar"><span class="agent-mark" aria-hidden="true">AI</span>
+      <div class="agent-intro"><b>Check with AI</b><p class="sub">An AI agent reads every record for this building, cross-checks them against these rules and lists what to confirm next.</p>
+        <p class="agent-status" id="agent-status" role="status" aria-live="polite"></p>
+        <div class="ai-progress" id="agent-progress" hidden><span class="ring" aria-hidden="true"></span><span class="msg" id="agent-now"></span>
+          <span class="pct" id="agent-pct">0%</span><div class="bar"><span id="agent-bar"></span></div></div></div>
+      <div class="agent-actions"><label class="sub agent-history" hidden>Earlier checks <select id="agent-history" aria-label="Earlier checks"></select></label>
+        <button class="btn" id="agent-start" disabled>Run the check</button></div></div>
     <p class="sub" id="agent-config" hidden>Checking local model settings…</p>
-    <div class="agent-actions"><button class="btn" id="agent-start" disabled>Run the check</button></div>
-    <label class="sub agent-history" hidden>Earlier checks <select id="agent-history" aria-label="Earlier checks"></select></label>
-    <p id="agent-status" role="status" aria-live="polite"></p>
-    <ol class="agent-log" id="agent-log"></ol><div class="agent-result" id="agent-result"></div>`;
+    <details class="agent-steps" id="agent-steps"><summary>What the AI did <span id="agent-count" class="sub"></span></summary>
+      <ol class="agent-log" id="agent-log"></ol><div class="agent-result" id="agent-result"></div></details>`;
   const el = (id) => host.querySelector(`#agent-${id}`);
   const query = new URLSearchParams({ space: spaceId, scan: scanId });
   const endpoint = `/api/spaces/${buildingId}/reviews`;
@@ -2611,6 +2705,22 @@ function mountAgent(host, buildingId, spaceId, scanId) {
         <b>${esc(r.requirement)}</b> ${badge(r.state)}<p>${esc(r.evidence)}</p>
         <p class="sub">${esc(r.layer)} · To be confirmed by ${esc(r.confirmed_by)}</p></article>`).join("")}</details>`;
   };
+  // Progress: the review must finish six evidence steps and then record; each finished one is a share of the bar.
+  const MUST = ["inspect_gaps", "read_record", "read_scan", "read_outside", "read_streets", "cross_check", "write_review"];
+  const showProgress = (run, entries) => {
+    const box = el("progress");
+    if (run.status !== "running" && !box.dataset.live) { box.hidden = true; return; }
+    const done = new Set(entries.filter((e) => e.stage === "finished" && MUST.includes(e.action)).map((e) => e.action));
+    const last = [...entries].reverse().find((e) => e.stage === "started");
+    const finished = run.status !== "running";
+    const pct = finished ? 100 : Math.min(95, Math.max(4, Math.round((done.size / MUST.length) * 100)));
+    box.hidden = false; box.dataset.live = finished ? "" : "1";
+    box.classList.toggle("done", finished);
+    el("now").textContent = finished ? (run.status === "completed" ? "Check finished" : `Check ${run.status}`)
+      : last ? last.message : "Starting the AI agent…";
+    el("pct").textContent = `${pct}%`;
+    el("bar").style.width = `${pct}%`;
+  };
   const draw = (run, limit = run.events.length) => {
     const entries = run.events.slice(0, limit);
     el("log").innerHTML = entries.filter(e => e.stage !== "finished").map(e => `<li>${esc(e.message)}
@@ -2620,8 +2730,11 @@ function mountAgent(host, buildingId, spaceId, scanId) {
       item.textContent = `${event.action.replaceAll("_", " ")}: ${event.observation.unavailable || event.observation.error}`;
       el("log").appendChild(item);
     }
+    el("count").textContent = entries.length ? `· ${entries.filter(e => e.stage !== "finished").length} steps` : "";
+    if (run.status === "running") el("steps").open = true; // follow a live check as it runs
     el("status").textContent = run.status === "running" ? "Checking now…"
       : `Checked ${new Date(run.started_at).toLocaleString()} · ${run.status}`;
+    showProgress(run, entries);
     if (limit === run.events.length) showResult(run);
   };
   const history = async () => {
@@ -2644,6 +2757,8 @@ function mountAgent(host, buildingId, spaceId, scanId) {
   };
   el("start").onclick = async () => {
     clearTimeout(timer); el("start").disabled = true;
+    el("progress").hidden = false; el("progress").dataset.live = "1"; el("progress").classList.remove("done");
+    el("now").textContent = "Starting the AI agent…"; el("pct").textContent = "2%"; el("bar").style.width = "2%";
     el("result").innerHTML = ""; el("log").innerHTML = "";
     try {
       const run = await request(endpoint, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({space:spaceId,scan:scanId}) });
@@ -2663,6 +2778,7 @@ function mountAgent(host, buildingId, spaceId, scanId) {
     if (!host.isConnected) return;
     el("config").textContent = config.message;
     el("start").disabled = !config.ready;
+    if (config.ai_allowed === false) el("start").insertAdjacentHTML("afterend", `<p class="ai-locked">${esc(config.message)}</p>`);
     if (runs?.[0]?.status === "running") { el("start").disabled = true; poll(runs[0].id); }
     else {
       const latest = runs?.find((r) => r.status === "completed");

@@ -13,8 +13,7 @@ cp -R "$repo/secondstay" "$out/app/"
 cp "$repo/assumptions.json" "$repo/la_permit_prices.json" "$repo/pyproject.toml" "$out/app/"
 cp -R "$repo/data/raw" "$out/app/data/raw"
 cp "$kit/data/apartment-listing.jsonl" "$kit/data/residential-listings.jsonl" "$out/kit/data/"
-# Agent run history and caches of Python bytecode stay local.
-rm -rf "$out/app/data/raw/agent_runs"
+# Stored AI checks go along (each building opens on its last check); bytecode caches stay local.
 find "$out" -name __pycache__ -type d -prune -exec rm -rf {} +
 find "$out" -name .DS_Store -delete
 du -sh "$out"

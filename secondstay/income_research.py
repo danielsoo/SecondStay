@@ -26,6 +26,7 @@ they hold CoStar records.
 
 import datetime as dt
 import json
+import threading
 import math
 import re
 import time
@@ -210,6 +211,8 @@ def gather(building: dict, height_ft: Optional[float] = None, places: Optional[l
             places = fetch_places(*here)
         except RuntimeError as error:  # the comparables still stand on building facts and rents alone
             places, places_note = [], f"Neighbourhood facilities were not read: {error}."
+    if building["property_id"] in _PROGRESS:
+        _step(building["property_id"], 35, f"Found {len(places)} public places; profiling nearby apartment communities")
     nearby = sorted(((miles(here, (c["lat"], c["lon"])), c) for c in apartment_index()), key=lambda x: x[0])
     nearby = [(d, c) for d, c in nearby if d <= RADIUS_MI]
     # The nearest communities, plus every tower and furnished community in range: they matter most for an office tower.
@@ -388,12 +391,45 @@ def cached(property_id) -> Optional[dict]:
     return json.loads(path.read_text()) if path.exists() else None
 
 
+# What a running research is doing, for the screen's progress bar: {property_id: {...}}.
+_PROGRESS: dict = {}
+_ONE_AT_A_TIME = threading.Lock()
+
+
+def progress(property_id) -> dict:
+    return _PROGRESS.get(int(property_id)) or {"running": False}
+
+
+def _step(property_id, percent: int, message: str, running: bool = True) -> None:
+    _PROGRESS[int(property_id)] = {"running": running, "percent": percent, "message": message,
+                                   "at": dt.datetime.now(dt.timezone.utc).isoformat()}
+
+
 def research(building: dict, height_ft: Optional[float] = None, model=None) -> dict:
-    """Gather, choose and estimate for one building, then cache the result."""
+    """Gather, choose and estimate for one building, then cache the result. One research runs at a time."""
+    if not _ONE_AT_A_TIME.acquire(blocking=False):
+        raise RuntimeError("another income research is running; try again in a minute")
+    pid = building["property_id"]
+    try:
+        _step(pid, 3, "Reading the neighbourhood: stations, fire and police, shops, parks, schools")
+        result = _research(building, height_ft, model)
+        _step(pid, 100, "Done", running=False)
+        return result
+    except Exception:
+        _step(pid, 100, "Stopped", running=False)
+        raise
+    finally:
+        _ONE_AT_A_TIME.release()
+
+
+def _research(building: dict, height_ft: Optional[float] = None, model=None) -> dict:
     from . import agent
 
+    pid = building["property_id"]
     inputs = gather(building, height_ft)
+    _step(pid, 55, f"AI is comparing {len(inputs['candidates'])} nearby apartment communities with this building")
     choice = choose(inputs, model)
+    _step(pid, 88, f"Computing rents from the floor plans of {len(choice.get('comparables') or [])} chosen communities")
     result = estimate(inputs, choice)
     if model is None:
         provider, name, _ = agent.model_settings()
@@ -409,7 +445,7 @@ def research(building: dict, height_ft: Optional[float] = None, model=None) -> d
 def reading(building: dict, height_ft: Optional[float] = None, read_now: bool = False) -> dict:
     """The cached research, or a fresh one when asked; never raises for the screen."""
     found = cached(building["property_id"])
-    if found:
+    if found and not read_now:
         return found
     if not read_now:
         return {"available": True, "read": False, "reason": "Not researched yet."}

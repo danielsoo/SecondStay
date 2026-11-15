@@ -251,6 +251,9 @@ def showcase_key(card: dict) -> tuple:
     return (-(1 if card.get("scans") else 0), -card.get("floors_3d", 0), -card.get("scans", 0), -(card.get("available_sqft") or 0))
 
 
+JUDGES_ONLY = "AI runs on this public demo open with the judges' link."
+
+
 def building_card(b: costar.Building) -> dict:
     card = asdict(b)
     card["zone"] = b.zone
@@ -474,6 +477,29 @@ def region_box(buildings: list) -> list:
             round(max(lons) + REGION_PAD, 6), round(max(lats) + REGION_PAD, 6)]
 
 
+_slim_cache: dict = {}
+
+
+def slim_jpeg(image: bytes, max_px: int, quality: int = 72) -> bytes:
+    """A smaller copy of an image for the screen: at most max_px on the long side, recompressed.
+    Kept in memory per process. Without Pillow the original is returned unchanged."""
+    key = (len(image), hash(image[:4096]), max_px, quality)
+    if key in _slim_cache:
+        return _slim_cache[key]
+    try:
+        import io
+        from PIL import Image
+        picture = Image.open(io.BytesIO(image)).convert("RGB")
+        picture.thumbnail((max_px, max_px))
+        out = io.BytesIO()
+        picture.save(out, "JPEG", quality=quality, optimize=True, progressive=True)
+        slim = out.getvalue() if out.tell() < len(image) else image
+    except Exception:  # Pillow missing or an unreadable image: send what we have
+        slim = image
+    _slim_cache[key] = slim
+    return slim
+
+
 def region_image(buildings: list) -> bytes:
     """One Vexcel image under every building on the landing view. Cached under data/raw/ (git-ignored)."""
     box = region_box(buildings)
@@ -582,7 +608,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        # Imagery never changes once fetched, so the browser may keep it; data and pages are always fresh.
+        self.send_header("Cache-Control", "public, max-age=86400" if content_type.startswith("image/") else "no-store")
         for key, value in (extra or {}).items():
             self.send_header(key, value)
         self.end_headers()
@@ -606,15 +633,23 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as error:
             return self._json({"error": str(error)}, 400)
 
+    def ai_allowed(self) -> bool:
+        """Billable AI runs: always on this machine; on the public site only with the judges' link (JUDGE_KEY)."""
+        import hmac
+        host = self.headers.get("Host", "")
+        if urlparse("http://" + host).hostname in ("localhost", "127.0.0.1"):
+            return True
+        key = os.environ.get("JUDGE_KEY", "")
+        return bool(key) and hmac.compare_digest(self.headers.get("X-Judge-Key", ""), key)
+
     def do_POST(self):
         from . import agent
-        # A browser on another origin must not initiate billable local runs.
+        # A browser on another origin must not initiate billable runs.
         host = self.headers.get("Host", "")
         origin = self.headers.get("Origin")
-        if (urlparse("http://" + host).hostname not in ("localhost", "127.0.0.1")
-                or (origin and origin != "http://" + host)
+        if ((origin and origin not in ("http://" + host, "https://" + host))
                 or self.headers.get("Content-Type") != "application/json"):
-            return self._json({"error": "Use the local evidence review screen."}, 403)
+            return self._json({"error": "Use the SecondStay screen."}, 403)
         if re.fullmatch(r"/api/spaces/\d+/cost", urlparse(self.path).path):
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -623,7 +658,12 @@ class Handler(BaseHTTPRequestHandler):
                 options = json.loads(self.rfile.read(length))
             except (ValueError, UnicodeError) as error:
                 return self._json({"error": str(error)}, 400)
+            # Recalculating is free; reading photos or researching rents calls a model.
+            if isinstance(options, dict) and (options.get("read_income") or options.get("read_photos")) and not self.ai_allowed():
+                return self._json({"error": JUDGES_ONLY}, 403)
             return self._cost(urlparse(self.path), options)
+        if not self.ai_allowed():
+            return self._json({"error": JUDGES_ONLY}, 403)
         match = re.fullmatch(r"/api/spaces/(\d+)/reviews", self.path)
         building = self.buildings.get(int(match.group(1))) if match else None
         if building is None:
@@ -676,14 +716,20 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(city_costs(list(self.buildings.values())))
         if url.path == "/api/city/aerial.jpg":
             try:
-                return self._send(200, region_image(list(self.buildings.values())), "image/jpeg")
+                return self._send(200, slim_jpeg(region_image(list(self.buildings.values())), 2560, 70), "image/jpeg")
             except Exception as error:  # no key or provider failure: the landing view falls back to a plain ground
                 return self._json({"error": f"Regional imagery unavailable ({type(error).__name__})."}, 503)
         if url.path == "/api/spaces":
             return self._json(cached_list(list(self.buildings.values())))
+        progress = re.fullmatch(r"/api/spaces/(\d+)/income-progress", url.path)
+        if progress:
+            from . import income_research
+            return self._json(income_research.progress(int(progress.group(1))))
         if url.path == "/api/agent":
             from .agent import configuration
-            return self._json(configuration())
+            if not self.ai_allowed():
+                return self._json({"ready": False, "ai_allowed": False, "message": JUDGES_ONLY})
+            return self._json({**configuration(), "ai_allowed": True})
         review = re.fullmatch(r"/api/reviews/([a-f0-9]{32})(/report\.md)?", url.path)
         if review:
             from .agent import load_run
@@ -730,7 +776,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"error": "The surface could not be read"}, 502)
         if match.group(2) == "/aerial.jpg":
             try:
-                return self._send(200, read_image(building, context=query.get("context") == ["1"]), "image/jpeg")
+                context = query.get("context") == ["1"]
+                image = read_image(building, context=context)
+                # The wide context photo only fades in under the landing map; the close-up stays sharp for the building page.
+                return self._send(200, slim_jpeg(image, 1024) if context else image, "image/jpeg")
             except Exception:
                 return self._json({"error": "The image could not be read"}, 502)
         scan = (query.get("scan") or [""])[0]

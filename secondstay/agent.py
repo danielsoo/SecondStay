@@ -66,7 +66,8 @@ def chat_model(vision=False):
 
 
 def configuration():
-    if os.getenv('SECONDSTAY_OFFLINE'):
+    # The public demo stays offline for maps and scans but may run the text agent (SECONDSTAY_ALLOW_AI).
+    if os.getenv('SECONDSTAY_OFFLINE') and not os.getenv('SECONDSTAY_ALLOW_AI'):
         return {'ready': False, 'message': 'Offline mode. Saved reviews are available for replay.'}
     try:
         model_settings()

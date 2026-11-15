@@ -204,6 +204,23 @@ NO_TOUR = ("No Matterport 3D tour is on record for this space. That says nothing
            "water lines, windows) cannot be measured here, so their effect on the cost cannot be estimated.")
 
 
+def photo_check_blocked():
+    """Why this server cannot run the AI photo check, or "" when it can."""
+    import importlib.util
+    import os
+
+    from . import agent
+    if os.getenv("SECONDSTAY_OFFLINE"):
+        return "The AI photo check is off in this public demo; it runs where a vision model is configured."
+    try:
+        agent.model_settings(vision=True)
+    except agent.ConfigurationError:
+        return "The AI photo check needs a vision model: set SECONDSTAY_VISION_MODEL and its API key."
+    if importlib.util.find_spec("langchain_core") is None:
+        return "The AI photo check needs the agent dependencies: pip install -e \".[agent]\"."
+    return ""
+
+
 def photo_reading(context, read_now=False):
     """The scan's requirement-related photo reading; sent to a model only when asked."""
     scan = (context.get("scan") or {}).get("model_id") or ""
@@ -211,6 +228,10 @@ def photo_reading(context, read_now=False):
         return {"available": False, "read": False,
                 "reason": NO_TOUR}
     reading = cost_reading.cached(scan)
+    if reading is None:
+        blocked = photo_check_blocked()
+        if blocked:  # say so up front instead of offering a button that cannot finish
+            return {"available": True, "read": False, "can_read": False, "reason": blocked}
     if reading is None and read_now:
         try:
             reading = cost_reading.read(scan)

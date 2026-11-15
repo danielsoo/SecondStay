@@ -58,11 +58,20 @@ def test_minimum_lists_called_for_work_and_what_still_needs_a_quote():
 def test_photos_are_read_only_when_asked(monkeypatch):
     assert finances.photo_reading({"scan": {"model_id": ""}})["available"] is False
     monkeypatch.setattr(cost_reading, "cached", lambda scan: None)
+    monkeypatch.setattr(finances, "photo_check_blocked", lambda: "")
     calls = []
     monkeypatch.setattr(cost_reading, "read", lambda scan: calls.append(scan) or reading(sprinkler_heads="seen"))
     assert finances.photo_reading({"scan": {"model_id": "SAMPLE0001"}})["read"] is False and not calls
     done = finances.photo_reading({"scan": {"model_id": "SAMPLE0001"}}, read_now=True)
     assert calls == ["SAMPLE0001"] and done["read"] and done["reading"]["sprinkler_heads"] == "seen"
+
+
+def test_photo_check_says_up_front_when_it_cannot_run(monkeypatch):
+    monkeypatch.setattr(cost_reading, "cached", lambda scan: None)
+    monkeypatch.setenv("SECONDSTAY_OFFLINE", "1")
+    monkeypatch.setattr(cost_reading, "read", lambda scan: (_ for _ in ()).throw(AssertionError("must not read")))
+    result = finances.photo_reading({"scan": {"model_id": "SAMPLE0001"}}, read_now=True)
+    assert result["can_read"] is False and result["read"] is False and "public demo" in result["reason"]
 
 
 def test_wording_stays_within_the_review_rules():
