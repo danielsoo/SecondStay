@@ -561,7 +561,9 @@ section.evidence { border-radius: var(--r-card); }
 header.top .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 700; letter-spacing: -0.035em; line-height: 1; }
 header.top .brand svg { width: 34px; height: 34px; flex: none; }
 body { overflow-x: clip; }
-body:has(.stage.city) header.top .tag, body:has(.stage.city) .notice { display: none; }
+body.home header.top .tag, body.home .notice, body:has(.stage.city) header.top .tag, body:has(.stage.city) .notice { display: none; }
+/* while the landing loads, hold the hero's place in its own colour so the page does not jump */
+body.home #app > .loading { width: 100vw; height: min(84vh, 880px); margin: -12px 0 0 calc(50% - 50vw); padding: 0; background: #10161C; color: transparent; }
 /* the city map is the page's background: full width, with the slogan set on it */
 #stage.city { width: 100vw; margin: -12px 0 0 calc(50% - 50vw); height: min(84vh, 880px); border: 0; border-radius: 0; background: #10161C; }
 #stage.city::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
@@ -602,10 +604,67 @@ body:has(.stage.city) header.top .tag, body:has(.stage.city) .notice { display: 
 .bcard .facts b { display: block; font-size: 15px; font-weight: 600; color: var(--ink); }
 .bcard .rules { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
 .bcard .rules .meter { flex: 1; width: auto; }
+/* hero search and call to action */
+.cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 22px; height: 48px; border: 0; border-radius: 12px;
+  background: var(--accent); color: #FFFFFF; font: 600 15px var(--sans); text-decoration: none; cursor: pointer; white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(14, 116, 144, 0.35); transition: background 0.15s, transform 0.15s; }
+.cta:hover { background: var(--accent-ink); transform: translateY(-1px); }
+.cta::after { content: "→"; }
+#stage.city .hero-search { display: flex; gap: 8px; margin-top: 24px; max-width: 620px; padding: 6px; border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28); pointer-events: auto; }
+#stage.city .hero-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; padding: 0 12px; font: 15px var(--sans); color: var(--ink); }
+#stage.city .hero-search:focus-within { outline: 2px solid #7FD9EE; outline-offset: 2px; }
+/* landing sections under the map */
+.land-sec { max-width: 1424px; margin: 64px auto 0; }
+.land-head { max-width: 720px; margin-bottom: 24px; }
+.land-head .eyebrow, .search-page .eyebrow { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0.02em; text-transform: uppercase; }
+.land-head h2 { font-size: clamp(24px, 2.6vw, 34px); line-height: 1.15; letter-spacing: -0.03em; margin: 8px 0 10px; font-weight: 650; }
+.land-head p { margin: 0; color: var(--muted); font-size: 15px; }
+.sample { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: -1px; padding: 26px 0; border-bottom: 1px solid var(--line); }
+.sample div { padding: 0 20px; border-left: 1px solid var(--line); }
+.sample div:first-child { border-left: 0; padding-left: 0; }
+.sample b { display: block; font-size: clamp(24px, 2.4vw, 34px); font-weight: 650; letter-spacing: -0.03em; }
+.sample span { font-size: 13px; color: var(--muted); }
+.sources { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.source { display: flex; flex-direction: column; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+.source h3 { margin: 12px 0 6px; font-size: 16px; letter-spacing: -0.015em; }
+.source p { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; }
+.source .foot { margin-top: auto; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.source .foot b { font-size: 14px; color: var(--ink); }
+.source .kind { align-self: flex-start; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+.k-gov { background: var(--found-bg); color: var(--found); } .k-ind { background: var(--review-bg); color: var(--accent); } .k-open { background: var(--nodata-bg); color: var(--nodata); }
+.reasoning { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; counter-reset: step; }
+.reasoning li { position: relative; padding: 20px 20px 22px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.reasoning .n { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #FFFFFF; font-weight: 600; font-size: 13px; }
+.reasoning h3 { margin: 14px 0 6px; font-size: 16px; letter-spacing: -0.015em; }
+.reasoning p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.cta-band { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 36px 40px; border-radius: 20px; background: var(--ink); color: #FFFFFF; }
+.cta-band h2 { color: #FFFFFF; margin: 0 0 6px; font-size: 26px; letter-spacing: -0.03em; }
+.cta-band p { margin: 0; color: #B6BDC7; }
+/* address search page */
+.search-page { max-width: 1424px; margin: 0 auto; padding-top: 24px; }
+.search-page .back { font-size: 13px; text-decoration: none; }
+.search-page h1 { font-size: clamp(30px, 3.6vw, 48px); letter-spacing: -0.04em; font-weight: 650; margin: 16px 0 8px; }
+.search-page .lede { margin: 0 0 22px; color: var(--muted); font-size: 15px; max-width: 64ch; }
+.big-search { display: flex; gap: 8px; max-width: 760px; padding: 6px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-strong); box-shadow: var(--shadow-lg); }
+.big-search:focus-within { border-color: var(--accent); }
+.big-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; padding: 0 14px; font: 17px var(--sans); color: var(--ink); }
+.examples { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+.examples button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; cursor: pointer; }
+.examples button:hover { border-color: var(--accent); color: var(--accent); }
+.result-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin: 32px 0 14px; font-size: 13.5px; color: var(--muted); }
+.result-bar .tour-filter { margin: 0; }
+.no-match { max-width: 640px; padding: 28px; border: 1px dashed var(--line-strong); border-radius: 16px; background: var(--surface); }
+.no-match h3 { margin: 0 0 8px; font-size: 18px; }
+.no-match p { margin: 0 0 16px; color: var(--muted); }
+@media (max-width: 1100px) { .sample { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 20px; } .sample div:nth-child(4) { border-left: 0; padding-left: 0; } .reasoning, .sources { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .sample { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sample div { border-left: 0; padding-left: 0; } .reasoning, .sources { grid-template-columns: 1fr; }
+  .cta-band { flex-direction: column; align-items: flex-start; padding: 28px 22px; } #stage.city .hero-search, .big-search { flex-direction: column; } #stage.city .hero-search input, .big-search input { height: 44px; } }
 @media (prefers-reduced-motion: reduce) { .bcard, .bcard .ph img { transition: none; } .bcard:hover { transform: none; } .bcard:hover .ph img { transform: none; } }
 </style>
 </head>
 <body>
+<script>document.body.classList.toggle("home", !/^#\/[a-z]/i.test(location.hash));</script>
 <header class="top">
   <a class="brand" href="#/" aria-label="SecondStay, all buildings"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0E7490"/><path d="M7 25V8.5A1.5 1.5 0 0 1 8.5 7h7A1.5 1.5 0 0 1 17 8.5V25z" fill="#fff" opacity=".45"/><path d="M12 25v-9.2a1 1 0 0 1 .34-.75l5.5-4.8a1 1 0 0 1 1.32 0l5.5 4.8a1 1 0 0 1 .34.75V25z" fill="#fff"/><rect x="17" y="19.5" width="3" height="5.5" rx=".6" fill="#0E7490"/></svg><span>Second<b>Stay</b></span></a>
   <span class="tag">Could this office become homes? A first check for Los Angeles.</span>
@@ -1221,6 +1280,8 @@ function cityScene(host, city, onPick) {
   const oblique = center.clone().add(new THREE.Vector3(reach * 0.05, reach * 0.5, reach * 0.72));
   camera.position.copy(overhead); controls.target.copy(center); controls.autoRotate = false;
   controls.minDistance = 300; controls.maxDistance = Math.max(W, D) * 1.6;
+  // The landing map is the page's background: the wheel and a vertical swipe scroll the page, never zoom the map.
+  controls.enableZoom = false; stage.renderer.domElement.style.touchAction = "pan-y";
   let flight = { at: performance.now() + 600, from: overhead.clone(), to: oblique, look: center.clone(), target: center.clone(), ms: 2600 };
   const ease = (t) => t * t * (3 - 2 * t);
   let start = null, stretch = 1;
@@ -1413,73 +1474,174 @@ function wireTourFilter(root, id, onChange = () => {}) {
   return apply;
 }
 
+// What the landing says about the evidence. Counted from data/raw/ and la_permit_prices.json on 2026-11-15;
+// recount when the cache is refreshed.
+const SAMPLE = [
+  ["60", "LA office buildings checked end to end"],
+  ["30,280", "LADBS permits matched by parcel number"],
+  ["250", "Matterport 3D scans read"],
+  ["4,176", "permits read to price the work"],
+  ["744", "nearby rents compared"],
+  ["14", "published rules checked per building"],
+];
+const SOURCES = [
+  { kind: "Government", who: "LA Department of Building and Safety", what: "Building, fire and seismic permits since the 1990s, certificates of occupancy, the non-ductile concrete retrofit list", n: "30,280 permits", via: "data.lacity.org" },
+  { kind: "Government", who: "LA City Planning", what: "Zoning map, Historic-Cultural Monuments, HPOZ districts, national and state historic registers", n: "Every building", via: "planning.lacity.gov" },
+  { kind: "Government", who: "LA County (LARIAC)", what: "Surveyed building outlines and measured roof heights", n: "2023 survey", via: "egis-lacounty.hub.arcgis.com" },
+  { kind: "Government", who: "California Geological Survey", what: "Liquefaction zones and Alquist-Priolo earthquake fault zones", n: "Statewide maps", via: "maps.conservation.ca.gov" },
+  { kind: "Government", who: "LADBS cost permits", what: "Declared job values for sprinklers, kitchens, bathrooms and conversions, turned into a Los Angeles price book", n: "3,080 kept of 4,176", via: "data.lacity.org" },
+  { kind: "Industry", who: "CoStar", what: "Building records, space on the market, asking rents and 504 apartment communities nearby", n: "60 buildings", via: "CoStar API" },
+  { kind: "Industry", who: "Matterport", what: "3D scans of suites on the market: floor area, rooms, stairs and 360° photos", n: "250 scans", via: "Matterport Model API" },
+  { kind: "Industry", who: "Vexcel", what: "Aerial imagery, roof and ground elevation, distance to neighbouring buildings", n: "60 buildings", via: "Vexcel API 2.0" },
+  { kind: "Open data", who: "OpenStreetMap", what: "Street frontage for fire access; transit, schools, parks and groceries near each building", n: "Every building", via: "Overpass API" },
+];
+const REASONING = [
+  ["Find the building", "Your address is matched to a CoStar record. Its parcel number joins the city's records exactly, with no guessing by name."],
+  ["Gather the records", "Code pulls the permits, zoning, seismic zones, measured height, scans and aerial imagery. No model is involved in this step."],
+  ["Read what records miss", "A vision model looks at twelve 360° photos per scan for sprinkler heads, alarms, exits and windows. Its answers are labelled as read from photos, never as measured."],
+  ["Check every rule", "Each of the 14 published conversion rules gets one of four states: evidence found, possible issue, not enough data, or needs professional review. There is no overall score."],
+  ["Price the least work", "A model reads permit descriptions to say what each job was; code then takes the 25th, 50th and 75th percentile of the real declared values. The model judges, code computes every figure."],
+  ["Hand it to a professional", "You get the evidence behind each row and a next-steps list for an architect. LADBS and licensed professionals make the final call."],
+];
+
+function buildingCard(s) {
+  return `<a class="bcard" href="#/space/${s.property_id}" data-id="${s.property_id}" data-tour="${s.tours > 0 ? "yes" : "no"}">
+    <div class="ph"><img loading="lazy" alt="" src="${esc(s.photo_url || `/api/spaces/${s.property_id}/aerial.jpg`)}">
+      ${s.tours ? '<span class="flag">3D tour</span>' : ""}
+      ${s.asking_rent_per_sqft_year ? `<span class="rent">$${s.asking_rent_per_sqft_year.toFixed(0)}/sq ft/yr</span>` : ""}</div>
+    <div class="body">
+      <div><div class="name">${esc(s.name || s.address)}</div><div class="addr">${esc(s.name ? s.address : "Los Angeles")}</div></div>
+      <div class="facts"><span><b>${num(s.available_sqft)}</b>sq ft on the market</span>
+        ${s.stories ? `<span><b>${s.stories}</b>stories</span>` : ""}
+        ${s.floors_3d ? `<span><b>${s.floors_3d}</b>floors in 3D</span>` : ""}</div>
+      <div class="rules">${s.counts ? `Rules with evidence ${ruleMeter(s.counts)}` : '<span class="sub">Reading the evidence…</span>'}</div>
+    </div></a>`;
+}
+// The photo is CoStar's; where it is missing or does not load, the building's aerial view stands in, then a plain tile.
+function wireCardImages(root) {
+  root.querySelectorAll(".bcard img").forEach((img) => {
+    const aerial = `/api/spaces/${img.closest(".bcard").dataset.id}/aerial.jpg`;
+    img.onerror = () => { if (img.getAttribute("src") !== aerial) img.src = aerial; else img.remove(); };
+  });
+}
+const goSearch = (q) => (location.hash = `#/search${q ? "?q=" + encodeURIComponent(q) : ""}`);
+
 async function showList() {
-  // The map draws from the quick city data; the table below fills in when the slower building list arrives.
   const city = await api("/api/city");
   const bs = city.buildings;
-  const tall = bs.filter((s) => s.height_ft && s.stories && (s.height_ft * (s.stories - 1)) / s.stories >= HIGH_RISE_FT).length;
   const marketed = bs.reduce((t, s) => t + (s.available_sqft || 0), 0) / 1e6;
   const tours = bs.reduce((t, s) => t + s.tours, 0);
   app.innerHTML = `
     <div class="stage city" id="stage"><div class="gl"></div><div class="labels"></div>
       <div class="hud tl">
         <h1>Empty offices,<br><em>ready for a second stay.</em></h1>
-        <div class="sub">Pick a Los Angeles office building to see what the rules ask for, what a conversion would cost and what it could earn.</div>
+        <div class="sub">Enter your building's address to see what the rules ask for, what a conversion would cost and what it could earn, from public records.</div>
+        <form class="hero-search" id="hero-search" role="search">
+          <input name="q" type="search" placeholder="Your building's address, e.g. 1840 Century Park" aria-label="Building address" autocomplete="off">
+          <button type="submit" class="cta">Check my building</button>
+        </form>
         <div class="hero-stats"><span><b>${bs.length}</b>office buildings</span><span><b>${marketed.toFixed(1)}M</b>sq ft on the market</span><span><b>${tours}</b>spaces with a 3D tour</span></div>
-        <div class="hero-controls">
-        <div class="map-filter" role="group" aria-label="Show buildings">
-          <button type="button" data-map-show="all">All · ${bs.length}</button>
-          <button type="button" data-map-show="yes">With a 3D tour · ${bs.filter((x) => x.tours).length}</button></div>
-        <div class="legend"><span><i style="background:#1c7a98"></i>Has a 3D tour</span><span><i style="background:#c08a2e"></i>Plan only</span></div></div></div>
+      </div>
       <div class="hud br"><button class="btn tour-switch" id="tour-switch" aria-pressed="${autoTour()}" title="Fly from building to building">Auto tour: ${autoTour() ? "on" : "off"}</button></div>
     </div>
-    <div class="section-head"><h2>Buildings</h2><span class="sub">Most complete first: 3D tours and floors drawn in 3D</span></div>
-    <div id="building-table"><p class="loading">Reading every building's evidence…</p></div>`;
+
+    <section class="land-sec sample" aria-label="How much evidence">
+      ${SAMPLE.map(([v, k]) => `<div><b>${v}</b><span>${k}</span></div>`).join("")}
+    </section>
+
+    <section class="land-sec">
+      <div class="land-head"><span class="eyebrow">Where the evidence comes from</span>
+        <h2>Official records first, then industry data</h2>
+        <p>Every row on a building's page names the record it came from. City, county and state records outrank everything else; photos never override a record.</p></div>
+      <div class="sources">${SOURCES.map((x) => `
+        <div class="source"><span class="kind k-${x.kind === "Government" ? "gov" : x.kind === "Industry" ? "ind" : "open"}">${x.kind}</span>
+          <h3>${x.who}</h3><p>${x.what}</p>
+          <div class="foot"><b>${x.n}</b><span>${x.via}</span></div></div>`).join("")}</div>
+    </section>
+
+    <section class="land-sec">
+      <div class="land-head"><span class="eyebrow">How the AI reasons</span>
+        <h2>The model reads and judges. Code computes every figure.</h2>
+        <p>Language and vision models only do what records can't: read a permit's free text or a photo. Everything they say is labelled as theirs.</p></div>
+      <ol class="reasoning">${REASONING.map(([t, d], i) => `<li><span class="n">${i + 1}</span><h3>${t}</h3><p>${d}</p></li>`).join("")}</ol>
+    </section>
+
+    <section class="land-sec cta-band">
+      <div><h2>Is your office one of them?</h2><p>Search by address or building name. This demo covers ${bs.length} Los Angeles office buildings.</p></div>
+      <a class="cta" href="#/search">Check my building</a>
+    </section>`;
   live = cityScene(document.getElementById("stage"), city, (b) => (location.hash = `#/space/${b.property_id}`));
-  // One filter for the map and the table: "with a 3D tour" puts the walk-through buildings forward for a demo.
-  let syncTable = null;
-  const syncMapFilter = (show) => document.querySelectorAll("[data-map-show]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mapShow === (show === "no" ? "all" : show))));
-  const mapShow = (show) => { live?.setTourFilter?.(show); syncMapFilter(show); try { localStorage.setItem("secondstay-building-tours", show); } catch {} syncTable?.(show); };
-  document.querySelectorAll("[data-map-show]").forEach((b) => (b.onclick = () => mapShow(b.dataset.mapShow)));
-  mapShow(savedTourFilter("building-tours"));
   api("/api/city/costs").then((costs) => live?.setCosts?.(costs)).catch(() => {});
+  document.getElementById("hero-search").onsubmit = (e) => { e.preventDefault(); goSearch(e.target.q.value.trim()); };
   const tourSwitch = document.getElementById("tour-switch");
   tourSwitch.onclick = () => {
     const on = !autoTour(); setAutoTourPreference(on);
     tourSwitch.textContent = `Auto tour: ${on ? "on" : "off"}`; tourSwitch.setAttribute("aria-pressed", String(on));
     live?.setAutoTour?.(on);
   };
-  const data = await api("/api/spaces");
-  const host = document.getElementById("building-table");
-  if (!host) return; // the visitor has moved on
+}
+
+// Address search over the buildings we hold evidence for. Words of the query must all appear in the
+// building's name or address; "Boulevard" and "Blvd" (and the like) count as the same word.
+const STREET_WORDS = { boulevard: "blvd", avenue: "ave", street: "st", drive: "dr", place: "pl", road: "rd", west: "w", east: "e", north: "n", south: "s", suite: "", ste: "", los: "", angeles: "", ca: "", california: "" };
+const words = (t) => String(t || "").toLowerCase().replace(/[.,#]/g, " ").split(/\s+/).map((w) => STREET_WORDS[w] ?? w).filter((w) => w && !/^9\d{4}$/.test(w));
+function matchBuildings(list, q) {
+  const want = words(q);
+  if (!want.length) return list;
+  return list.filter((s) => { const have = words(`${s.name} ${s.address}`); return want.every((w) => have.some((h) => h.startsWith(w))); });
+}
+
+async function showSearch(q0) {
+  const city = await api("/api/city");
+  let rows = city.buildings;
+  const examples = rows.slice(0, 3).map((s) => s.address).filter(Boolean);
+  app.innerHTML = `
+    <section class="search-page">
+      <a class="back" href="#/">‹ Home</a>
+      <h1>Could your office become homes?</h1>
+      <p class="lede">Enter the address or name of a Los Angeles office building. We look it up in CoStar, then pull its permits, zoning, seismic zones and scans.</p>
+      <form class="big-search" id="big-search" role="search">
+        <input name="q" type="search" value="${esc(q0)}" placeholder="Street address or building name" aria-label="Building address" autocomplete="off">
+        <button type="submit" class="cta">Search</button>
+      </form>
+      <div class="examples">Try ${examples.map((a) => `<button type="button" data-q="${esc(a)}">${esc(a)}</button>`).join("")}</div>
+      <div class="result-bar"><span id="result-count"></span><span id="filter-slot"></span></div>
+      <div id="results"></div>
+    </section>`;
+  const form = document.getElementById("big-search"), input = form.q;
+  const results = document.getElementById("results"), count = document.getElementById("result-count");
+  let tourShow = savedTourFilter("building-tours");
+  const draw = () => {
+    const q = input.value.trim();
+    history.replaceState(null, "", `#/search${q ? "?q=" + encodeURIComponent(q) : ""}`);
+    const hits = matchBuildings(rows, q).filter((s) => tourShow === "all" || (tourShow === "yes") === s.tours > 0);
+    count.textContent = q ? `${hits.length} of ${rows.length} buildings match “${q}”` : `All ${rows.length} buildings we hold evidence for, most complete first`;
+    results.innerHTML = hits.length ? `<div class="bgrid">${hits.map(buildingCard).join("")}</div>` : `
+      <div class="no-match"><h3>We don't have evidence for “${esc(q)}” yet</h3>
+        <p>This demo covers ${rows.length} Los Angeles office buildings with CoStar, Matterport and Vexcel data. For any other address, the same checks run once its records are loaded: LADBS permits, City Planning zoning, county height and state seismic maps.</p>
+        <button type="button" class="btn" id="clear-q">Show all ${rows.length} buildings</button></div>`;
+    wireCardImages(results);
+    results.querySelectorAll(".bcard").forEach((c) => (c.onclick = () => (location.hash = c.getAttribute("href"))));
+    document.getElementById("clear-q")?.addEventListener("click", () => { input.value = ""; draw(); input.focus(); });
+  };
+  const filterBar = () => {
+    const withTour = rows.filter((s) => s.tours > 0).length;
+    document.getElementById("filter-slot").innerHTML = `<div class="tour-filter" role="group" aria-label="Filter by 3D tour">
+      <button type="button" data-show="all">All</button><button type="button" data-show="yes">With a 3D tour · ${withTour}</button><button type="button" data-show="no">Without · ${rows.length - withTour}</button></div>`;
+    document.querySelectorAll("#filter-slot button").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.show === tourShow));
+      b.onclick = () => { tourShow = b.dataset.show; try { localStorage.setItem("secondstay-building-tours", tourShow); } catch {} filterBar(); draw(); };
+    });
+  };
+  input.oninput = draw;
+  form.onsubmit = (e) => { e.preventDefault(); draw(); results.scrollIntoView({ behavior: "smooth", block: "start" }); };
+  document.querySelectorAll(".examples [data-q]").forEach((b) => (b.onclick = () => { input.value = b.dataset.q; draw(); }));
+  filterBar(); draw(); input.focus();
+  // The quick city data draws the cards at once; rents, photos and rule counts fill in when the full list arrives.
+  const data = await api("/api/spaces").catch(() => null);
+  if (!data || !document.getElementById("results")) return;
   document.getElementById("notice").textContent = data.notice;
-  const read = data.spaces.filter((s) => s.height_ft).length;
-  const withTour = data.spaces.filter((s) => s.tours > 0).length;
-  host.innerHTML = `
-    ${tourFilter("building-tours", data.spaces.length, withTour, "buildings")}
-    <div class="bgrid">${data.spaces.map((s) => `
-      <a class="bcard" href="#/space/${s.property_id}" data-id="${s.property_id}" data-tour="${s.tours > 0 ? "yes" : "no"}">
-        <div class="ph"><img loading="lazy" alt="" src="${esc(s.photo_url || `/api/spaces/${s.property_id}/aerial.jpg`)}">
-          ${s.tours ? '<span class="flag">3D tour</span>' : ""}
-          ${s.asking_rent_per_sqft_year ? `<span class="rent">$${s.asking_rent_per_sqft_year.toFixed(0)}/sq ft/yr</span>` : ""}</div>
-        <div class="body">
-          <div><div class="name">${esc(s.name || s.address)}</div><div class="addr">${esc(s.name ? s.address : s.city || "")}</div></div>
-          <div class="facts"><span><b>${num(s.available_sqft)}</b>sq ft on the market</span>
-            ${s.stories ? `<span><b>${s.stories}</b>stories</span>` : ""}
-            ${s.floors_3d ? `<span><b>${s.floors_3d}</b>floors in 3D</span>` : ""}</div>
-          <div class="rules">Rules with evidence ${ruleMeter(s.counts)}</div>
-        </div></a>`).join("")}</div>`;
-  // The photo is CoStar's; where it is missing or does not load, the building's aerial view stands in, then a plain tile.
-  host.querySelectorAll(".bcard img").forEach((img) => {
-    const aerial = `/api/spaces/${img.closest(".bcard").dataset.id}/aerial.jpg`;
-    img.onerror = () => { if (img.getAttribute("src") !== aerial) img.src = aerial; else img.remove(); };
-  });
-  const cards = host.querySelectorAll(".bcard");
-  syncTable = wireTourFilter(host, "building-tours", (show) => {
-    cards.forEach((c) => { c.hidden = show !== "all" && c.dataset.tour !== show; });
-    live?.setTourFilter?.(show); syncMapFilter(show);
-  });
-  cards.forEach((c) => { c.onmouseenter = () => live?.highlight?.(Number(c.dataset.id)); });
+  rows = data.spaces; filterBar(); draw();
 }
 
 const fieldTable = (row, big) => `<table class="kv">${row.fields.map((f, i) => `
@@ -2115,7 +2277,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
   app.innerHTML = `
     <div class="page-head">
       <div class="title">${b.photo_url ? `<img class="thumb" src="${esc(b.photo_url)}" alt="">` : ""}
-        <div><a class="back" href="#/">‹ All buildings</a>
+        <div><a class="back" href="#/search">‹ All buildings</a>
         <h1>${esc(b.name || b.address)}</h1>
         <p class="meta"><span>${esc(b.address)}</span><span>Built ${b.year_built ?? "–"}</span><span>${b.stories ?? "–"} floors</span><span>Zone ${esc(b.zone ?? "–")}</span><span>${num(sp ? sp.sqft : b.available_sqft)} sq ft ${sp ? "in this space" : "on the market"}</span></p>
         <p class="lede">What turning this office into homes would take: the rules, the least it would cost and what it could earn.</p></div></div>
@@ -2485,7 +2647,7 @@ async function showPlans() {
     .sort((a, c) => c.floor_plans.filter((p) => p.source === "building").length - a.floor_plans.filter((p) => p.source === "building").length);
   const total = withPlans.reduce((t, s) => t + s.floor_plans.length, 0);
   app.innerHTML = `
-    <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
+    <p style="margin:0 0 10px"><a href="#/search">← All buildings</a></p>
     <h1>Floor plans CoStar holds for these buildings</h1>
     <p class="sub">${total} plans on ${withPlans.length} of ${data.spaces.length} buildings. Plans are attached to building records or listed spaces.
       Check each sheet for its floor, suite and coverage. Select a plan to open it at full size.</p>
@@ -2523,13 +2685,14 @@ function flash(text) {
 
 function showError(error) { if (error.message === "stale") return; app.innerHTML = `<p class="loading">${esc(error.message)}</p>`; }
 function route() {
+  document.body.classList.toggle("home", !/^#\/[a-z]/i.test(location.hash));
   const match = location.hash.match(/^#\/space\/(\d+)/);
   visit += 1;
   stopScene();
   app.innerHTML = '<p class="loading">Reading the three data layers…</p>';
   const read = location.hash.match(/^#\/plans\/read\/(\d+)/);
   const selection = new URLSearchParams(location.hash.split("?")[1] || "");
-  (match ? showSpace(match[1], selection.get("scan"), undefined, selection.get("space"), selection.get("floor"), selection.get("view"), selection.get("interior")) : read ? showPlansToRead(Number(read[1])) : location.hash.startsWith("#/plans") ? showPlans() : showList()).catch(showError);
+  (match ? showSpace(match[1], selection.get("scan"), undefined, selection.get("space"), selection.get("floor"), selection.get("view"), selection.get("interior")) : read ? showPlansToRead(Number(read[1])) : location.hash.startsWith("#/search") ? showSearch(selection.get("q") || "") : location.hash.startsWith("#/plans") ? showPlans() : showList()).catch(showError);
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", route);

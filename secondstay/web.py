@@ -794,7 +794,8 @@ def main(port: int = 8000) -> None:
     threading.Thread(target=_warm_agent, daemon=True).start()
     # Warm the slow landing data in the background: the building table first, then the per-building costs.
     threading.Thread(target=lambda: (cached_list(buildings), city_costs(buildings)), daemon=True).start()
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    # HOST=0.0.0.0 in the container; locally only this machine can reach it.
+    ThreadingHTTPServer((os.environ.get("HOST") or "127.0.0.1", port), Handler).serve_forever()
 
 
 if __name__ == "__main__":
