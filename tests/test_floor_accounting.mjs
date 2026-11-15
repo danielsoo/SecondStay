@@ -66,3 +66,24 @@ test("a placed model that is not on screen is not called unplaced", () => {
   assert.match(suite.reason, /placed on this floor/);
   assert.equal(suite.placed, true);
 });
+
+test("a traced plan without scale shows the suite's listed size, never a drawn measure", () => {
+  const building = { floors: [{ floor: 10, sqft: 20000 }], spaces: [
+    { id: 7, suite: "1000", floor: 10, sqft: 4321 }, { id: 8, suite: "1010", floor: 10 }] };
+  const relative = { space_id: "7", suite: "1000", units: "plan_relative", rooms: [{ polygon: square(60) }] };
+  const drawn = floorAccounting({ building, catalog: {}, floor: 10, shownModels: [relative] }).parts[0];
+  assert.equal(drawn.kind, "drawn");
+  assert.equal(drawn.sqft, 4321);
+  assert.equal(drawn.area_basis, "listing");
+  assert.match(drawn.reason, /CoStar's listed size/);
+
+  const unsized = { space_id: "8", suite: "1010", units: "plan_relative", rooms: [] };
+  const none = floorAccounting({ building, catalog: {}, floor: 10, shownModels: [unsized] }).parts[0];
+  assert.equal(none.sqft, null); // no listed size, and the drawing has no scale
+  assert.match(none.reason, /records no size/);
+
+  const scan = { space_id: "", label: "Scan", units: "metres", rooms: [{ polygon: square(10) }] };
+  const mixed = floorAccounting({ building, catalog: {}, floor: 10, shownModels: [scan, relative] }).parts[0];
+  assert.equal(mixed.sqft, Math.round(100 * 10.7639) + 4321);
+  assert.equal(mixed.area_basis, "mixed");
+});

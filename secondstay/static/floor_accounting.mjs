@@ -30,6 +30,26 @@ export function drawnSqft(models) {
 function suiteName(s) { return s.suite ? `Suite ${s.suite}` : "Listed space"; }
 
 /**
+ * Area of the drawn part. Models in metres are summed from their rooms. A plan_relative draft has no scale,
+ * so its area is the listed size CoStar records for that suite, never a figure read off the drawing.
+ * If any shown model has neither, the drawn area is unknown rather than a partial sum.
+ */
+function drawnArea(shownModels, spaces) {
+  const relative = shownModels.filter(m => m?.units === "plan_relative");
+  const measured = shownModels.filter(m => m && m.units !== "plan_relative");
+  const fromRooms = measured.length ? drawnSqft(measured) : 0;
+  const listed = relative.map(m => spaces.find(s => String(s.id) === String(m.space_id || ""))?.sqft || null);
+  const sqft = fromRooms == null || listed.some(v => v == null) ? null : fromRooms + listed.reduce((t, v) => t + v, 0);
+  const basis = !relative.length ? "rooms" : !measured.length ? "listing" : "mixed";
+  const reason = sqft == null && relative.length
+    ? "Rooms traced from a plan with no printed lengths, and CoStar records no size for this listing."
+    : { rooms: "Rooms drawn from scan walls or a traced plan.",
+        listing: "Rooms traced from a plan with no printed lengths; the area is CoStar's listed size for the space, not measured from the drawing.",
+        mixed: "Scan rooms are summed from their walls; traced plans without printed lengths count CoStar's listed size." }[basis];
+  return { sqft, basis, reason };
+}
+
+/**
  * Parts of the floor, each with its area and the reason it is or is not drawn.
  * kinds: drawn · listed_unplaced · listed_plan · listed_tour · listed_none. Only spaces on the market are listed.
  */
@@ -40,10 +60,10 @@ export function floorAccounting({ building, catalog, floor, shownModels = [], fo
   const assets = (catalog?.floors || []).find(f => f.floor === floor)?.assets || [];
   const shownIds = new Set(shownModels.map(m => String(m.space_id || "")).filter(Boolean));
   const parts = [];
-  const drawn = drawnSqft(shownModels);
   if (shownModels.length) {
+    const drawn = drawnArea(shownModels, building.spaces || []);
     parts.push({ kind: "drawn", label: shownModels.map(m => m.space_id ? (m.suite ? `Suite ${m.suite}` : "Listed space") : (m.suite || m.label || "Linked geometry")).join(" + "),
-      sqft: drawn, reason: "Rooms drawn from scan walls or a traced plan." });
+      sqft: drawn.sqft, area_basis: drawn.basis, reason: drawn.reason });
   }
   for (const s of (building.spaces || []).filter(x => x.floor === floor)) {
     if (shownIds.has(String(s.id))) continue;
