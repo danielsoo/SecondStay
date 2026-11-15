@@ -38,8 +38,11 @@ Who works on what is in `docs/work-split.md`.
 - [x] Matterport Model API adapter (`secondstay/matterport.py`)
 - [x] Work the rules call for (`secondstay/changes.py`, sources in `docs/requirements-research.md`)
 - [x] Checklist screen with a 3D view of each building (`secondstay/web.py`, three.js)
+- [x] Suites on the market by floor, each with its own floor plan and scan; the chosen floor opens in 3D
 - [x] Vexcel adapter: height and distance to neighbours (`secondstay/vexcel.py`); street frontage not yet
-- [ ] Agent orchestration (deepagents), panorama inspection
+- [x] Inside the scan: room types, windows and stairs from scan data; panoramas read by a vision model where there is none (`secondstay/panoramas.py`)
+- [x] Street frontage from OpenStreetMap (`secondstay/streets.py`)
+- [ ] Agent orchestration (deepagents)
 - [ ] Cost model connected to the list of work, phase 2 (`secondstay/economics.py`)
 
 ## Running the screen

@@ -32,7 +32,7 @@ API_URL = "https://api.vexcelgroup.com/v2"
 M_TO_FT = 3.28084
 SEARCH_RADIUS_M = 90.0
 MIN_STRUCTURE_SQM = 40.0  # ignore sheds, kiosks and footprint slivers
-IMAGE_ZOOM = 19  # about 0.25 m per pixel in Los Angeles
+IMAGE_ZOOM = 20  # about 0.13 m per pixel in Los Angeles
 MAX_MATCH_DISTANCE_M = 40.0  # how far the CoStar point may sit from its footprint
 
 

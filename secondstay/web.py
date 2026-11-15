@@ -15,14 +15,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import costar, matterport, vexcel
+from . import costar, matterport, panoramas, streets, vexcel
 from .changes import CERTAINTIES, changes_for, to_dicts
-from .checklist import NOTICE, STATES, build_checklist, next_steps, summary, top_occupied_ft
+from .checklist import NOTICE, STATES, build_checklist, next_steps, stairs_by_floor, summary, top_occupied_ft
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(__file__).resolve().parent / "static"
 SCAN_CACHE = REPO_ROOT / "data" / "raw" / "matterport"
 OUTSIDE_CACHE = REPO_ROOT / "data" / "raw" / "vexcel"
+STREET_CACHE = REPO_ROOT / "data" / "raw" / "streets"
 MODEL_ID = re.compile(r"^[A-Za-z0-9]{6,20}$")
 
 # Which evidence view the right-hand side shows for each requirement.
@@ -91,8 +92,34 @@ def read_outside(b: costar.Building, fetch: bool = True) -> vexcel.Outside:
     return outside
 
 
+def read_streets(b: costar.Building, outside: vexcel.Outside, fetch: bool = True) -> list:
+    """Streets around the building with their distance from its footprint. Empty when unread."""
+    cached = STREET_CACHE / f"{b.property_id}.json"
+    if cached.exists():
+        roads = json.loads(cached.read_text())
+    elif fetch and outside.loaded and not os.environ.get("SECONDSTAY_OFFLINE"):
+        try:
+            roads = streets.fetch(b.latitude, b.longitude)
+        except Exception:
+            return []
+        STREET_CACHE.mkdir(parents=True, exist_ok=True)
+        cached.write_text(json.dumps(roads))
+    else:
+        return []
+    return streets.measure(roads, outside.footprint, b.latitude, b.longitude)
+
+
+def add_street_facts(facts, found: list, read: bool) -> None:
+    if not read or not any(s.distance_ft is not None for s in found):  # unread, or no footprint to measure from
+        return
+    front = streets.frontage(found)
+    facts.street_frontage = front is not None
+    if front:
+        facts.street_name, facts.street_distance_ft = front.name, front.distance_ft
+
+
 def read_image(b: costar.Building) -> bytes:
-    cached = OUTSIDE_CACHE / f"{b.property_id}.jpg"
+    cached = OUTSIDE_CACHE / f"{b.property_id}.z{vexcel.IMAGE_ZOOM}.jpg"
     if cached.exists():
         return cached.read_bytes()
     image = vexcel.fetch_image(read_outside(b).bbox)
@@ -106,6 +133,7 @@ def outside_fields(o: vexcel.Outside) -> dict:
     area = f"about {o.footprint_sqft:,.0f} sq ft" if o.footprint_sqft else None
     return {
         "height": [("Highest roof point above ground", feet(o.height_ft), "Vexcel /dsm/elevation minus /dtm/elevation")],
+        "access": [],
         "separation": [
             ("Closest other structure", feet(o.neighbor_gap_ft), "Vexcel /structure/extract footprints"),
             ("Other structures within about 300 ft", len(o.neighbors) if o.loaded else None, "Vexcel /structure/extract"),
@@ -116,16 +144,12 @@ def outside_fields(o: vexcel.Outside) -> dict:
 
 def best_cached_scan(b: costar.Building) -> str:
     """The scan with room labels, then the largest measured area, among those already read."""
-    best, best_rank = "", (False, 0.0)
+    best, best_rank = "", (False, False, False, 0.0)
     for scan in b.scans:
         cached = SCAN_CACHE / f"{scan.model_id}.json"
         if not cached.exists():
             continue
-        facts = matterport.to_facts(json.loads(cached.read_text()))
-        rank = (
-            any(r.kind not in ("", "Void", "Other") for r in facts.rooms),
-            sum(a for a in facts.floor_areas_sqft if a),
-        )
+        rank = matterport.scan_rank(matterport.to_facts(json.loads(cached.read_text())))
         if rank > best_rank:
             best, best_rank = scan.model_id, rank
     return best
@@ -161,22 +185,56 @@ def building_card(b: costar.Building) -> dict:
     return card
 
 
-def space_payload(b: costar.Building, model_id: str = "") -> dict:
+def space_payload(b: costar.Building, model_id: str = "", space_id: str = "") -> dict:
+    """Everything the screen shows for one building, for one suite on the market when one is chosen."""
+    space = next((s for s in b.spaces if str(s["id"]) == str(space_id)), None)
     scan_ids = [s.model_id for s in b.scans]
     if model_id not in scan_ids:
-        model_id = best_cached_scan(b) or (scan_ids[0] if scan_ids else "")
-    model, scan_error = read_scan(model_id) if model_id else (None, "This building has no scan.")
+        if space:  # only a scan of that suite stands for it
+            ranked = sorted(
+                space["scans"],
+                key=lambda m: matterport.scan_rank(matterport.to_facts(read_scan(m)[0] or {})), reverse=True,
+            )
+            model_id = ranked[0] if ranked else ""
+        else:
+            model_id = best_cached_scan(b) or (scan_ids[0] if scan_ids else "")
+    if model_id:
+        model, scan_error = read_scan(model_id)
+    else:
+        model, scan_error = None, (
+            "CoStar has no 3D scan tied to this suite." if space else "This building has no scan."
+        )
     facts = costar.to_facts(b, matterport.to_facts(model) if model else None)
+    if space:
+        facts.space_sqft = space["sqft"]
+        facts.space_label = f"Suite {space['suite']}" if space["suite"] else space["floor_label"]
+    read = panoramas.reading(model_id) if model_id else None
+    facts.pano_reading = read
+    # The plan shown is the selected suite's own plan. A reading only counts for the image it was read from.
+    stand_in = plan_to_read(b)
+    image = {"url": space["plan_url"], "caption": facts.space_label, "source": "space"} if space and space["plan_url"] else (
+        None if space else stand_in)
+    whole_floor = stand_in and stand_in["source"] == "building"
+    reading = plan_reading(b) if stand_in and (image and image["url"] == stand_in["url"] or whole_floor) else None
+    facts.plan_reading = reading
     outside = read_outside(b)
     if outside.loaded:
         vexcel.to_facts(outside, facts)
+    found = read_streets(b, outside)
+    add_street_facts(facts, found, bool(found) or (STREET_CACHE / f"{b.property_id}.json").exists())
     year = datetime.date.today().year
     rows = build_checklist(facts, year)
     changes = changes_for(facts, rows, year)
     fields = record_fields(b)
     for key, extra in outside_fields(outside).items():
         fields[key] = fields.get(key, []) + extra
-    scan = {"model_id": model_id, "loaded": model is not None, "error": scan_error}
+    placed = next((s for s in b.scans if s.model_id == model_id), None)
+    scan = {
+        "model_id": model_id, "loaded": model is not None, "error": scan_error, "reading": read,
+        "sheet": bool(model_id) and (panoramas.SHEET_DIR / f"{model_id}.jpg").exists(),
+        "suite": placed.suite if placed else "", "floor": placed.floor if placed else None,
+        "floor_basis": placed.floor_basis if placed else "",
+    }
     if model:
         kinds: dict = {}
         for room in facts.rooms:
@@ -186,16 +244,27 @@ def space_payload(b: costar.Building, model_id: str = "") -> dict:
             floors=len(facts.floor_areas_sqft),
             area_sqft=sum(a for a in facts.floor_areas_sqft if a),
             room_kinds=kinds,
+            windows=sum(r.windows or 0 for r in facts.rooms) if any(r.windows is not None for r in facts.rooms) else None,
+            stairs=stairs_by_floor(facts),
             uses=[c.get("classification") for c in model.get("propertyClassifications") or []],
+            lines=matterport.plan_lines(model),
         )
+    floor = space["floor"] if space else (placed.floor if placed else None)
     return {
         "notice": NOTICE,
         "states": STATES,
         "building": building_card(b),
+        "space": space,
+        "floor": floor,
         "scan": scan,
         "sdk_key": os.environ.get("MATTERPORT_SDK_KEY", ""),
         "outside": {**asdict(outside), "loaded": outside.loaded},
+        "plan": {
+            "image": image, "reading": reading, "count": len(b.floor_plans),
+            "reading_from": stand_in if reading and (not image or image["url"] != stand_in["url"]) else None,
+        },
         "top_occupied_ft": top_occupied_ft(facts),
+        "streets": [asdict(s) | {"public": s.public} for s in found],
         "changes": to_dicts(changes),
         "change_counts": {c: sum(1 for x in changes if x.certainty == c) for c in CERTAINTIES},
         "counts": summary(rows),
@@ -217,6 +286,41 @@ def space_payload(b: costar.Building, model_id: str = "") -> dict:
     }
 
 
+def read_scan_plan(model_id: str):
+    """Matterport's top-down picture of a scan, cached. None when there is none."""
+    cached = SCAN_CACHE / f"{model_id}.plan.jpg"
+    if cached.exists():
+        return cached.read_bytes()
+    if not matterport_configured():
+        return None
+    image = matterport.fetch_plan_image(model_id)
+    if image:
+        SCAN_CACHE.mkdir(parents=True, exist_ok=True)
+        cached.write_bytes(image)
+    return image
+
+
+PLAN_READING_DIR = REPO_ROOT / "data" / "raw" / "plan_readings"
+
+
+def plan_to_read(b: costar.Building):
+    """The floor plan that stands for the building: a whole-floor plan if CoStar has one, else a suite plan."""
+    whole = [p for p in b.floor_plans if p["source"] == "building"]
+    return (whole or b.floor_plans or [None])[0]
+
+
+def plan_reading(b: costar.Building):
+    """What was read from that plan, or None. Stored under data/raw/, which is git-ignored."""
+    path = PLAN_READING_DIR / f"{b.property_id}.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text())
+    return data if isinstance(data.get("stairs"), int) else None
+
+
+PLANS_IN_LIST = True  # the plan gallery reads them from the list
+
+
 def list_payload(buildings: list) -> dict:
     year = datetime.date.today().year
     spaces = []
@@ -225,15 +329,34 @@ def list_payload(buildings: list) -> dict:
         card["scans"] = len(b.scans)
         for key in ("aerial_urls", "parcel_numbers"):
             card.pop(key)
+        card["floor_plan_count"] = len(b.floor_plans)
+        card["plan_to_read"] = plan_to_read(b)
+        card["plan_reading"] = plan_reading(b)
+        if not PLANS_IN_LIST:
+            card.pop("floor_plans")
         facts = costar.to_facts(b)
+        facts.plan_reading = plan_reading(b)
         outside = read_outside(b, fetch=False)
         if outside.loaded:
             vexcel.to_facts(outside, facts)
+        add_street_facts(facts, read_streets(b, outside, fetch=False), (STREET_CACHE / f"{b.property_id}.json").exists())
         card["height_ft"] = outside.height_ft
         card["footprint_sqft"] = outside.footprint_sqft
         card["counts"] = summary(build_checklist(facts, year))
         spaces.append(card)
     return {"notice": NOTICE, "states": STATES, "spaces": spaces}
+
+
+_list_cache = {"at": 0.0, "data": None}
+
+
+def cached_list(buildings: list, keep_seconds: float = 300.0) -> dict:
+    """The list takes a few seconds to build (streets are measured for every building), so keep it."""
+    import time
+
+    if _list_cache["data"] is None or time.time() - _list_cache["at"] > keep_seconds:
+        _list_cache.update(at=time.time(), data=list_payload(buildings))
+    return _list_cache["data"]
 
 
 def next_steps_markdown(payload: dict) -> str:
@@ -278,7 +401,20 @@ class Handler(BaseHTTPRequestHandler):
         if url.path in ("/", "/index.html"):
             return self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
         if url.path == "/api/spaces":
-            return self._json(list_payload(list(self.buildings.values())))
+            return self._json(cached_list(list(self.buildings.values())))
+        top_down = re.fullmatch(r"/api/scans/([A-Za-z0-9]{6,20})/plan\.jpg", url.path)
+        if top_down:
+            try:
+                image = read_scan_plan(top_down.group(1))
+            except Exception:
+                image = None
+            return self._send(200, image, "image/jpeg") if image else self._json({"error": "Not found"}, 404)
+        sheet = re.fullmatch(r"/api/scans/([A-Za-z0-9]{6,20})/sheet\.jpg", url.path)
+        if sheet:
+            path = panoramas.SHEET_DIR / f"{sheet.group(1)}.jpg"
+            if not path.exists():
+                return self._json({"error": "Not found"}, 404)
+            return self._send(200, path.read_bytes(), "image/jpeg")
         match = re.fullmatch(r"/api/spaces/(\d+)(/next-steps\.md|/aerial\.jpg)?", url.path)
         building = self.buildings.get(int(match.group(1))) if match else None
         if building is None:
@@ -289,7 +425,8 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 return self._json({"error": "The image could not be read"}, 502)
         scan = (query.get("scan") or [""])[0]
-        payload = space_payload(building, scan if MODEL_ID.match(scan) else "")
+        space = (query.get("space") or [""])[0]
+        payload = space_payload(building, scan if MODEL_ID.match(scan) else "", space if space.isdigit() else "")
         if match.group(2):
             return self._send(
                 200, next_steps_markdown(payload).encode(), "text/markdown; charset=utf-8",
@@ -305,6 +442,7 @@ def main(port: int = 8000) -> None:
     except FileNotFoundError as error:
         sys.exit(f"CoStar kit not found ({error.filename}). Set COSTAR_KIT_DIR in .env.")
     Handler.buildings = {b.property_id: b for b in buildings}
+    cached_list(buildings)  # build the list once before the first visitor arrives
     print(f"SecondStay: {len(buildings)} Los Angeles office buildings · http://127.0.0.1:{port}")
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 

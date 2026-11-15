@@ -50,8 +50,10 @@
   .stage { position: relative; height: 560px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
     background: radial-gradient(120% 90% at 50% 100%, #0d1a2b 0%, #060a11 70%); }
   .stage.small { height: 440px; }
-  .stage .gl, .stage .labels { position: absolute; inset: 0; }
-  .stage .labels { pointer-events: none; }
+  .stage .gl, .stage .labels, .stage .flat { position: absolute; inset: 0; }
+  .stage .labels, .stage .flat, .stage .flat * { pointer-events: none; }
+  .stage .gl { z-index: 0; } .stage .flat { z-index: 1; overflow: hidden; } .stage .labels { z-index: 2; }
+  .stage .flat img { display: block; background: #fff; border-radius: 6px; }
   .stage canvas { display: block; }
   .hud { position: absolute; z-index: 3; pointer-events: none; }
   .hud.tl { top: 16px; left: 18px; max-width: 46%; }
@@ -59,6 +61,8 @@
   .hud.tr .counts { justify-content: flex-end; }
   .hud.bl { left: 18px; bottom: 16px; right: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
   .hud.br { right: 18px; bottom: 74px; text-align: right; font: 11px var(--mono); color: var(--muted); }
+  .hud.mid { left: 50%; top: 46%; transform: translate(-50%, -50%); text-align: center; font: 600 13px var(--mono); letter-spacing: 0.06em;
+    padding: 7px 14px; border-radius: 8px; background: rgba(6, 10, 17, 0.78); border: 1px solid #2a3a52; color: var(--ink); display: none; }
   .hud h1 { font-size: 26px; text-shadow: 0 2px 18px #000; }
   .hud .sub { text-shadow: 0 1px 10px #000; }
   .metric { background: rgba(8, 13, 22, 0.72); backdrop-filter: blur(8px); border: 1px solid var(--line);
@@ -67,6 +71,13 @@
   .metric .v { font: 600 18px var(--mono); color: var(--ink); }
   .metric .v small { font-size: 11px; color: var(--muted); font-weight: 400; }
   .metric.hot .v { color: var(--amber); }
+  .spacechip { display: inline-block; margin-top: 8px; padding: 5px 10px; border-radius: 8px; font-size: 13px; pointer-events: auto;
+    background: rgba(8, 13, 22, 0.78); border: 1px solid #2a3a52; backdrop-filter: blur(8px); }
+  .spacechip b { color: var(--accent); }
+  .spacechip a { margin-left: 8px; font-size: 12px; }
+  .market { max-height: 262px; overflow: auto; }
+  .market thead th { position: sticky; top: 0; background: var(--panel); }
+  .yes { color: var(--found); font-weight: 600; font-size: 12.5px; }
   .tag3d { font: 600 11px var(--mono); padding: 3px 7px; border-radius: 6px; white-space: nowrap;
     background: rgba(6, 10, 17, 0.8); border: 1px solid #2a3a52; color: var(--ink); }
   .tag3d.amber { border-color: #6b5320; color: var(--amber); }
@@ -114,6 +125,7 @@
   .aerial .me { fill: rgba(90, 209, 255, 0.16); stroke: #5ad1ff; stroke-width: 0.6; }
   .aerial .other { fill: none; stroke: #ffffff; stroke-width: 0.35; stroke-dasharray: 1.2 0.8; }
   .aerial img { width: 100%; border-radius: 8px; display: block; }
+  img.sheet { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; margin-bottom: 8px; }
   .legend { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
   .thumbs { display: flex; gap: 6px; margin-top: 10px; }
   .thumbs img { width: 84px; height: 56px; object-fit: cover; border-radius: 6px; }
@@ -142,6 +154,12 @@
   .chg .r { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
   .chg .w { font: 10.5px var(--mono); color: #6c7a90; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
 
+  .plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .plan { display: block; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); text-decoration: none; }
+  .plan img { width: 100%; height: 170px; object-fit: contain; display: block; background: #fff; }
+  .plan span { display: block; padding: 5px 8px; font: 11px var(--mono); color: #334; background: #eef1f6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .planhead { display: flex; justify-content: space-between; align-items: baseline; margin: 26px 0 8px; }
+  .planhead h3 { margin: 0; font-size: 16px; }
   .steps { padding: 4px 16px 14px; }
   .steps h4 { margin: 14px 0 4px; font-size: 14px; }
   .steps ul { margin: 0; padding-left: 18px; }
@@ -158,6 +176,7 @@
 <header class="top">
   <a class="brand" href="#/">Second<b>Stay</b></a>
   <span class="tag">Evidence pre-check · housing conversion · Los Angeles</span>
+  <a href="#/plans" style="margin-left:auto;font-size:13px">Floor plans on record</a>
 </header>
 <p class="notice" id="notice">This is a preliminary evidence review, not a legal or code determination. Final decisions are made by LADBS and licensed professionals.</p>
 <main id="app"><p class="loading">Loading…</p></main>
@@ -167,6 +186,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { CSS3DRenderer, CSS3DObject } from "three/addons/renderers/CSS3DRenderer.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -189,15 +209,20 @@ const badge = (state, text) => {
 const counts = (c) => `<div class="counts">${Object.entries(c).map(([s, n]) => badge(s, `${s} ${n}`)).join("")}</div>`;
 const shortCounts = (c) => `<div class="counts">${Object.entries(c).map(([s, n]) => badge(s, n)).join("")}</div>`;
 
+let visit = 0; // goes up on every navigation, so a slow answer for an earlier screen is dropped
 async function api(path) {
+  const mine = visit;
   const response = await fetch(path);
   if (!response.ok) throw new Error(`Request did not complete (${response.status})`);
-  return response.json();
+  const data = await response.json();
+  if (mine !== visit) throw new Error("stale");
+  return data;
 }
 
 /* ---------- shared 3D plumbing ---------- */
 
 let live = null; // the scene currently on screen
+const introSeen = new Set(); // buildings whose photo-to-model intro has already played
 function stopScene() { if (live) { live.dispose(); live = null; } tip.style.display = "none"; }
 
 function makeStage(host) {
@@ -206,6 +231,9 @@ function makeStage(host) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   gl.appendChild(renderer.domElement);
   const labels = new CSS2DRenderer({ element: labelHost });
+  // floor plan images are laid into the scene as page elements, since they cannot be read as textures
+  const flatHost = document.createElement("div"); flatHost.className = "flat"; host.insertBefore(flatHost, labelHost);
+  const flat = new CSS3DRenderer({ element: flatHost });
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x060a11, 0.0016);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 6000);
@@ -217,12 +245,12 @@ function makeStage(host) {
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.75, 0.7, 0.55));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.6, 0.72));
   composer.addPass(new OutputPass());
 
   const size = () => {
     const w = host.clientWidth, h = host.clientHeight;
-    renderer.setSize(w, h); composer.setSize(w, h); labels.setSize(w, h);
+    renderer.setSize(w, h); composer.setSize(w, h); labels.setSize(w, h); flat.setSize(w, h);
     camera.aspect = w / h; camera.updateProjectionMatrix();
   };
   const watcher = new ResizeObserver(size); watcher.observe(host); size();
@@ -236,13 +264,13 @@ function makeStage(host) {
     frame = requestAnimationFrame(loop);
     const t = clock.getElapsedTime();
     ticks.forEach((fn) => fn(t));
-    controls.update(); composer.render(); labels.render(scene, camera);
+    controls.update(); composer.render(); labels.render(scene, camera); flat.render(scene, camera);
   };
   loop();
   const dispose = () => {
     alive = false; cancelAnimationFrame(frame); watcher.disconnect(); controls.dispose();
     scene.traverse((o) => { o.geometry?.dispose(); if (o.material) [].concat(o.material).forEach((m) => { m.map?.dispose(); m.dispose(); }); });
-    renderer.dispose(); gl.replaceChildren(); labelHost.replaceChildren();
+    renderer.dispose(); gl.replaceChildren(); labelHost.replaceChildren(); flatHost.remove();
   };
   return { scene, camera, controls, renderer, ticks, dispose };
 }
@@ -292,9 +320,11 @@ function buildingScene(host, data) {
   const minY = Math.min(...all.map((p) => p[1])), maxY = Math.max(...all.map((p) => p[1]));
   const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, span = Math.max(maxX - minX, maxY - minY);
   const at = ([x, y], h = 0) => new THREE.Vector3(x - cx, h, -(y - cy)); // north is -Z, up is Y
+  const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
   const H = (o.height_ft || (b.stories || 2) * 12) * FT;
   const stories = b.stories || Math.max(1, Math.round(H / 4));
+  const floorH = H / stories;
   const topFt = data.top_occupied_ft, highRise = topFt != null && topFt >= HIGH_RISE_FT;
   const main = highRise ? AMBER : CYAN;
   const white = lineMat(0xffffff, 0.95);
@@ -310,45 +340,99 @@ function buildingScene(host, data) {
   const grid = new THREE.GridHelper(Math.max(gw, gh) * 3, 60, 0x1c3148, 0x101b2a);
   grid.position.y = -0.3; scene.add(grid);
 
-  const extrude = (ring, height) => {
-    const shape = new THREE.Shape(ring.map(([x, y]) => new THREE.Vector2(x - cx, y - cy)));
-    return new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false }).rotateX(-Math.PI / 2);
-  };
+  const shapeOf = (ring) => new THREE.Shape(ring.map(([x, y]) => new THREE.Vector2(x - cx, y - cy)));
+  const extrude = (ring, height) => new THREE.ExtrudeGeometry(shapeOf(ring), { depth: height, bevelEnabled: false }).rotateX(-Math.PI / 2);
 
-  // neighbours as ghosts
-  const ghosts = new THREE.Group(); scene.add(ghosts);
+  // neighbours as ghosts; the closest one is kept apart so it can be brought forward
+  const pair = others.length ? closestPair(subject, others) : {};
+  const nearestIndex = pair.b ? others.findIndex((ring) => ring.some((p, k) => k < ring.length - 1 &&
+    Math.abs((ring[k + 1][0] - p[0]) * (pair.b[1] - p[1]) - (ring[k + 1][1] - p[1]) * (pair.b[0] - p[0])) < 0.5 &&
+    Math.min(p[0], ring[k + 1][0]) - 0.5 <= pair.b[0] && pair.b[0] <= Math.max(p[0], ring[k + 1][0]) + 0.5 &&
+    Math.min(p[1], ring[k + 1][1]) - 0.5 <= pair.b[1] && pair.b[1] <= Math.max(p[1], ring[k + 1][1]) + 0.5)) : -1;
+  const ghosts = new THREE.Group(), nearest = new THREE.Group(); scene.add(ghosts, nearest);
   const ghostFill = new THREE.MeshStandardMaterial({ color: 0x23344d, transparent: true, opacity: 0.42, roughness: 0.9, depthWrite: false });
   const ghostEdge = lineMat(GHOST, 0.45);
-  others.forEach((ring, i) => {
-    const geo = extrude(ring, Math.max(3, (o.neighbor_heights_ft?.[i] ?? 20) * FT));
-    ghosts.add(new THREE.Mesh(geo, ghostFill));
-    ghosts.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), ghostEdge));
+  const nearFill = new THREE.MeshStandardMaterial({ color: 0x35507a, transparent: true, opacity: 0.42, roughness: 0.9, depthWrite: false });
+  const nearEdge = lineMat(0xffffff, 0.45);
+  others.forEach((ring, k) => {
+    const geo = extrude(ring, Math.max(3, (o.neighbor_heights_ft?.[k] ?? 20) * FT));
+    const close = k === nearestIndex;
+    (close ? nearest : ghosts).add(new THREE.Mesh(geo, close ? nearFill : ghostFill));
+    (close ? nearest : ghosts).add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), close ? nearEdge : ghostEdge));
   });
 
-  // the building: translucent shell, bright edges, a plate per story
+  // the building: a translucent shell, and one slab per story that can be pulled apart
   const shell = new THREE.Group(); scene.add(shell);
   const shellFill = new THREE.MeshStandardMaterial({ color: main, transparent: true, opacity: 0.2, roughness: 0.35, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false });
-  const plateMat = lineMat(main, 0.32);
+  const shellEdge = lineMat(main, 1);
   subject.forEach((ring) => {
     const geo = extrude(ring, H);
     shell.add(new THREE.Mesh(geo, shellFill));
-    shell.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), lineMat(main, 1)));
-    for (let s = 1; s < stories; s++) shell.add(polyline(ring.map((p) => at(p, (H * s) / stories)), plateMat, true));
+    shell.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), shellEdge));
   });
+  const slabs = new THREE.Group(); scene.add(slabs);
+  const slabFill = new THREE.MeshBasicMaterial({ color: main, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+  const slabEdge = lineMat(main, 0.32);
+  const topFill = slabFill.clone();  // the floor that is opened
+  const marketFill = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+  const marketEdge = lineMat(0xffffff, 0.9);
+  const marketed = new Set((b.spaces || []).map((sp) => sp.floor).filter(Boolean));
+  const openAt = Math.min(stories, Math.max(1, data.floor || stories)) - 1; // index of the floor that opens
+  const levels = [], slabMeshes = [];
+  for (let n = 0; n < stories; n++) {
+    const level = new THREE.Group(); level.userData.base = n * floorH; level.userData.floor = n + 1;
+    const onMarket = marketed.has(n + 1);
+    subject.forEach((ring) => {
+      const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shapeOf(ring)).rotateX(-Math.PI / 2), n === openAt ? topFill : onMarket ? marketFill : slabFill);
+      mesh.userData.floor = n + 1; level.add(mesh); slabMeshes.push(mesh);
+      level.add(polyline(ring.map((p) => at(p, 0)), onMarket || n === openAt ? marketEdge : slabEdge, true));
+    });
+    slabs.add(level); levels.push(level);
+  }
+  const openLevel = levels[openAt];
+
+  // the plan of the open floor: walls, windows and doors from the scan when it has them, else an image
+  const planGroup = new THREE.Group(); planGroup.position.y = 0.25; openLevel.add(planGroup);
+  const wallMat = lineMat(0xffffff, 0.95), windowMat = lineMat(CYAN, 1), doorMat = lineMat(AMBER, 1);
+  const floorLines = Object.values(data.scan?.lines || {}).find((f) => f.walls.length);
+  let planImage = null, planSpan = span;
+  if (floorLines) {
+    const pts = floorLines.walls.flatMap(([x1, y1, x2, y2]) => [[x1, y1], [x2, y2]]);
+    const mx = (Math.min(...pts.map((q) => q[0])) + Math.max(...pts.map((q) => q[0]))) / 2;
+    const my = (Math.min(...pts.map((q) => q[1])) + Math.max(...pts.map((q) => q[1]))) / 2;
+    planSpan = Math.max(Math.max(...pts.map((q) => q[0])) - Math.min(...pts.map((q) => q[0])), Math.max(...pts.map((q) => q[1])) - Math.min(...pts.map((q) => q[1])), 12);
+    const seg = ([x1, y1, x2, y2], material, lift) => planGroup.add(polyline([v3(x1 - mx, lift, -(y1 - my)), v3(x2 - mx, lift, -(y2 - my))], material));
+    floorLines.walls.forEach((w) => seg(w, wallMat, 0));
+    floorLines.doors.forEach((w) => seg(w, doorMat, 0.15));
+    floorLines.windows.forEach((w) => { seg(w, windowMat, 0.15); seg(w, windowMat, 0.45); });
+  } else {
+    const src = data.space?.plan_url || (data.scan?.loaded ? `/api/scans/${encodeURIComponent(data.scan.model_id)}/plan.jpg` : (!data.space && data.plan?.image?.url) || "");
+    if (src) {
+      const img = document.createElement("img"); img.alt = "Floor plan"; img.style.opacity = "0";
+      img.onload = () => { // fitted inside the floor outline; it carries no position of its own
+        const fit = Math.min((maxX - minX) / img.naturalWidth, (maxY - minY) / img.naturalHeight) * 1.15;
+        planImage.scale.setScalar(fit); planImage.userData.ready = true;
+      };
+      img.onerror = () => { planImage.userData.ready = false; };
+      img.src = src;
+      planImage = new CSS3DObject(img); planImage.rotation.x = -Math.PI / 2; planImage.scale.setScalar(0.001);
+      planGroup.add(planImage);
+    }
+  }
 
   // a scan line that keeps travelling up the building
   const sweep = new THREE.Group(); scene.add(sweep);
   subject.forEach((ring) => sweep.add(polyline(ring.map((p) => at(p, 0)), white, true)));
-  ticks.push((t) => { sweep.position.y = ((t * 0.16) % 1) * H; });
 
   // 75 ft threshold, measured to the highest occupied level
   const limit = new THREE.Group(); scene.add(limit);
-  const limitY = HIGH_RISE_FT * FT, half = span * 0.75;
-  const limitMat = new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.1, side: THREE.DoubleSide, depthWrite: false });
+  const limitY = HIGH_RISE_FT * FT, half = span * 0.62;
+  const limitMat = new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false });
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, half * 2).rotateX(-Math.PI / 2), limitMat);
   plane.position.y = limitY; limit.add(plane);
   const corners = [[-half, -half], [half, -half], [half, half], [-half, half]].map(([x, z]) => new THREE.Vector3(x, limitY, z));
-  limit.add(polyline(corners, lineMat(AMBER, 0.9), true));
+  const limitLine = lineMat(AMBER, 0.9);
+  limit.add(polyline(corners, limitLine, true));
   const limitTag = tag("75 ft · high-rise threshold", "amber"); limitTag.position.copy(corners[2]); limit.add(limitTag);
 
   // height read-out beside the corner furthest east
@@ -357,42 +441,184 @@ function buildingScene(host, data) {
   const off = at(east0).add(new THREE.Vector3(span * 0.08, 0, 0));
   dims.add(polyline([off.clone(), off.clone().setY(H)], white));
   [0, H].forEach((y) => dims.add(polyline([off.clone().setY(y).add(new THREE.Vector3(-2.5, 0, 0)), off.clone().setY(y).add(new THREE.Vector3(2.5, 0, 0))], white)));
-  if (o.height_ft) { const t = tag(`roof ≈ ${Math.round(o.height_ft)} ft`); t.position.copy(off.clone().setY(H)); dims.add(t); }
+  const tags = []; // labels do not follow a hidden group, so each is switched on its own
+  if (o.height_ft) { const t = tag(`roof ≈ ${Math.round(o.height_ft)} ft`); t.position.copy(off.clone().setY(H)); dims.add(t); tags.push([t, "dims"]); }
   if (topFt != null && stories > 1) {
-    const y = topFt * FT;
-    subject.forEach((ring) => dims.add(polyline(ring.map((p) => at(p, y)), white, true)));
     const t = tag(`highest occupied level ≈ ${Math.round(topFt)} ft`, highRise ? "amber" : "cyan");
-    t.position.copy(at(west0, y)); dims.add(t);
+    t.position.copy(at(west0, topFt * FT)); dims.add(t); tags.push([t, "dims"]);
   }
 
   // gap to the closest structure
   const gap = new THREE.Group(); scene.add(gap);
-  if (others.length) {
-    const pair = closestPair(subject, others);
-    if (pair.a) {
-      const a = at(pair.a, 2), c = at(pair.b, 2);
-      gap.add(polyline([a, c], white));
-      [a, c].forEach((p) => gap.add(polyline([p.clone().setY(0), p.clone().setY(7)], white)));
-      const t = tag(`≈ ${Math.round(pair.d / FT)} ft to the closest structure`); t.position.copy(a.clone().lerp(c, 0.5).setY(8)); gap.add(t);
-    }
+  let gapMid = new THREE.Vector3(0, 4, 0), gapDir = new THREE.Vector3(1, 0, 0), gapLen = 10;
+  if (pair.a) {
+    const a = at(pair.a, 2), c = at(pair.b, 2);
+    gap.add(polyline([a, c], white));
+    [a, c].forEach((p) => gap.add(polyline([p.clone().setY(0), p.clone().setY(7)], white)));
+    gapMid = a.clone().lerp(c, 0.5); gapLen = Math.max(a.distanceTo(c), 1);
+    if (gapLen > 1.5) gapDir = c.clone().sub(a).setY(0).normalize();
+    const t = tag(`≈ ${Math.round(pair.d / FT)} ft to the closest structure`); t.position.copy(gapMid.clone().setY(8)); gap.add(t); tags.push([t, "gap"]);
   }
 
-  // camera
-  const reach = Math.max(span * 1.7, H * 2.1, 90);
-  camera.position.set(reach * 0.78, H * 0.75 + reach * 0.3, reach * 0.78);
-  controls.target.set(0, H * 0.4, 0); controls.minDistance = 30; controls.maxDistance = reach * 4; controls.update();
+  // public streets around the building
+  const roads = new THREE.Group(); scene.add(roads);
+  const streetMat = lineMat(0x9fe6ff, 0.55), laneMat = lineMat(GHOST, 0.25);
+  (data.streets || []).forEach((street) => {
+    roads.add(polyline(street.points.map((p) => at(toM(p), street.public ? 0.9 : 0.6)), street.public ? streetMat : laneMat));
+  });
+  const front = (data.streets || []).find((street) => street.public && street.distance_ft != null);
+  let streetTag = null;
+  if (front) {
+    const near = front.points.map(toM).reduce((m, p) => (Math.hypot(p[0] - cx, p[1] - cy) < Math.hypot(m[0] - cx, m[1] - cy) ? p : m));
+    streetTag = tag(`${front.name || "public street"} · ≈ ${Math.round(front.distance_ft)} ft`, "cyan"); streetTag.position.copy(at(near, 4)); roads.add(streetTag);
+  }
 
-  // what each requirement brings forward
-  const setMode = (key) => {
-    const height = key === "height" || key === "elevator";
-    const around = key === "separation" || key === "access";
-    limit.visible = !around; limitMat.opacity = height ? 0.22 : 0.08;
-    dims.visible = !around; gap.visible = key !== "height";
-    ghostFill.opacity = around ? 0.8 : height ? 0.25 : 0.42; ghostEdge.opacity = around ? 0.95 : 0.4;
-    shellFill.opacity = around ? 0.1 : 0.2;
-    plateMat.opacity = ["elevator", "units", "exits", "escape"].includes(key) ? 0.75 : 0.32;
-    groundMat.color.set(key === "access" ? 0xb9c4d2 : 0x5b6779);
+  /* ---- shots: where the camera goes and how the model is arranged for each requirement ---- */
+  const reach = Math.max(span * 1.7, H * 2.1, 90);
+  const v = (x, y, z) => new THREE.Vector3(x, y, z);
+  const side = gapDir.clone().cross(v(0, 1, 0)).normalize();
+  const hero = { pos: v(reach * 0.78, H * 0.75 + reach * 0.3, reach * 0.78), look: v(0, H * 0.4, 0) };
+  const pulled = 1.9; // how far the stories are pulled apart
+  const openY = openAt * floorH * pulled, gapUp = Math.max(floorH * 3, span * 0.55); // room made above the open floor
+  const frame = Math.max(planSpan * 1.25, span * 0.55); // how far back to stand to see the plan
+  const openShot = { pos: v(frame * 0.8, openY + frame * 1.05, frame * 0.8), look: v(0, openY, 0), explode: 1, ghost: 0.05, limit: 0, lift: 1 };
+  const shots = {
+    "": data.space || floorLines ? { ...openShot } : { ...hero },
+    height: { pos: v(reach * 1.05, H * 0.5, reach * 0.3), look: v(0, H * 0.5, 0), limit: 0.24, ghost: 0.16 },
+    elevator: { pos: v(reach * 0.85, H * pulled * 0.62, reach * 0.85), look: v(0, H * pulled * 0.5, 0), explode: 1, ghost: 0.08, limit: 0.03 },
+    units: { ...openShot },
+    exits: { ...openShot, pos: v(frame * 0.15, openY + frame * 1.45, frame * 0.5) },
+    escape: { ...openShot, pos: v(frame * 1.3, openY + frame * 0.55, frame * 0.5) },
+    separation: { pos: gapMid.clone().add(side.clone().multiplyScalar(Math.max(70, gapLen * 4, span))).setY(Math.max(55, gapLen * 2.5, span * 0.7)), look: gapMid.clone(), ghost: 0.14, near: 0.85, shell: 0.34, limit: 0 },
+    access: { pos: v(0.5, Math.max(reach * 1.5, 230), 1), look: v(0, 0, 0), flat: 0.06, ghost: 0.5, shell: 0.3, limit: 0, street: 1, bright: 1 },
+    sprinklers: { pos: v(reach * 0.5, H * 0.62, reach * 0.62), look: v(0, H * 0.5, 0), ghost: 0.1, shell: 0.3, limit: 0.03 },
+    seismic: { pos: v(-reach * 0.6, H * 0.3, reach * 0.75), look: v(0, H * 0.42, 0), ghost: 0.1, shell: 0.28, limit: 0.03 },
   };
+  shots.alarm = shots.sprinklers; shots.historic = shots.seismic; shots.age = shots.zone = shots.stay = shots[""];
+
+  // everything that moves is one of these numbers, eased from where it is to where the shot wants it
+  const now = { explode: 0, lift: 0, flat: 1, ghost: 0.42, near: 0.42, shell: 0.2, limit: 0.08, street: 0.55 };
+  const want = { ...now };
+  let fly = null;
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const setMode = (key) => {
+    lastKey = key;
+    if (intro) return; // the intro ends by coming to this view
+    const shot = shots[key] || shots[""];
+    Object.assign(want, { explode: 0, lift: 0, flat: 1, ghost: 0.42, near: 0.42, shell: 0.2, limit: 0.08, street: 0.55 }, shot);
+    want.near = shot.near ?? want.ghost;
+    fly = { t0: performance.now(), ms: 1300, fromPos: camera.position.clone(), fromLook: controls.target.clone(), toPos: shot.pos, toLook: shot.look, from: { ...now } };
+    controls.autoRotate = false;
+    groundMat.color.set(shot.bright ? 0xc4cedb : 0x5b6779);
+    const closed = !shot.explode;
+    dims.visible = closed && ["", "age", "zone", "stay", "height", "sprinklers", "alarm", "seismic", "historic"].includes(key);
+    gap.visible = closed && ["", "age", "zone", "stay", "separation"].includes(key);
+    tags.forEach(([t, group]) => { t.visible = group === "dims" ? dims.visible : gap.visible; });
+    limitTag.visible = closed && ["", "age", "zone", "stay", "height"].includes(key);
+    if (streetTag) streetTag.visible = (closed && ["", "age", "zone", "stay"].includes(key)) || key === "access";
+    sweep.visible = !shot.explode && key !== "access";
+  };
+  ticks.push((t) => {
+    if (intro) stepIntro();
+    if (fly) {
+      const k = Math.min(1, (performance.now() - fly.t0) / fly.ms), e = ease(k);
+      camera.position.lerpVectors(fly.fromPos, fly.toPos, e);
+      controls.target.lerpVectors(fly.fromLook, fly.toLook, e);
+      Object.keys(now).forEach((name) => { now[name] = fly.from[name] + (want[name] - fly.from[name]) * e; });
+      if (k === 1) { fly = null; controls.autoRotate = true; }
+    }
+    const spread = 1 + now.explode * (pulled - 1);
+    // the stories above the open floor rise clear of it, so its plan can be seen
+    levels.forEach((level, n) => { level.position.y = (level.userData.base * spread + (n > openAt ? now.lift * gapUp : 0)) * grow; });
+    shell.scale.y = Math.max(grow, 0.001); slabs.visible = grow > 0.02;
+    slabFill.opacity = 0.05 + now.explode * 0.3 * (1 - 0.8 * now.lift); slabEdge.opacity = 0.32 + now.explode * 0.6 * (1 - 0.6 * now.lift);
+    marketFill.opacity = 0.02 + now.explode * 0.1 * (1 - 0.8 * now.lift); marketEdge.opacity = 0.45 + now.explode * 0.5;
+    slabFill.opacity = 0.04 + now.explode * 0.16 * (1 - 0.85 * now.lift);
+    topFill.opacity = 0.05 + now.explode * 0.2 + now.lift * 0.12;
+    planGroup.visible = now.lift > 0.02;
+    wallMat.opacity = 0.95 * now.lift; windowMat.opacity = now.lift; doorMat.opacity = now.lift;
+    if (planImage) planImage.element.style.opacity = planImage.userData.ready ? String(0.92 * now.lift) : "0";
+    shell.visible = now.explode < 0.98; shellFill.opacity = now.shell * (1 - now.explode); shellEdge.opacity = 1 - now.explode;
+    ghosts.scale.y = nearest.scale.y = Math.max(now.flat * grow, 0.001);
+    ghostFill.opacity = now.ghost; ghostEdge.opacity = Math.min(1, now.ghost + 0.1);
+    nearFill.opacity = now.near; nearEdge.opacity = Math.min(1, now.near + 0.15);
+    limitMat.opacity = now.limit; limitLine.opacity = Math.min(0.9, now.limit * 6); limit.visible = now.limit > 0.005;
+    streetMat.opacity = now.street; laneMat.opacity = now.street * 0.5;
+    sweep.position.y = ((t * 0.16) % 1) * H;
+  });
+
+  /* ---- intro: the aerial photo turns into the model ---- */
+  const trace = new THREE.Group(); scene.add(trace);
+  const traced = [];
+  const outlineOf = (ring, material) => {
+    const line = polyline([...ring, ring[0]].map((p) => at(p, 0.7)), material);
+    line.geometry.setDrawRange(0, 0); line.userData.count = ring.length + 1; trace.add(line); traced.push(line);
+  };
+  subject.forEach((ring) => outlineOf(ring, lineMat(0xffffff, 1)));
+  others.forEach((ring) => outlineOf(ring, lineMat(0x9fe6ff, 0.9)));
+  const scanBar = polyline([v(-gw / 2 - cx, 1.2, 0), v(gw / 2 - cx, 1.2, 0)], lineMat(0xffffff, 1)); scene.add(scanBar); scanBar.visible = false;
+  const caption = host.querySelector("#introcap");
+  const say = (text) => { if (caption) { caption.textContent = text; caption.style.display = text ? "block" : "none"; } };
+  const above = v(0.01, Math.max(span * 2.4, 170), 0.5);
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  let intro = null, grow = 1, lastKey = "";
+  const playIntro = () => {
+    intro = { t0: performance.now(), ms: 6200 };
+    fly = null; controls.autoRotate = false; controls.enabled = false;
+    Object.assign(now, { explode: 0, lift: 0, flat: 1, ghost: 0.42, near: 0.42, shell: 0.2, limit: 0, street: 0 });
+    [dims, gap, limit, roads, sweep].forEach((g) => { g.visible = false; });
+    tags.forEach(([t]) => { t.visible = false; }); limitTag.visible = false; if (streetTag) streetTag.visible = false;
+    camera.position.copy(above); controls.target.set(0, 0, 0);
+  };
+  const stepIntro = () => {
+    const k = clamp((performance.now() - intro.t0) / intro.ms);
+    // 1. the photo as it is, swept once
+    scanBar.visible = k < 0.26; scanBar.position.z = cy - gh / 2 + gh * clamp(k / 0.26);
+    // 2. footprints are traced on it
+    const drawn = clamp((k - 0.18) / 0.27);
+    traced.forEach((line) => line.geometry.setDrawRange(0, Math.ceil(line.userData.count * drawn)));
+    // 3. the photo recedes and the buildings rise to their measured heights
+    const rise = clamp((k - 0.45) / 0.33); grow = 1 - Math.pow(1 - rise, 3);
+    groundMat.color.lerpColors(new THREE.Color(0xffffff), new THREE.Color(0x5b6779), clamp((k - 0.42) / 0.3));
+    trace.children.forEach((line) => { line.material.opacity = 1 - clamp((k - 0.7) / 0.25); });
+    // 4. the camera comes down from overhead to the working view
+    const swing = ease(clamp((k - 0.5) / 0.5)), shot = shots[lastKey] || shots[""];
+    camera.position.lerpVectors(above, shot.pos, swing); controls.target.lerpVectors(v(0, 0, 0), shot.look, swing);
+    say(k < 0.18 ? `Vexcel aerial image${o.captured ? " · captured " + o.captured : ""}`
+      : k < 0.45 ? `Tracing ${others.length + 1} building footprints`
+      : k < 0.8 ? `Raising to measured height${o.height_ft ? " · " + Math.round(o.height_ft) + " ft" : ""}` : "");
+    if (k === 1) {
+      intro = null; grow = 1; trace.visible = false; scanBar.visible = false; controls.enabled = true; say("");
+      [limit, roads].forEach((g) => { g.visible = true; });
+      setMode(lastKey);
+    }
+  };
+  host.querySelector("#replay")?.addEventListener("click", (event) => { event.preventDefault(); trace.visible = true; playIntro(); });
+
+  // taking hold of the view stops the flight, so the camera never fights the person
+  stage.renderer.domElement.addEventListener("pointerdown", () => { if (fly) { fly.toPos = camera.position.clone(); fly.fromPos = fly.toPos; fly.toLook = controls.target.clone(); fly.fromLook = fly.toLook; } });
+  stage.renderer.domElement.addEventListener("wheel", () => { if (fly) { fly.toPos = camera.position.clone(); fly.fromPos = fly.toPos; fly.toLook = controls.target.clone(); fly.fromLook = fly.toLook; } }, { passive: true });
+  // choosing a floor: a click that is not a drag, on one of the floor slabs
+  const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+  let downAt = null;
+  const canvas = stage.renderer.domElement;
+  canvas.addEventListener("pointerdown", (event) => { downAt = [event.clientX, event.clientY]; });
+  canvas.addEventListener("pointerup", (event) => {
+    if (!downAt || Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) > 5 || now.explode < 0.5) return;
+    const box = canvas.getBoundingClientRect();
+    mouse.set(((event.clientX - box.left) / box.width) * 2 - 1, -((event.clientY - box.top) / box.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const hit = ray.intersectObjects(slabMeshes, false)[0];
+    if (hit) data.onFloor?.(hit.object.userData.floor);
+  });
+  controls.minDistance = 20; controls.maxDistance = reach * 5;
+  if (data.playIntro) playIntro();
+  else {
+    trace.visible = false;
+    camera.position.copy(hero.pos).multiplyScalar(2.2); // start far out and come in
+    controls.target.copy(hero.look);
+  }
+  controls.update();
   setMode("");
   return { dispose: stage.dispose, setMode };
 }
@@ -528,12 +754,28 @@ function scanView(row, data) {
       <tr><td>Floors in the scan</td><td>${scan.floors}</td></tr>
       <tr><td>Floor area measured</td><td>${scan.area_sqft ? num(scan.area_sqft) + " sq ft" : '<span class="sub">not measured</span>'}</td></tr>
       <tr><td>Use recorded on the scan</td><td>${esc(scan.uses.join(", ") || "not recorded")}</td></tr>
-      <tr><td>Room labels in the scan</td><td>${esc(Object.entries(scan.room_kinds).map(([k, n]) => `${k} ${n}`).join(", ") || "none")}</td></tr>
+      <tr><td>Room types in the scan</td><td>${esc(Object.entries(scan.room_kinds).map(([k, n]) => `${k} ${n}`).join(", ") || "none")}</td></tr>
+      <tr><td>Windows in the wall geometry</td><td>${scan.windows == null ? '<span class="sub">no wall geometry</span>' : scan.windows}</td></tr>
+      <tr><td>Stairs seen, by floor</td><td>${esc(Object.entries(scan.stairs).filter(([, n]) => n).map(([k, n]) => `${k || "Floor"}: ${n}`).join(", ") || "none")}</td></tr>
     </table>` : `<p class="note">${esc(scan.error)}</p>`;
-  return `<div class="src">SOURCE · Matterport 3D scan${scan.name ? " · " + esc(scan.name) : ""}</div>
+  const r = scan.reading;
+  const reading = r ? `
+    <h3 style="margin-top:18px">Read from the panoramas</h3>
+    <div class="src">SOURCE · ${esc(r.reader || "AI model")} · read from images, not measured</div>
+    ${scan.sheet ? `<a href="/api/scans/${encodeURIComponent(scan.model_id)}/sheet.jpg" target="_blank" rel="noopener"><img class="sheet" src="/api/scans/${encodeURIComponent(scan.model_id)}/sheet.jpg" alt="Panoramas read from the scan"></a>` : ""}
+    <table class="kv">
+      <tr><td>Panoramas read</td><td>${r.panoramas}</td></tr>
+      <tr><td>With a window to the outside</td><td>${r.with_windows}</td></tr>
+      <tr><td>Staircases visible</td><td>${r.stairs}</td></tr>
+      <tr><td>Doors marked EXIT</td><td>${r.exit_doors}</td></tr>
+      <tr><td>Kind of space</td><td>${esc(r.space)}${r.indoor === false ? " (outdoors)" : ""}</td></tr>
+      <tr><td>Limits of the reading</td><td>${esc(r.notes)}</td></tr>
+    </table>` : "";
+  const where = [scan.suite ? `Suite ${scan.suite}` : "", scan.floor ? `floor ${scan.floor} (${scan.floor_basis})` : "floor not known"].filter(Boolean).join(" · ");
+  return `<div class="src">SOURCE · Matterport 3D scan${scan.name ? " · " + esc(scan.name) : ""} · ${esc(where)}</div>
     <p class="statement">${esc(row.evidence)}</p>
     <iframe src="https://my.matterport.com/show/?m=${encodeURIComponent(scan.model_id)}&qs=1&brand=0&help=0${key}" allow="xr-spatial-tracking; fullscreen" allowfullscreen></iframe>
-    ${measured}`;
+    ${measured}${reading}`;
 }
 
 function outline(rings, box, cls) {
@@ -562,10 +804,28 @@ function aerialView(row, data) {
       : esc(o.error)}</p>`;
 }
 
+function planView(data) {
+  const p = data.plan;
+  if (!p || (!p.image && !p.reading)) return data.space ? `<h3 style="margin-top:18px">Floor plan on record</h3><p class="note">CoStar holds no floor plan for this suite.</p>` : "";
+  const r = p.reading;
+  if (!p.image) p.image = p.reading_from;
+  const shown = (v) => (v == null ? '<span class="sub">not legible on the plan</span>' : v);
+  return `<h3 style="margin-top:18px">Floor plan on record</h3>
+    <div class="src">SOURCE · CoStar ${p.image.source === "building" ? "building record" : "space for lease"} · ${p.count} plans on record · <a href="#/plans">see all</a></div>
+    <a href="${esc(p.image.url)}" target="_blank" rel="noopener"><img class="sheet" style="background:#fff" src="${esc(p.image.url)}" alt="Floor plan"></a>
+    ${p.reading_from ? `<p class="legend">The reading below is from a whole-floor plan of this building, not from this suite's plan.</p>` : ""}
+    ${r ? `<table class="kv">
+      <tr><td>Stairwells drawn</td><td>${shown(r.stairs)}</td></tr>
+      <tr><td>Elevator cars drawn</td><td>${shown(r.elevators)}</td></tr>
+      <tr><td>What the plan covers</td><td>${esc({ floor: "A whole floor with the core", part: "Part of a floor", suite: "One suite, no core", diagram: "A leasing diagram" }[r.covers] || r.covers)}</td></tr>
+      <tr><td>Limits of the reading</td><td>${esc(r.notes)}</td></tr>
+    </table><p class="legend">${esc(r.reader)} · read from the image, not measured</p>` : '<p class="legend">This plan has not been read yet.</p>'}`;
+}
+
 function evidenceView(row, data) {
   let body;
-  if (row.view === "record") body = recordView(row);
-  else if (row.view === "scan") body = scanView(row, data);
+  if (row.view === "record") body = recordView(row) + (row.key === "elevator" ? planView(data) : "");
+  else if (row.view === "scan") body = scanView(row, data) + (row.key === "exits" ? planView(data) : "");
   else if (row.view === "aerial") body = aerialView(row, data);
   else if (row.view === "setting") body = `<div class="src">SOURCE · product setting</div><p class="statement">${esc(row.evidence)}</p>
       <p class="note">SecondStay plans stays of 31 days or longer. This is a setting, not a property of the building.</p>`;
@@ -592,10 +852,19 @@ function changesView(data) {
   <p class="note">Each item carries the quantity it would be priced on. The cost model is not connected yet, so no figures are shown.</p>`;
 }
 
-async function showSpace(id, scanId, selected) {
-  const query = scanId ? `?scan=${encodeURIComponent(scanId)}` : "";
+async function showSpace(id, scanId, selected, spaceId) {
+  const params = new URLSearchParams();
+  if (scanId) params.set("scan", scanId);
+  if (spaceId) params.set("space", spaceId);
+  const query = params.toString() ? `?${params}` : "";
   const data = await api(`/api/spaces/${id}${query}`);
-  const b = data.building, o = data.outside;
+  const b = data.building, o = data.outside, sp = data.space;
+  const reopen = (space, scan) => { stopScene(); showSpace(id, scan, current.key, space).catch(showError); };
+  data.onFloor = (floor) => {
+    const there = b.spaces.filter((x) => x.floor === floor);
+    if (there.length) reopen(there.find((x) => x.plan_url || x.scans.length)?.id ?? there[0].id);
+    else flash(`Nothing is on the market on floor ${floor}.`);
+  };
   let current = data.rows.find((r) => r.key === selected) || data.rows[0];
   const top = data.top_occupied_ft;
   const scanPicker = b.scans.length > 1 ? `<label class="sub" style="font-size:12px">Scan
@@ -607,9 +876,14 @@ async function showSpace(id, scanId, selected) {
     <div class="stage" id="stage"><div class="gl"></div><div class="labels"></div>
       ${o.loaded ? "" : `<div class="empty">${esc(o.error || "No imagery for this building.")}</div>`}
       <div class="hud tl"><h1>${esc(b.name || b.address)}</h1>
-        <div class="sub">${esc(b.address)}, Los Angeles · ${esc(b.property_type)} · built ${b.year_built ?? "–"} · zone ${esc(b.zone ?? "–")}</div></div>
+        <div class="sub">${esc(b.address)}, Los Angeles · ${esc(b.property_type)} · built ${b.year_built ?? "–"} · zone ${esc(b.zone ?? "–")}</div>
+        ${sp ? `<div class="spacechip"><b>${esc(sp.suite ? "Suite " + sp.suite : "Space")}</b> · ${esc(sp.floor_label)} · ${num(sp.sqft)} sq ft${sp.use ? " · " + esc(sp.use) : ""}${sp.rent_per_sqft_year ? ` · $${sp.rent_per_sqft_year.toFixed(0)}/sq ft/yr` : ""}
+          <a href="#" id="clearspace">show the whole building</a></div>`
+          : b.spaces.length ? `<div class="spacechip">${b.spaces.length} spaces on the market. Choose one below, or pull the floors apart and select a floor.</div>` : ""}
+        <div class="spacechip" id="flash" style="display:none"></div></div>
       <div class="hud tr">${counts(data.counts)}${scanPicker}</div>
-      <div class="hud br">drag to orbit · scroll to zoom<br>select a requirement to bring its evidence forward</div>
+      <div class="hud mid" id="introcap"></div>
+      <div class="hud br">drag to orbit · scroll to zoom<br>select a requirement to bring its evidence forward<br><a href="#" id="replay" style="pointer-events:auto">replay: aerial photo to model</a></div>
       <div class="hud bl">
         ${metric("Roof height", o.height_ft ? Math.round(o.height_ft) : "–", " ft")}
         ${metric("Highest occupied level", top != null ? "≈ " + Math.round(top) : "–", " ft", top != null && top >= HIGH_RISE_FT)}
@@ -620,6 +894,15 @@ async function showSpace(id, scanId, selected) {
         ${metric("Imagery", esc(o.captured || "–"))}
       </div>
     </div>
+    ${b.spaces.length ? `<h2>Spaces on the market · ${b.spaces.length}</h2>
+    <div class="panel market"><table class="spaces">
+      <thead><tr><th>Floor</th><th>Suite</th><th class="num">sq ft</th><th>Use</th><th class="num">Asking $/sq ft/yr</th><th>Available</th><th>Floor plan</th><th>3D scan</th></tr></thead>
+      <tbody>${b.spaces.map((x) => `<tr data-space="${x.id}" class="${sp && sp.id === x.id ? "on" : ""}">
+        <td>${esc(x.floor_label)}</td><td class="name">${esc(x.suite || "–")}</td><td class="num">${num(x.sqft)}</td><td>${esc(x.use || "–")}</td>
+        <td class="num">${x.rent_per_sqft_year ? x.rent_per_sqft_year.toFixed(0) : "–"}</td><td>${esc(x.available_on || "–")}</td>
+        <td>${x.plan_url ? '<span class="yes">on record</span>' : '<span class="sub">none</span>'}</td>
+        <td>${x.scans.length ? '<span class="yes">' + x.scans.length + " scan" + (x.scans.length > 1 ? "s" : "") + "</span>" : '<span class="sub">none</span>'}</td></tr>`).join("")}</tbody>
+    </table></div>` : ""}
     <div class="cols">
       <div class="panel rows" id="rows">${data.rows.map((r) => `
         <button class="row" data-key="${r.key}">
@@ -642,6 +925,7 @@ async function showSpace(id, scanId, selected) {
       <ul>${g.items.map((i) => `<li><b>${esc(i.requirement)}</b> ${badge(i.state)}<br><span class="sub">${esc(i.evidence)}</span></li>`).join("")}</ul>`).join("")}
     </div>`;
 
+  data.playIntro = !introSeen.has(id); introSeen.add(id);
   if (o.loaded) live = buildingScene(document.getElementById("stage"), data);
   const select = (key) => {
     current = data.rows.find((r) => r.key === key);
@@ -651,16 +935,64 @@ async function showSpace(id, scanId, selected) {
   };
   app.querySelectorAll(".row").forEach((el) => (el.onclick = () => select(el.dataset.key)));
   const picker = document.getElementById("scan");
-  if (picker) picker.onchange = () => { stopScene(); showSpace(id, picker.value, current.key).catch(showError); };
+  if (picker) picker.onchange = () => reopen(spaceId, picker.value);
+  app.querySelectorAll("tr[data-space]").forEach((tr) => (tr.onclick = () => reopen(tr.dataset.space)));
+  const clear = document.getElementById("clearspace");
+  if (clear) clear.onclick = (event) => { event.preventDefault(); reopen(""); };
   select(current.key);
 }
 
-function showError(error) { app.innerHTML = `<p class="loading">${esc(error.message)}</p>`; }
+async function showPlans() {
+  const data = await api("/api/spaces");
+  const withPlans = data.spaces.filter((s) => s.floor_plans?.length)
+    .sort((a, c) => c.floor_plans.filter((p) => p.source === "building").length - a.floor_plans.filter((p) => p.source === "building").length);
+  const total = withPlans.reduce((t, s) => t + s.floor_plans.length, 0);
+  app.innerHTML = `
+    <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
+    <h1>Floor plans CoStar holds for these buildings</h1>
+    <p class="sub">${total} plans on ${withPlans.length} of ${data.spaces.length} buildings. Whole-floor plans come from the building record;
+      suite plans come from spaces listed for lease. Select a plan to open it at full size.</p>
+    ${withPlans.map((s) => {
+      const shown = s.floor_plans.slice(0, 12);
+      return `<div class="planhead"><h3>${esc(s.name || s.address)}</h3>
+        <span class="sub">${s.floor_plans.filter((p) => p.source === "building").length} whole-floor · ${s.floor_plans.filter((p) => p.source === "space").length} suite ·
+          <a href="#/space/${s.property_id}">open the evidence review</a></span></div>
+        <div class="plans">${shown.map((p) => `<a class="plan" href="${esc(p.url)}" target="_blank" rel="noopener">
+          <img loading="lazy" src="${esc(p.url)}" alt="Floor plan"><span>${p.source === "building" ? "Whole floor" : "Suite"} · ${esc(p.caption)}</span></a>`).join("")}</div>
+        ${s.floor_plans.length > shown.length ? `<p class="legend">and ${s.floor_plans.length - shown.length} more</p>` : ""}`;
+    }).join("")}`;
+}
+
+async function showPlansToRead(page) {
+  const data = await api("/api/spaces");
+  const chosen = data.spaces.filter((s) => s.plan_to_read);
+  const s = chosen[page];
+  if (!s) { app.innerHTML = '<p class="loading">No more plans.</p>'; return; }
+  const r = s.plan_reading;
+  app.innerHTML = `
+    <p style="margin:0 0 8px"><a href="#/plans">← All floor plans</a> · the plan read for each building, ${page + 1} of ${chosen.length}
+      · ${page ? `<a href="#/plans/read/${page - 1}">previous</a> · ` : ""}${page + 1 < chosen.length ? `<a href="#/plans/read/${page + 1}">next</a>` : ""}
+      · <a href="#/space/${s.property_id}">${esc(s.name || s.address)}</a></p>
+    <div style="background:#fff;border-radius:8px;overflow:hidden">
+      <div style="font:600 12px var(--mono);color:#123;background:#dfe6f0;padding:4px 8px">#${s.property_id} · ${s.plan_to_read.source === "building" ? "whole floor" : "suite"} · ${s.stories ?? "?"} stories on record${r ? ` · read: ${r.stairs} stairs, ${r.elevators} elevators` : ""}</div>
+      <img src="${esc(s.plan_to_read.url)}" alt="Floor plan" style="width:100%;height:740px;object-fit:contain;display:block"></div>`;
+}
+
+function flash(text) {
+  const el = document.getElementById("flash");
+  if (!el) return;
+  el.textContent = text; el.style.display = "block";
+  clearTimeout(flash.timer); flash.timer = setTimeout(() => { el.style.display = "none"; }, 2600);
+}
+
+function showError(error) { if (error.message === "stale") return; app.innerHTML = `<p class="loading">${esc(error.message)}</p>`; }
 function route() {
   const match = location.hash.match(/^#\/space\/(\d+)/);
+  visit += 1;
   stopScene();
   app.innerHTML = '<p class="loading">Reading the three data layers…</p>';
-  (match ? showSpace(match[1]) : showList()).catch(showError);
+  const read = location.hash.match(/^#\/plans\/read\/(\d+)/);
+  (match ? showSpace(match[1]) : read ? showPlansToRead(Number(read[1])) : location.hash.startsWith("#/plans") ? showPlans() : showList()).catch(showError);
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", route);

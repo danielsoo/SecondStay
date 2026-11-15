@@ -25,6 +25,8 @@ def building():
 def payload(tmp_path, monkeypatch):
     monkeypatch.setattr(web, "SCAN_CACHE", tmp_path)
     monkeypatch.setattr(web, "OUTSIDE_CACHE", tmp_path)
+    monkeypatch.setattr(web, "STREET_CACHE", tmp_path / "streets")
+    monkeypatch.setenv("SECONDSTAY_OFFLINE", "1")
     monkeypatch.delenv("MATTERPORT_TOKEN_ID", raising=False)
     monkeypatch.delenv("VEXCEL_API_KEY", raising=False)
     return web.space_payload(building())
@@ -34,13 +36,15 @@ def test_space_payload_without_keys_keeps_scan_rows_open(tmp_path, monkeypatch):
     data = payload(tmp_path, monkeypatch)
     rows = {r["key"]: r for r in data["rows"]}
     assert data["scan"]["loaded"] is False and "not set" in data["scan"]["error"]
-    assert rows["units"]["state"] == "Not enough data" and rows["units"]["view"] == "scan"
+    assert rows["exits"]["state"] == "Not enough data" and rows["exits"]["view"] == "scan"
+    assert rows["units"]["state"] == "Evidence found" and "rentable area on record" in rows["units"]["evidence"]
     assert rows["age"]["view"] == "record" and rows["age"]["fields"][0]["value"] == 1985
     assert sum(data["counts"].values()) == len(rows) and set(data["counts"]) == set(STATES)
     assert "score" not in data
 
 
 def test_list_payload_has_counts_and_no_model_ids(tmp_path, monkeypatch):
+    monkeypatch.setattr(web, "STREET_CACHE", tmp_path / "streets")
     monkeypatch.setattr(web, "OUTSIDE_CACHE", tmp_path)
     (space,) = web.list_payload([building()])["spaces"]
     assert space["scans"] == 1 and sum(space["counts"].values()) == 14
@@ -85,6 +89,8 @@ def test_payload_lists_the_work_the_rules_call_for(tmp_path, monkeypatch):
 def test_the_most_informative_cached_scan_opens_first(tmp_path, monkeypatch):
     import json
 
+    monkeypatch.setattr(web, "STREET_CACHE", tmp_path / "streets")
+    monkeypatch.setenv("SECONDSTAY_OFFLINE", "1")
     monkeypatch.setattr(web, "SCAN_CACHE", tmp_path)
     monkeypatch.setattr(web, "OUTSIDE_CACHE", tmp_path)
     monkeypatch.delenv("VEXCEL_API_KEY", raising=False)
@@ -101,3 +107,26 @@ def test_the_most_informative_cached_scan_opens_first(tmp_path, monkeypatch):
         (tmp_path / f"{model_id}.json").write_text(json.dumps(model))
     assert web.space_payload(b)["scan"]["model_id"] == "LABELLED01"
     assert web.space_payload(b, "BIGGER0001")["scan"]["model_id"] == "BIGGER0001"
+
+
+def test_selecting_a_suite_shows_only_that_suite(tmp_path, monkeypatch):
+    monkeypatch.setattr(web, "SCAN_CACHE", tmp_path)
+    monkeypatch.setattr(web, "OUTSIDE_CACHE", tmp_path)
+    monkeypatch.setattr(web, "STREET_CACHE", tmp_path / "streets")
+    monkeypatch.setattr(web, "PLAN_READING_DIR", tmp_path / "plans")
+    monkeypatch.setenv("SECONDSTAY_OFFLINE", "1")
+    monkeypatch.delenv("VEXCEL_API_KEY", raising=False)
+    monkeypatch.delenv("MATTERPORT_TOKEN_ID", raising=False)
+    b = building()
+    b.spaces = [
+        {"id": 11, "suite": "300", "floor": 3, "floor_label": "Floor 3", "sqft": 4200, "use": "Office",
+         "rent_per_sqft_year": 36.0, "plan_url": "https://example.com/plan300.jpg", "full_floor": False,
+         "available_on": "", "scans": []},
+    ]
+    data = web.space_payload(b, "", "11")
+    rows = {r["key"]: r for r in data["rows"]}
+    assert data["space"]["suite"] == "300" and data["floor"] == 3
+    assert data["scan"]["model_id"] == "" and "no 3D scan tied to this suite" in data["scan"]["error"]
+    assert data["plan"]["image"]["url"].endswith("plan300.jpg") and data["plan"]["reading"] is None
+    assert "Suite 300 is listed at 4,200 sq ft" in rows["units"]["evidence"]
+    assert web.space_payload(b)["space"] is None

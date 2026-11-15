@@ -14,7 +14,8 @@ from dataclasses import asdict, dataclass, fields
 from typing import Optional
 
 from .checklist import (
-    DIRECT_AGE_YEARS, HIGH_RISE_FT, MIN_AGE_YEARS, SpaceFacts, top_occupied_ft,
+    ISSUE, NO_DATA, DIRECT_AGE_YEARS, HIGH_RISE_FT, MIN_AGE_YEARS, SpaceFacts, stairs_by_floor, top_occupied_ft,
+    window_share,
 )
 
 # How sure the evidence is that the work applies.
@@ -200,18 +201,24 @@ def changes_for(facts: SpaceFacts, rows: list, current_year: int) -> list:
         "Whether strengthening is needed is known only after the analysis.")
 
     # Egress
-    floors = sorted({r.floor for r in facts.rooms})
-    if _rooms_labelled(facts) and len(floors) >= 2:
-        short = [fl for fl in floors if sum(1 for r in facts.rooms if r.floor == fl and r.kind == "Staircase") < 2]
-        if short:
-            add("egress.add_stair", "exits", "Second exit stair", POSSIBLE, len(short),
-                "Stories with fewer than two stairs in the scan", "building",
-                f"Fewer than two stairs identified on: {', '.join(short)}. The scan may not cover every stair.")
-    else:
-        add("egress.add_stair", "exits", "Second exit stair", UNKNOWN, None, "Stairs not identified in the scan",
-            "building", "The scan does not identify stairs, so the number of exits per story is not known.")
-    add("escape.add_openings", "escape", "Escape openings for sleeping rooms", UNKNOWN, None, "Not measured",
-        "space", "Exterior walls and windows have not been read from the scan yet.")
+    stairs = stairs_by_floor(facts)
+    exits = row["exits"]
+    if exits.state == ISSUE:
+        short = [fl or "Floor" for fl, n in stairs.items() if n < 2]
+        add("egress.add_stair", "exits", "Second exit stair", POSSIBLE, len(short) or 1,
+            "Stories with fewer than two exits seen in the scan", "building", exits.evidence)
+    elif exits.state == NO_DATA:
+        add("egress.add_stair", "exits", "Second exit stair", UNKNOWN, None, "Exits not identified in the scan",
+            "building", exits.evidence)
+    escape, windows = row["escape"], window_share(facts)
+    if escape.state == ISSUE:
+        add("escape.add_openings", "escape", "Escape openings for sleeping rooms", POSSIBLE,
+            windows[2] if windows else None,
+            "Rooms without a window in the scan" if windows else "Not measured; read from images",
+            "space", escape.evidence)
+    elif escape.state == NO_DATA:
+        add("escape.add_openings", "escape", "Escape openings for sleeping rooms", UNKNOWN, None, "Not measured",
+            "space", escape.evidence)
 
     # Building the homes
     scanned = sum(a for a in facts.floor_areas_sqft if a)

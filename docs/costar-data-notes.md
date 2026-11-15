@@ -67,6 +67,49 @@ API 2.0, reference at `https://api.vexcelgroup.com/v2/api-docs`. The key goes in
 One building costs about 40 calls the first time and is then cached under `data/raw/vexcel/`.
 Street frontage and fire access are not derived yet; `/oriented/*` has the oblique views that would help.
 
+## Inside the scan (`secondstay/matterport.py`, `secondstay/panoramas.py`)
+
+The Matterport Model API holds more than the room classifier, which is empty on most commercial scans.
+
+| Need | Field | Coverage on 254 LA office scans |
+| --- | --- | --- |
+| Room type | `rooms.tags` and `rooms.keywords` (office, staircase, bathroom, hallway, ...) when `classifications` is empty | 190 scans, up from 24 with the classifier alone |
+| Windows and doors | `rooms.boundary.edges.openings` with `type` window, doorway, opening or divider | 83 scans have wall geometry |
+| Stairs | Rooms tagged staircase, and scan positions whose `neighbors` are on another floor (where the person scanning walked between floors) | 25 scans |
+| Panorama images | `panoLocations.skybox(resolution: "low").children`, six faces each | 253 scans |
+
+For a building whose best scan has no wall geometry or no stairs, twelve panoramas spread across the
+scan are laid on one contact sheet and read by a vision model against fixed questions
+(`panoramas.QUESTIONS`): windows to the outside, staircases, doors marked EXIT. The reading is stored
+under `data/raw/readings/` and is always shown as read from images, not measured. Sheets and readings
+are real interiors and stay out of the repo.
+
+## Floors and suites (`secondstay/costar.py`)
+
+An owner markets suites, not the building. The screen is built around the suite that is chosen.
+
+| Need | Field | On the 89 LA offices |
+| --- | --- | --- |
+| Suites on the market | `commercial-listing-summary` `forLeaseSummary.spaces[]` on active listings: `suite`, `floorName`, `squareFeetMax`, `spaceUse`, rates, `availableOnDate`, `isFullFloor` | 883 suites on 75 buildings |
+| Which floor | `floorName` code: 24 is the first floor, 25 the second, 27 the third and so on (26 is Mezzanine) | Known for 879 suites |
+| The suite's own plan | `spaces[].floorPlan.attachmentUri` | 460 suites |
+| Floor sizes | property `floors[]` with `floorSize.squareFeet` | 941 floor records |
+| Which scan shows which suite | The scan's attachment `caption` ("3D Tour of Suite 300") matched to a suite of the same number | 49 suites have a scan; 173 of 254 scans have a known floor |
+
+In the 3D view the stories pull apart, floors with space on the market are outlined in white, and the
+chosen suite's floor opens. Its plan is shown on that floor: walls, windows and doors drawn from the
+scan when it has them (86 scans), else the suite's CoStar plan image laid on the floor. CoStar images
+cannot be read as textures (the image host sends no cross-origin header), so they are placed in the
+scene as page elements. A plan carries no position of its own: it is fitted to the floor outline, and
+scan geometry is drawn at true size in the middle of the floor.
+
+## Streets (`secondstay/streets.py`)
+
+OpenStreetMap, through the Overpass API, gives the roads within 150 m of each building. The fire access
+row reports the closest public street and its distance from the Vexcel footprint. Service roads and
+alleys are drawn but do not count as frontage. This is a fourth, public source next to the three sponsor
+layers and is named wherever it is used. `prefetch` reads all buildings in one request.
+
 ## PRD open questions
 
 - Zoning, year built and stories: yes, on every LA office. Vacancy by suite: not directly; marketed suites and current tenancies only.
