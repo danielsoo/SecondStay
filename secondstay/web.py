@@ -236,6 +236,21 @@ def record_fields(b: costar.Building) -> dict:
     }
 
 
+def floors_3d(b: costar.Building) -> int:
+    """Floors the floor view can draw (from a Matterport scan or a traced plan); the landing puts these buildings first."""
+    from .floor_geometry import source_catalog
+    try:
+        floors = source_catalog(b)["floors"]
+    except Exception:  # a broken private model must not take the landing down
+        return 0
+    return sum(1 for f in floors if any(a.get("geometry_available") for a in f["assets"]))
+
+
+def showcase_key(card: dict) -> tuple:
+    """Most complete first: buildings with a 3D tour, then the most floors drawn, then the most scans."""
+    return (-(1 if card.get("scans") else 0), -card.get("floors_3d", 0), -card.get("scans", 0), -(card.get("available_sqft") or 0))
+
+
 def building_card(b: costar.Building) -> dict:
     card = asdict(b)
     card["zone"] = b.zone
@@ -421,6 +436,7 @@ def list_payload(buildings: list) -> dict:
         card = building_card(b)
         card["scans"] = len(b.scans)
         card["tours"] = sum(1 for sp in b.spaces if sp["scans"])  # listed spaces with their own Matterport tour
+        card["floors_3d"] = floors_3d(b)
         for key in ("aerial_urls", "parcel_numbers"):
             card.pop(key)
         card["floor_plan_count"] = len(b.floor_plans)
@@ -439,6 +455,7 @@ def list_payload(buildings: list) -> dict:
         permit_summary, public, plan_summary = evidence.load(b)
         card["counts"] = summary(evidence.apply(build_checklist(facts, year), facts, permit_summary, public, None, plan_summary))
         spaces.append(card)
+    spaces.sort(key=showcase_key)
     return {"notice": NOTICE, "states": STATES, "spaces": spaces}
 
 
@@ -519,9 +536,11 @@ def city_payload(buildings: list) -> dict:
                 "footprint": [vexcel.simplify_ring(r) for r in outside.footprint] if outside.loaded else [],
                 "available_sqft": b.available_sqft, "spaces": len(b.spaces),
                 "tours": sum(1 for s in b.spaces if s["scans"]), "plans": sum(1 for s in b.spaces if s["plan_url"]),
+                "scans": len(b.scans), "floors_3d": floors_3d(b),
                 # Bounds of /api/spaces/<id>/aerial.jpg?context=1, laid in sharp when the camera comes close.
                 "photo_bbox": context_bbox(outside.bbox) if outside.loaded else [],
             })
+        rows.sort(key=showcase_key)
         _city_cache["data"] = {"bbox": region_box(buildings), "image": "/api/city/aerial.jpg", "buildings": rows,
                                "image_source": "Vexcel aerial imagery"}
     return _city_cache["data"]

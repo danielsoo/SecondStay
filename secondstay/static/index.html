@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SecondStay · evidence pre-check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="/costs.css">
 <script type="importmap">
 { "imports": {
@@ -12,33 +15,38 @@
 } }
 </script>
 <style>
-  :root {
-    --bg: #060a11; --panel: #0c121d; --panel2: #101827; --line: #1b2535; --ink: #e8eef8; --muted: #8493a8;
-    --accent: #5ad1ff; --amber: #ffc24a; --select: #121c2e;
-    --found: #5fe0a0; --found-bg: #0f2a20;
-    --issue: #ffc24a; --issue-bg: #33270d;
-    --nodata: #a6b0bf; --nodata-bg: #1a2230;
-    --review: #8fb8ff; --review-bg: #14233f;
-    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    :root {
+    --bg: #F6F7F9; --paper: #F6F7F9; --paper2: #EEF0F3; --panel: #FFFFFF; --panel2: #FAFBFC; --surface: #FFFFFF;
+    --line: #E6E8EC; --line-strong: #D5D9E0; --ink: #111418; --muted: #5F6B7A; --select: #ECF6F8;
+    --accent: #0E7490; --accent-ink: #0B5C72; --amber: #B7791F;
+    --found: #15803D; --found-bg: #E9F7EF;
+    --issue: #B45309; --issue-bg: #FEF3E2;
+    --nodata: #64748B; --nodata-bg: #F1F3F6;
+    --review: #0E7490; --review-bg: #E6F4F7;
+    --sans: "Geist", "Helvetica Neue", Arial, sans-serif;
+    --mono: var(--sans);
+    --r-card: 12px; --r-ctl: 10px;
+    --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+    --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.08), 0 2px 6px rgba(16, 24, 40, 0.05);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--sans); font-variant-numeric: tabular-nums; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   a { color: var(--accent); }
   button, select { font: inherit; color: inherit; }
-  header.top { display: flex; align-items: baseline; gap: 16px; padding: 14px 24px 10px; }
-  header.top .brand { font-weight: 700; font-size: 18px; letter-spacing: 0.02em; text-decoration: none; color: var(--ink); }
+  header.top { display: flex; align-items: baseline; gap: 16px; padding: 14px 24px 12px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  header.top .brand { font-weight: 700; font-size: 18px; letter-spacing: 0; text-decoration: none; color: var(--ink); }
   header.top .brand b { color: var(--accent); font-weight: 700; }
-  header.top .tag { color: var(--muted); font-size: 12px; font-family: var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
-  .notice { margin: 0 24px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px;
-    background: var(--panel); color: var(--muted); font-size: 12.5px; }
+  header.top .tag { color: var(--muted); font-size: 13px; }
+  .notice { margin: 0; padding: 7px 24px; border-bottom: 1px solid var(--line); background: var(--paper2); color: var(--muted); font-size: 12.5px; }
   main { padding: 16px 24px 56px; max-width: 1480px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 0 0 2px; letter-spacing: -0.01em; }
-  h2 { font-size: 12px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 30px 0 10px; font-weight: 500; }
+  h1 { font-size: 24px; line-height: 1.2; margin: 0 0 4px; font-weight: 700; letter-spacing: -0.005em; }
+  h2 { font-size: 16px; color: var(--ink); margin: 32px 0 10px; padding-top: 10px; border-top: 1px solid var(--ink); font-weight: 600; }
+  h3, h4 { font-weight: 600; }
   .sub { color: var(--muted); }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 0; }
 
-  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px;
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 0;
     font-size: 12px; font-weight: 600; white-space: nowrap; }
   .badge i { font-style: normal; font-size: 10px; }
   .s-found { color: var(--found); background: var(--found-bg); }
@@ -48,25 +56,24 @@
   .counts { display: flex; flex-wrap: wrap; gap: 6px; }
 
   /* 3D stage */
-  .stage { position: relative; height: 560px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
-    background: radial-gradient(120% 90% at 50% 100%, #0d1a2b 0%, #060a11 70%); }
+  .stage { position: relative; height: 560px; border: 1px solid var(--line); border-radius: 0; overflow: hidden; background: var(--paper2); }
   .stage.small { height: 440px; }
   .scene-column { min-width: 0; }
   .scene-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
   .scene-toolbar label { margin-left: auto; color: var(--muted); }
-  .scene-toolbar [aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: #102736; }
+  .scene-toolbar [aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--select); }
   .floor-mode .hud.bl, .floor-mode .hud.br, .floor-mode .hud.tr, .floor-mode .spacechip { display: none; }
   .floor-mode .hud.tl { max-width: 90%; }
   .floor-directory { display:flex; gap:6px; overflow:auto; padding:0 0 8px; margin-bottom:8px; }
   .floor-directory .btn { white-space:nowrap; font-size:12px; }
-  .floor-directory [aria-pressed="true"] { border-color:var(--accent); color:var(--accent); background:#102736; }
+  .floor-directory [aria-pressed="true"] { border-color:var(--accent); color:var(--accent); background:var(--select); }
   .floor-resource-bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:0 0 10px; font-size:13px; }
   .floor-resource-bar select { max-width:min(560px,70vw); }
-  #floor-plan-view { position:absolute; inset:92px 16px 16px; z-index:4; background:#f2f3f0; color:#28333c; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; }
+  #floor-plan-view { position:absolute; inset:92px 16px 16px; z-index:4; background:var(--surface); color:var(--ink); border-radius: 0; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; }
   #floor-plan-view[hidden] { display:none; }
   #floor-plan-view img { width:100%; height:calc(100% - 40px); min-height:0; object-fit:contain; }
   #floor-plan-view p { margin:8px 12px; font-size:12px; }
-  #floor-plan-view a { color:#087a9e; }
+  #floor-plan-view a { color:var(--accent); }
   .plan-only .gl, .plan-only .labels { visibility:hidden; }
   #floor-source { display:flex; flex-wrap:wrap; gap:14px; margin:8px 0; }
   #floor-unassigned { margin-top:12px; }
@@ -81,67 +88,67 @@
   .stage .gl, .stage .labels, .stage .flat { position: absolute; inset: 0; }
   .stage .labels, .stage .flat, .stage .flat * { pointer-events: none; }
   .stage .gl { z-index: 0; } .stage .flat { z-index: 1; overflow: hidden; } .stage .labels { z-index: 2; }
-  .stage .flat img { display: block; background: #fff; border-radius: 6px; }
+  .stage .flat img { display: block; background: #fff; border-radius: 0; }
   .stage canvas { display: block; }
   .hud { position: absolute; z-index: 3; pointer-events: none; }
   .hud.tl { top: 16px; left: 18px; max-width: 46%; }
   .hud.tr { top: 16px; right: 18px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: auto; max-width: 46%; }
   .hud.tr .counts { justify-content: flex-end; }
   .hud.bl { left: 18px; bottom: 16px; right: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
-  .hud.br { right: 18px; bottom: 74px; text-align: right; font: 11px var(--mono); color: var(--muted); }
-  .hud.mid { left: 50%; top: 46%; transform: translate(-50%, -50%); text-align: center; font: 600 13px var(--mono); letter-spacing: 0.06em;
-    padding: 7px 14px; border-radius: 8px; background: rgba(6, 10, 17, 0.78); border: 1px solid #2a3a52; color: var(--ink); display: none; }
-  .hud h1 { font-size: 26px; text-shadow: 0 2px 18px #000; }
-  .hud .sub { text-shadow: 0 1px 10px #000; }
-  .metric { background: rgba(8, 13, 22, 0.72); backdrop-filter: blur(8px); border: 1px solid var(--line);
-    border-radius: 10px; padding: 7px 12px; min-width: 112px; }
-  .metric .k { font: 10px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-  .metric .v { font: 600 18px var(--mono); color: var(--ink); }
+  .hud.br { right: 18px; bottom: 74px; text-align: right; font-size: 12px; color: var(--muted); }
+  .hud.mid { left: 50%; top: 46%; transform: translate(-50%, -50%); text-align: center; font: 600 13px var(--sans); letter-spacing: 0;
+    padding: 7px 14px; border-radius: 0; background: var(--surface); border: 1px solid var(--line); color: var(--ink); display: none; }
+  .hud h1 { font-size: 24px; }
+  .hud .sub { }
+  .metric { background: var(--surface); border: 1px solid var(--line);
+    border-radius: 0; padding: 7px 12px; min-width: 112px; }
+  .metric .k { font: 12px var(--sans); letter-spacing: 0; color: var(--muted); }
+  .metric .v { font: 600 18px var(--sans); color: var(--ink); }
   .metric .v small { font-size: 11px; color: var(--muted); font-weight: 400; }
   /* On the building view the figures sit in one thin strip along the bottom edge, so the model stays in view. */
   #stage .hud.bl { gap: 0; flex-wrap: nowrap; overflow-x: auto; bottom: 10px; left: 10px; right: auto; max-width: calc(100% - 20px);
-    background: rgba(8, 13, 22, 0.72); backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: 10px; pointer-events: auto; scrollbar-width: none; }
-  #stage .hud.bl .metric { background: none; border: 0; border-radius: 0; backdrop-filter: none; padding: 5px 11px; min-width: 0; white-space: nowrap; }
+    background: var(--surface); border: 1px solid var(--line); border-radius: 0; pointer-events: auto; scrollbar-width: none; }
+  #stage .hud.bl .metric { background: none; border: 0; border-radius: 0; padding: 5px 11px; min-width: 0; white-space: nowrap; }
   #stage .hud.bl .metric + .metric { border-left: 1px solid var(--line); }
   #stage .hud.bl .metric .k { font-size: 9px; } #stage .hud.bl .metric .v { font-size: 14px; }
-  #stage .hud.br { bottom: 58px; right: 96px; padding: 5px 9px; border-radius: 8px; background: rgba(8, 13, 22, 0.8); border: 1px solid #2a3a52; color: var(--ink); }
+  #stage .hud.br { bottom: 58px; right: 96px; padding: 5px 9px; border-radius: 0; background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
   #stage .hud.bl { max-width: calc(100% - 20px); }
   #stage .hud.bl .metric { flex-shrink: 0; }
   #stage .hud.tl .spacechip { font-size: 12px; padding: 4px 9px; }
   #stage .hud.tl .sub { font-size: 12.5px; } #stage .hud h1 { font-size: 22px; }
   #stage .hud.tr .badge { font-size: 12px; }
   .tour-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
-  .tour-filter button { font: 600 12px var(--mono); padding: 5px 10px; border-radius: 999px; cursor: pointer;
+  .tour-filter button { font: 600 12px var(--sans); padding: 5px 10px; border-radius: 0; cursor: pointer;
     background: var(--panel2); color: var(--muted); border: 1px solid var(--line); }
-  .tour-filter button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); background: #10263a; }
+  .tour-filter button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); background: var(--select); }
   .tour-yes { color: var(--accent); font-weight: 600; }
-  .hud-toggle { position: absolute; z-index: 4; right: 12px; bottom: 58px; font: 600 11px var(--mono); padding: 5px 9px; border-radius: 8px;
-    background: rgba(8, 13, 22, 0.8); color: var(--ink); border: 1px solid #2a3a52; cursor: pointer; }
+  .hud-toggle { position: absolute; z-index: 4; right: 12px; bottom: 58px; font: 600 12px var(--sans); padding: 5px 9px; border-radius: 0;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line); cursor: pointer; }
   .hud-toggle:hover { border-color: var(--accent); }
   #stage.clean .hud, #stage.clean .labels { display: none; }
-  #stage.clean .hud-toggle { background: rgba(8, 13, 22, 0.55); }
+  #stage.clean .hud-toggle { background: var(--surface); }
   .metric.hot .v { color: var(--amber); }
-  .spacechip { display: inline-block; margin-top: 8px; padding: 5px 10px; border-radius: 8px; font-size: 13px; pointer-events: auto;
-    background: rgba(8, 13, 22, 0.78); border: 1px solid #2a3a52; backdrop-filter: blur(8px); }
+  .spacechip { display: inline-block; margin-top: 8px; padding: 5px 10px; border-radius: 0; font-size: 13px; pointer-events: auto;
+    background: var(--surface); border: 1px solid var(--line); }
   .spacechip b { color: var(--accent); }
   .spacechip a { margin-left: 8px; font-size: 12px; }
   .market { max-height: 262px; overflow: auto; }
   .market thead th { position: sticky; top: 0; background: var(--panel); }
   .yes { color: var(--found); font-weight: 600; font-size: 12.5px; }
   .stage.city { height: min(78vh, 780px); }
-  .stage.city .hud.tl { max-width: 460px; padding: 14px 16px; border-radius: 12px; background: rgba(6, 10, 17, 0.8);
-    backdrop-filter: blur(6px); border: 1px solid rgba(143, 211, 232, 0.18); }
-  .stage.city .eyebrow { font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+  .stage.city .hud.tl { max-width: 460px; padding: 14px 16px; border-radius: 0; background: var(--surface); border: 1px solid var(--line); }
+  .stage.city .eyebrow { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
   .stage.city h1 { font-size: 26px; margin: 0 0 6px; }
   .stage.city .legend { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; }
-  .stage.city .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
-  .city-card { font: 12px var(--mono); line-height: 1.5; padding: 8px 11px; border-radius: 8px; background: rgba(6, 10, 17, 0.9);
-    border: 1px solid #2f6f62; color: var(--ink); white-space: nowrap; pointer-events: none; }
+  .stage.city .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 0; margin-right: 6px; }
+  .city-card { font: 12px var(--sans); line-height: 1.5; padding: 8px 11px; border-radius: 0; background: var(--surface);
+    border: 1px solid var(--line); color: var(--ink); white-space: nowrap; pointer-events: none; }
   .city-card b { color: var(--accent); font-size: 13px; } .city-card .why { color: var(--muted); }
-  .city-card .cost-line { color: #5fe0a0; font-weight: 600; }
+  .city-card .cost-line { color: var(--found); font-weight: 600; }
   .stage.city .tour-switch { pointer-events: auto; margin-bottom: 6px; }
-  .stage.city .tour-switch[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-  .btn.primary { background: var(--accent); color: #06121b; border-color: var(--accent); font-weight: 600; }
+  .stage.city .tour-switch[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--select); }
+  .btn.primary { background: var(--accent); color: #FFFFFF; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { background: #0B4C61; border-color: #0B4C61; }
   .floor-ledger { padding: 12px 16px; margin: 0 0 12px; }
   #tour-view { position: absolute; inset: 0; z-index: 4; background: #000; display: flex; flex-direction: column;
     opacity: 0; transform: scale(0.94); transition: opacity 0.6s ease, transform 0.6s ease; }
@@ -151,47 +158,47 @@
   #tour-view.warming * { pointer-events: none; }
   @media (prefers-reduced-motion: reduce) { #tour-view { transition: none; } }
   .stage.tour-over .hud { display: none; }
-  .room-tag { pointer-events: none; background: rgba(6, 10, 17, 0.88); border: 1px solid #2f6f62; }
+  .room-tag { pointer-events: none; background: var(--surface); border: 1px solid var(--line); }
   #tour-view[hidden] { display: none; }
   #tour-view iframe { flex: 1; width: 100%; border: 0; }
   #tour-view .tour-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px;
-    background: rgba(6, 10, 17, 0.92); font-size: 13px; color: var(--muted); }
+    background: var(--surface); font-size: 13px; color: var(--muted); }
   #tour-view .tour-bar b { color: var(--ink); }
   .stage.tour-mode { height: 640px; }
   .stage.tour-mode .hud, .stage.tour-mode .gl, .stage.tour-mode .labels, .stage.tour-mode .flat { display: none; }
   .stage .flat { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
-  .stage .flat img { display: block; background: #fff; border-radius: 4px; }
+  .stage .flat img { display: block; background: #fff; border-radius: 0; }
   .stage .labels { z-index: 2; }
-  .floor-card { font: 11px var(--mono); line-height: 1.45; padding: 6px 9px; transform-origin: right bottom; border-radius: 8px; background: rgba(6, 10, 17, 0.86);
-    border: 1px solid #2a3a52; color: var(--ink); white-space: nowrap; }
+  .floor-card { font: 12px var(--sans); line-height: 1.45; padding: 6px 9px; transform-origin: right bottom; border-radius: 0; background: var(--surface);
+    border: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
   .floor-card b { color: var(--accent); }
   .floor-card .why { color: var(--muted); }
-  .ledger-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 8px 0; background: #1a2230; }
+  .ledger-bar { display: flex; height: 12px; border-radius: 0; overflow: hidden; margin: 8px 0; background: var(--paper2); }
   .ledger-bar span { display: block; height: 100%; }
-  .ledger-bar .hatched { background-image: repeating-linear-gradient(45deg, #5d6b80 0 4px, #2a3446 4px 8px) !important; }
+  .ledger-bar .hatched { background-image: repeating-linear-gradient(45deg, #C9C6BD 0 4px, #EFEDE7 4px 8px) !important; }
   .ledger-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
   .ledger-list li { display: grid; grid-template-columns: 10px minmax(110px, auto) 110px 1fr auto; gap: 10px; align-items: baseline; font-size: 13px; }
-  .ledger-list i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-  .ledger-list .num { font-family: var(--mono); text-align: right; }
-  .tag3d { font: 600 11px var(--mono); padding: 3px 7px; border-radius: 6px; white-space: nowrap;
-    background: rgba(6, 10, 17, 0.8); border: 1px solid #2a3a52; color: var(--ink); }
-  .tag3d.amber { border-color: #6b5320; color: var(--amber); }
-  .tag3d.cyan { border-color: #1f5670; color: var(--accent); }
+  .ledger-list i { width: 10px; height: 10px; border-radius: 0; display: inline-block; }
+  .ledger-list .num { font-family: var(--sans); text-align: right; }
+  .tag3d { font: 600 12px var(--sans); padding: 3px 7px; border-radius: 0; white-space: nowrap;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
+  .tag3d.amber { border-color: var(--issue); color: var(--amber); }
+  .tag3d.cyan { border-color: var(--line); color: var(--accent); }
   .stage .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); padding: 40px; text-align: center; }
-  .tip { position: fixed; z-index: 10; pointer-events: none; background: rgba(8, 13, 22, 0.92); border: 1px solid #2a3a52;
-    border-radius: 8px; padding: 6px 10px; font-size: 12.5px; display: none; }
+  .tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 0; padding: 6px 10px; font-size: 12.5px; display: none; }
   .tip b { display: block; }
-  .tip span { font: 11px var(--mono); color: var(--muted); }
+  .tip span { font: 12px var(--sans); color: var(--muted); }
 
   /* list of spaces */
   table.spaces { width: 100%; border-collapse: collapse; }
-  table.spaces th { text-align: left; font: 500 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+  table.spaces th { text-align: left; font: 500 12px var(--sans); letter-spacing: 0; color: var(--muted);
     padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
   table.spaces td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   table.spaces tr:last-child td { border-bottom: 0; }
   table.spaces tbody tr { cursor: pointer; }
   table.spaces tbody tr:hover, table.spaces tbody tr.on { background: var(--select); }
-  td.num, th.num { text-align: right; font-family: var(--mono); font-size: 13px; }
+  td.num, th.num { text-align: right; font-family: var(--sans); font-size: 13px; }
   .name { font-weight: 600; }
 
   /* one space */
@@ -202,72 +209,72 @@
     border-bottom: 1px solid var(--line); padding: 11px 14px; cursor: pointer; }
   .row:last-child { border-bottom: 0; }
   .row:hover, .row.on { background: var(--select); }
-  .row.on { box-shadow: inset 3px 0 0 var(--accent); }
+  .row.on { border-left: 3px solid var(--accent); padding-left: 11px; }
   .row .line1 { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
   .row .req { font-weight: 600; }
   .row .ev { color: var(--muted); font-size: 13px; margin-top: 3px; }
   .row .more { display: none; margin-top: 8px; font-size: 13px; }
   .row.on .more { display: block; }
-  .more dt { color: var(--muted); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 6px; }
+  .more dt { color: var(--muted); font: 12px var(--sans); letter-spacing: 0; margin-top: 6px; }
   .more dd { margin: 0; }
 
   .evidence { position: sticky; top: 12px; padding: 16px; min-height: 420px; }
   .evidence h3 { margin: 0 0 2px; font-size: 17px; }
-  .evidence .src { color: var(--muted); font: 11px var(--mono); margin-bottom: 12px; }
-  .evidence iframe { width: 100%; height: 460px; border: 0; border-radius: 8px; background: #000; }
+  .evidence .src { color: var(--muted); font: 12px var(--sans); margin-bottom: 12px; }
+  .evidence iframe { width: 100%; height: 460px; border: 0; border-radius: 0; background: #000; }
   .evidence [hidden] { display: none !important; }
   .aerial { position: relative; line-height: 0; }
   .aerial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .aerial .me { fill: rgba(90, 209, 255, 0.16); stroke: #5ad1ff; stroke-width: 0.6; }
+  .aerial .me { fill: rgba(15, 95, 120, 0.16); stroke: var(--accent); stroke-width: 0.6; }
   .aerial .other { fill: none; stroke: #ffffff; stroke-width: 0.35; stroke-dasharray: 1.2 0.8; }
-  .aerial img { width: 100%; border-radius: 8px; display: block; }
-  img.sheet { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; margin-bottom: 8px; }
+  .aerial img { width: 100%; border-radius: 0; display: block; }
+  img.sheet { width: 100%; border-radius: 0; border: 1px solid var(--line); display: block; margin-bottom: 8px; }
   .legend { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
   .thumbs { display: flex; gap: 6px; margin-top: 10px; }
-  .thumbs img { width: 84px; height: 56px; object-fit: cover; border-radius: 6px; }
+  .thumbs img { width: 84px; height: 56px; object-fit: cover; border-radius: 0; }
   .thumbs.large img { width: 100%; max-width: 360px; height: auto; max-height: 240px; }
   .aerial .street { fill: none; stroke: var(--amber); stroke-width: 0.9; stroke-linecap: round; opacity: 0.85; }
   .aerial .dim { stroke: #fff; vector-effect: non-scaling-stroke; stroke-width: 2.5px; }
   .aerial .dim-end { fill: #fff; }
-  .aerial .dim-tag { position: absolute; transform: translate(-50%, -140%); line-height: 1.2; font: 600 12px var(--mono);
-    color: #0b111b; background: #fff; padding: 2px 6px; border-radius: 4px; white-space: nowrap; pointer-events: none; }
-  .viz { width: 100%; height: auto; display: block; margin-top: 10px; background: var(--panel2); border-radius: 8px; padding: 6px 0; }
+  .aerial .dim-tag { position: absolute; transform: translate(-50%, -140%); line-height: 1.2; font: 600 12px var(--sans);
+    color: var(--ink); background: #fff; padding: 2px 6px; border-radius: 0; white-space: nowrap; pointer-events: none; }
+  .viz { width: 100%; height: auto; display: block; margin-top: 10px; background: var(--panel2); border-radius: 0; padding: 6px 0; }
   .viz .tl-axis { stroke: var(--muted); stroke-width: 1; } .viz .tl-dot { fill: var(--amber); opacity: 0.85; }
-  .viz .tl-text { fill: var(--ink); font: 11px var(--mono); } .viz .tl-text.strong { font-weight: 700; }
-  .viz .tl-text.muted { fill: var(--muted); } .viz .tl-text.dark { fill: #0b111b; }
+  .viz .tl-text { fill: var(--ink); font: 12px var(--sans); } .viz .tl-text.strong { font-weight: 700; }
+  .viz .tl-text.muted { fill: var(--muted); } .viz .tl-text.dark { fill: var(--ink); }
   .viz .age-old { fill: var(--found); opacity: 0.55; } .viz .age-mid { fill: var(--amber); opacity: 0.55; } .viz .age-new { fill: var(--nodata); opacity: 0.35; }
   .viz .age-mark { stroke: var(--ink); stroke-width: 2; }
   .viz .area-all { fill: var(--nodata); } .viz .area-use { fill: var(--accent); } .viz .unit-cell { fill: var(--accent); opacity: 0.75; }
   .viz .day { fill: var(--nodata); opacity: 0.4; } .viz .day.over { fill: var(--found); opacity: 0.9; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin-top: 12px; }
-  .card { display: flex; gap: 10px; align-items: flex-start; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .card { display: flex; gap: 10px; align-items: flex-start; background: var(--panel2); border: 1px solid var(--line); border-radius: 0; padding: 10px 12px; }
   .card b { display: block; font-size: 13px; } .card span { display: block; font-size: 12.5px; color: var(--muted); } .card a { font-size: 12.5px; }
   .card .card-icon { font-size: 20px; line-height: 1; width: 24px; text-align: center; color: var(--muted); }
-  .card.ok { border-color: #1d4a36; } .card.ok .card-icon { color: var(--found); }
-  .card.warn { border-color: #5a4518; } .card.warn .card-icon { color: var(--amber); }
+  .card.ok { border-color: var(--found); } .card.ok .card-icon { color: var(--found); }
+  .card.warn { border-color: var(--issue); } .card.warn .card-icon { color: var(--amber); }
   .card.open .card-icon { color: var(--review); }
-  .stage.scene3d { height: 420px; margin-top: 10px; border-radius: 10px; }
+  .stage.scene3d { height: 420px; margin-top: 10px; border-radius: 0; }
   .stage.scene3d .tag3d { font-size: 10.5px; }
   .flat-view { margin-top: 8px; } .flat-view summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
   .flat-view .aerial { margin-top: 8px; }
-  .height-profile { width: 100%; height: auto; display: block; margin-top: 8px; background: var(--panel2); border-radius: 8px; }
-  .height-profile .hp-building { fill: rgba(90, 209, 255, 0.14); stroke: var(--accent); stroke-width: 1.5; }
-  .height-profile .hp-story { stroke: rgba(90, 209, 255, 0.35); stroke-width: 0.6; }
-  .height-profile .hp-suite { fill: rgba(90, 209, 255, 0.55); }
+  .height-profile { width: 100%; height: auto; display: block; margin-top: 8px; background: var(--panel2); border-radius: 0; }
+  .height-profile .hp-building { fill: rgba(15, 95, 120, 0.14); stroke: var(--accent); stroke-width: 1.5; }
+  .height-profile .hp-story { stroke: rgba(15, 95, 120, 0.35); stroke-width: 0.6; }
+  .height-profile .hp-suite { fill: rgba(15, 95, 120, 0.55); }
   .height-profile .hp-ground { stroke: var(--muted); stroke-width: 2; }
   .height-profile .hp-rule { stroke: var(--amber); stroke-width: 1.5; stroke-dasharray: 6 4; }
   .height-profile .hp-top { stroke: var(--found); stroke-width: 1.2; }
   .height-profile .hp-roof { stroke: var(--ink); stroke-width: 1.2; }
   .height-profile .hp-county { stroke: var(--review); stroke-width: 1.2; stroke-dasharray: 2 3; }
-  .height-profile .hp-label { fill: var(--ink); font: 12px var(--mono); }
+  .height-profile .hp-label { fill: var(--ink); font: 12px var(--sans); }
   .height-profile .hp-suite-text { fill: var(--accent); }
   .height-profile .hp-leader { fill: none; stroke: var(--muted); stroke-width: 0.8; }
   .height-profile .hp-muted { fill: var(--muted); }
   table.kv { width: 100%; border-collapse: collapse; margin: 6px 0 12px; }
   table.kv td { padding: 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
   table.kv td:first-child { color: var(--muted); width: 42%; }
-  table.kv .big { font: 650 20px var(--mono); }
-  table.kv code { color: #5d6b80; font-size: 11px; display: block; }
+  table.kv .big { font: 650 20px var(--sans); }
+  table.kv code { color: var(--muted); font-size: 11px; display: block; }
   .note { font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding: 2px 0 2px 10px; margin: 12px 0 0; }
   .statement { margin: 0 0 12px; }
 
@@ -276,22 +283,22 @@
   @media (max-width: 900px) { .changes { grid-template-columns: 1fr; } }
   .lane { padding: 14px; }
   .lane h3 { margin: 0; font-size: 14px; display: flex; justify-content: space-between; align-items: baseline; }
-  .lane h3 span { font: 600 20px var(--mono); }
+  .lane h3 span { font: 600 20px var(--sans); }
   .lane p.sub { margin: 2px 0 10px; font-size: 12.5px; }
   .lane.c1 { border-top: 2px solid var(--accent); } .lane.c1 h3 span { color: var(--accent); }
   .lane.c2 { border-top: 2px solid var(--amber); } .lane.c2 h3 span { color: var(--amber); }
-  .lane.c3 { border-top: 2px solid #55627a; } .lane.c3 h3 span { color: var(--nodata); }
-  .chg { border: 1px solid var(--line); background: var(--panel2); border-radius: 9px; padding: 9px 11px; margin-top: 8px; }
+  .lane.c3 { border-top: 2px solid var(--muted); } .lane.c3 h3 span { color: var(--nodata); }
+  .chg { border: 1px solid var(--line); background: var(--panel2); border-radius: 0; padding: 9px 11px; margin-top: 8px; }
   .chg .t { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; font-size: 13.5px; }
-  .chg .q { font: 600 12.5px var(--mono); color: var(--accent); white-space: nowrap; }
+  .chg .q { font: 600 12.5px var(--sans); color: var(--accent); white-space: nowrap; }
   .chg .q.none { color: var(--muted); font-weight: 400; }
   .chg .r { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
-  .chg .w { font: 10.5px var(--mono); color: #6c7a90; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .chg .w { font: 12px var(--sans); color: var(--muted); margin-top: 5px; letter-spacing: 0; }
 
   .plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
-  .plan { display: block; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); text-decoration: none; }
+  .plan { display: block; background: #fff; border-radius: 0; overflow: hidden; border: 1px solid var(--line); text-decoration: none; }
   .plan img { width: 100%; height: 170px; object-fit: contain; display: block; background: #fff; }
-  .plan span { display: block; padding: 5px 8px; font: 11px var(--mono); color: #334; background: #eef1f6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .plan span { display: block; padding: 5px 8px; font: 12px var(--sans); color: var(--ink); background: var(--paper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .planhead { display: flex; justify-content: space-between; align-items: baseline; margin: 26px 0 8px; }
   .planhead h3 { margin: 0; font-size: 16px; }
   .steps { padding: 4px 16px 14px; }
@@ -299,11 +306,12 @@
   .steps ul { margin: 0; padding-left: 18px; }
   .steps li { margin: 3px 0; }
   .bar { display: flex; justify-content: space-between; align-items: center; }
-  .btn { display: inline-block; border: 1px solid var(--line); background: var(--panel); border-radius: 8px;
-    padding: 6px 12px; text-decoration: none; color: var(--ink); font-size: 13px; font-weight: 600; }
-  .btn:hover { border-color: var(--accent); }
-  select { background: rgba(8, 13, 22, 0.8); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; max-width: 260px; }
-  .loading { color: var(--muted); padding: 60px 0; text-align: center; font-family: var(--mono); font-size: 13px; }
+  .btn { display: inline-block; border: 1px solid var(--line-strong); background: var(--surface); border-radius: 0;
+    padding: 6px 12px; text-decoration: none; color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn:hover { border-color: var(--ink); }
+  .btn[disabled] { color: var(--muted); border-color: var(--line); cursor: default; }
+  select { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 0; padding: 5px 8px; max-width: 260px; }
+  .loading { color: var(--muted); padding: 60px 0; text-align: center; font-family: var(--sans); font-size: 13px; }
 
 .review-layout { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:16px; align-items:start; }
 .agent-panel { padding:18px; max-height:620px; overflow:auto; }
@@ -313,7 +321,7 @@
 .agent-log li { margin-bottom:10px; }
 .agent-log small { display:block; color:var(--muted); }
 .agent-result summary { cursor:pointer; margin:14px 0; }
-.agent-result article { padding:10px 0; border-top:1px solid #26354b; }
+.agent-result article { padding:10px 0; border-top:1px solid var(--line); }
 .agent-result p { font-size:13px; overflow-wrap:anywhere; }
 .agent-panel button:disabled { opacity:.45; cursor:default; }
 @media(max-width:1200px) {
@@ -326,13 +334,282 @@
   .stage .hud.tr .counts { justify-content:flex-start; }
   .stage h1 { font-size:22px; }
 }
+
+/* ---------- Building page: one workspace, figures first, detail on demand ---------- */
+.page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  padding: 4px 0 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+.page-head .back { font-size: 13px; text-decoration: none; }
+
+.page-head h1 { font-size: 28px; margin: 4px 0 2px; }
+.page-head .meta { margin: 0; color: var(--muted); font-size: 13.5px; }
+.head-actions { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.field { display: inline-flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.field select { color: var(--ink); font-size: 13px; padding: 6px 8px; min-width: 120px; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+.scene-column { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.scene-column .stage { order: 2; height: 600px; }
+.scene-column .floor-coverage, .scene-column .floor-ledger { order: 3; margin: 0; }
+.scene-column .floor-detail { order: 4; margin: 0; }
+.scene-column .checklist { order: 5; margin-top: 8px; }
+.scene-column[data-mode="building"] #floor-directory, .scene-column[data-mode="building"] .floor-resource-bar,
+.scene-column[data-mode="building"] .floor-ledger, .scene-column[data-mode="building"] .floor-coverage,
+.scene-column[data-mode="tour"] .floor-ledger, .scene-column[data-mode="tour"] .floor-coverage { display: none; }
+.scene-toolbar { margin: 0; justify-content: space-between; }
+.scene-toolbar .field { display: none; } /* the floor buttons below choose the floor; the select stays for the code that reads it */
+.seg { display: inline-flex; }
+.seg .btn { margin-left: -1px; }
+.seg .btn:first-child { margin-left: 0; }
+.seg .btn[aria-pressed="true"] { background: var(--ink); color: #FFFFFF; border-color: var(--ink); position: relative; }
+.seg .btn[disabled] { opacity: 0.45; }
+.floor-directory { margin: 0; padding: 0; }
+.floor-resource-bar { margin: 0; }
+.floor-resource-bar .field { flex-direction: row; align-items: center; gap: 6px; }
+#floor-resource-summary { display: none; }
+.stage .hud.tl { background: none; border: 0; padding: 0; }
+.stage .hud.br { bottom: 12px; right: 12px; font-size: 12px; }
+.stage .hud-toggle { bottom: 12px; right: 110px; font: 600 12px var(--sans); }
+#stage .hud.br { bottom: 12px; right: 12px; padding: 4px 8px; background: var(--surface); border: 1px solid var(--line); }
+.side { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 12px; }
+.side .panel { padding: 14px 16px; }
+.side .costs { margin: 0; }
+.checklist { padding: 0 !important; }
+.checklist-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.checklist-head h3 { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
+.state-bar .bar-track { display: flex; height: 8px; background: var(--paper2); }
+.state-bar .bar-track span { display: block; height: 100%; }
+.state-bar .bar-track .s-found { background: var(--found); } .state-bar .bar-track .s-issue { background: var(--issue); }
+.state-bar .bar-track .s-nodata { background: #A9A69C; } .state-bar .bar-track .s-review { background: var(--review); }
+.state-bar .bar-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; }
+.state-bar .bar-keys span { background: none; padding: 0; font-weight: 600; }
+.state-bar .bar-keys .s-nodata { color: var(--muted); }
+
+.side .row .ev { display: none; }
+.side .row .req { font-weight: 500; font-size: 13.5px; }
+.side .row.on .req { font-weight: 700; }
+.side .row .more { font-size: 12.5px; color: var(--muted); }
+.side .agent-panel { max-height: none; }
+.side .agent-panel h2 { border-top: 0; padding-top: 0; margin: 0 0 4px; font-size: 13px; color: var(--muted); }
+section.evidence { position: static; margin-top: 16px; min-height: 0; padding: 18px 20px; }
+.section-head { display: flex; align-items: baseline; gap: 12px; margin: 28px 0 8px; padding-top: 10px; border-top: 1px solid var(--ink); }
+.section-head h2 { margin: 0; padding: 0; border: 0; }
+.table-note { margin: 6px 0 0; font-size: 12.5px; }
+details.section { margin-top: 12px; border-top: 1px solid var(--line); }
+details.section > summary { cursor: pointer; padding: 12px 0; font-size: 15px; font-weight: 600; }
+details.section[open] > summary { margin-bottom: 4px; }
+@media (max-width: 1100px) {
+  .workspace { grid-template-columns: 1fr; }
+  .side { position: static; }
+  .scene-column .stage { height: 460px; }
+}
+@media (max-width: 640px) {
+  main { padding: 12px 16px 48px; }
+  .page-head h1 { font-size: 22px; }
+  .seg { flex-wrap: wrap; }
+  .scene-toolbar .field { margin-left: 0; }
+}
+
+.floor-ledger > p.sub { display: none; } /* the ledger's long footnote; the bar and list say it */
+.floor-ledger .ledger-list .sub { font-size: 12px; }
+.floor-detail h3 { font-size: 14px; color: var(--ink); }
+section.evidence .viz, section.evidence .height-profile { max-width: 760px; }
+section.evidence .aerial, section.evidence .stage.scene3d, section.evidence img.sheet { max-width: 900px; }
+section.evidence #evidence { max-width: 1100px; }
+
+/* ================= Modern layer: cards, pills and soft depth (overrides the rules above) ================= */
+body { font-size: 14px; letter-spacing: -0.003em; -webkit-font-smoothing: antialiased; }
+header.top { position: sticky; top: 0; z-index: 20; padding: 12px 28px; background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: saturate(180%) blur(12px); border-bottom: 1px solid var(--line); align-items: center; }
+header.top .brand { font-size: 17px; letter-spacing: -0.02em; }
+header.top .brand b { color: var(--accent); }
+header.top .tag { font-size: 13px; }
+.notice { padding: 8px 28px 0; background: none; border: 0; font-size: 12px; }
+main { padding: 12px 28px 64px; }
+h2 { border-top: 0; padding-top: 0; font-size: 18px; letter-spacing: -0.015em; margin: 32px 0 12px; }
+.panel { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow); }
+.btn { border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05); font-weight: 500; padding: 7px 14px; transition: background 0.15s, border-color 0.15s; }
+.btn:hover { background: var(--panel2); border-color: var(--line-strong); }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: #FFFFFF; }
+.btn.primary:hover { background: #2B3038; border-color: #2B3038; }
+select { border-radius: var(--r-ctl); border: 1px solid var(--line-strong); background: var(--surface); padding: 7px 10px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05); color: var(--ink); }
+.badge { border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 500; }
+.stage { border-radius: 16px; border: 1px solid var(--line); box-shadow: var(--shadow); background: #EEF1F4; }
+.metric { border-radius: 10px; }
+#stage .hud.bl { border-radius: 12px; background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(10px); border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg); bottom: 14px; left: 14px; }
+#stage .hud.bl .metric .k { font-size: 11.5px; } #stage .hud.bl .metric .v { font-size: 15px; font-weight: 600; }
+#stage .hud.br, .stage .hud-toggle { border-radius: 999px; background: rgba(255, 255, 255, 0.92); border: 1px solid var(--line);
+  box-shadow: var(--shadow); padding: 5px 12px; font-size: 12px; }
+.tag3d, .floor-card, .city-card, .room-tag, .tip { border-radius: 8px; box-shadow: var(--shadow-lg); border: 1px solid var(--line); background: #FFFFFF; }
+.tag3d { font-weight: 500; }
+table.spaces th { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--panel2); }
+table.spaces td { border-bottom-color: var(--line); }
+table.spaces tbody tr:hover { background: var(--panel2); }
+.panel.market { overflow: hidden; }
+.tour-filter button { border-radius: 999px; font: 500 12.5px var(--sans); }
+.floor-directory .btn { border-radius: 999px; font-size: 12.5px; padding: 5px 12px; box-shadow: none; }
+.floor-directory [aria-pressed="true"] { background: var(--ink); color: #FFFFFF; border-color: var(--ink); }
+
+/* segmented control: a grey track with a white thumb on the chosen view */
+.seg { background: var(--paper2); padding: 3px; border-radius: 12px; gap: 2px; }
+.seg .btn { border: 0; box-shadow: none; background: transparent; margin: 0; border-radius: 9px; color: var(--muted); padding: 6px 14px; }
+.seg .btn:hover { color: var(--ink); background: transparent; }
+.seg .btn[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+/* page header with the building photo */
+.page-head { border-bottom: 0; padding: 8px 0 0; margin-bottom: 18px; align-items: center; }
+.page-head .title { display: flex; gap: 16px; align-items: center; }
+.page-head .thumb { width: 76px; height: 76px; border-radius: 14px; object-fit: cover; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--paper2); }
+.page-head h1 { font-size: 30px; letter-spacing: -0.025em; font-weight: 650; margin: 2px 0 4px; }
+.page-head .meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.page-head .meta span { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 12.5px; color: var(--muted); }
+.page-head .back { font-size: 12.5px; color: var(--muted); }
+.head-actions .field { font-size: 11.5px; }
+
+/* key figures */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+.kpi { padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kpi .k { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.kpi .k svg { width: 16px; height: 16px; flex: none; }
+.kpi .v { font-size: 30px; font-weight: 650; letter-spacing: -0.025em; line-height: 1.15; }
+.kpi .s { font-size: 12.5px; color: var(--muted); }
+/* the side panel holds the cost details; the figure itself is in the first key-figure card */
+.side .cost-figure, .side .cost-sum { display: none; }
+.side .costs .cost-photos h3 { font-size: 14px; color: var(--ink); margin: 0 0 6px; }
+/* evidence drawer */
+section.evidence.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 100vw); z-index: 60; margin: 0 !important; overflow: auto;
+  border-radius: 16px 0 0 16px !important; transform: translateX(105%); transition: transform 0.25s ease; box-shadow: -16px 0 40px rgba(16, 24, 40, 0.14); }
+section.evidence.drawer.open { transform: none; }
+.drawer-bar { position: sticky; top: -18px; z-index: 2; display: flex; justify-content: space-between; align-items: center;
+  margin: -18px -20px 14px; padding: 12px 20px; background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); font-weight: 600; }
+.drawer-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(17, 20, 24, 0.18); }
+.drawer-scrim[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }
+/* spaces table: first rows only until asked */
+.market.collapsed tr.extra { display: none; }
+.panel.market { max-height: none; overflow: hidden; }
+.show-all { display: block; width: 100%; padding: 10px; border: 0; border-top: 1px solid var(--line); background: var(--panel2); color: var(--accent); font: 500 13px var(--sans); cursor: pointer; }
+.show-all:hover { background: var(--select); }
+.pill-yes { background: var(--review-bg); color: var(--accent); border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 500; }
+/* floor chips: number of spaces as a small count */
+.floor-directory .btn .n { margin-left: 6px; font-size: 11px; background: var(--paper2); color: var(--muted); border-radius: 999px; padding: 0 6px; }
+.floor-directory [aria-pressed="true"] .n { background: rgba(255, 255, 255, 0.2); color: #FFFFFF; }
+/* less text around the floor view */
+.floor-card { display: none !important; }
+.floor-ledger .ledger-list .sub { display: none; }
+.floor-ledger .ledger-list li { grid-template-columns: 10px minmax(110px, 1fr) 110px auto; }
+.floor-detail h3 { display: none; }
+/* what users do not need to see: how the floor model was assembled, data field names, internal source pickers */
+.floor-resource-bar, .scene-column .floor-ledger, .scene-column .floor-coverage, .scene-column .floor-detail { display: none !important; }
+table.kv code, .evidence .src code { display: none; }
+.agent-history { display: none; }
+.btn[hidden] { display: none !important; }
+.map-filter { display: inline-flex; margin-top: 12px; background: var(--paper2); padding: 3px; border-radius: 10px; gap: 2px; pointer-events: auto; }
+.map-filter button { border: 0; background: transparent; padding: 5px 11px; border-radius: 8px; font: 500 12.5px var(--sans); color: var(--muted); cursor: pointer; }
+.map-filter button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.tour-filter { margin: 0 0 10px; }
+.tour-filter button[aria-pressed="true"] { background: var(--ink); color: #FFFFFF; border-color: var(--ink); }
+.page-head .lede { margin: 8px 0 0; font-size: 14px; color: var(--muted); max-width: 64ch; }
+.checklist-head .hint { font-weight: 400; color: var(--muted); font-size: 12.5px; margin-left: 8px; }
+.meter { display: inline-block; vertical-align: middle; width: 90px; height: 6px; border-radius: 999px; background: var(--paper2); overflow: hidden; }
+.meter span { display: block; height: 100%; background: var(--found); border-radius: 999px; }
+.meter-n { font-size: 12.5px; color: var(--muted); margin-left: 6px; }
+.kpi .v .of { font-size: 16px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+/* landing: headline card over the map, figures as one card strip */
+.stage.city { border-radius: 18px; }
+.stage.city .hud.tl { max-width: 420px; padding: 20px 22px; border-radius: 14px; background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px); border: 1px solid var(--line); box-shadow: var(--shadow-lg); }
+.stage.city h1 { font-size: 30px; line-height: 1.12; letter-spacing: -0.03em; font-weight: 650; margin: 0 0 8px; }
+.stage.city .sub { font-size: 14px; }
+.stage.city .legend { color: var(--ink); margin-top: 14px; }
+.stage.city .legend i { border-radius: 3px; }
+.stage.city .legend .legend-note { color: var(--muted); }
+.stage.city .hud.bl { gap: 0; }
+.stage.city .hud.br { padding: 0; background: none; border: 0; box-shadow: none; }
+.stage.city .tour-switch { border-radius: 999px; box-shadow: var(--shadow-lg); }
+#stage.city .hud.br { background: none; border: 0; box-shadow: none; padding: 0; }
+.kpi.hero { background: var(--ink); color: #FFFFFF; border-color: var(--ink); }
+.kpi.hero .k, .kpi.hero .s { color: #B6BDC7; }
+.kpi .v.found { color: var(--found); } .kpi .v.issue { color: var(--issue); }
+@media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* requirements as tiles with a status icon */
+.checklist .rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; padding: 12px; max-height: none; overflow: visible; }
+.checklist .row { border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; background: var(--surface); display: flex; gap: 9px; align-items: center; transition: border-color 0.15s, box-shadow 0.15s; }
+.checklist .row:last-child { border-bottom: 1px solid var(--line); }
+.checklist .row:hover { border-color: var(--line-strong); box-shadow: var(--shadow); background: var(--surface); }
+.checklist .row.on { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.12); border-left-width: 1px; padding-left: 11px; background: var(--surface); }
+.checklist .row .line1 .badge, .checklist .row .more, .checklist .row .ev { display: none !important; }
+.checklist .row .req { font-size: 13px; font-weight: 500; line-height: 1.25; }
+.tile-icon { flex: none; width: 24px; height: 24px; border-radius: 999px; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+.tile-icon.s-found { background: var(--found-bg); color: var(--found); } .tile-icon.s-issue { background: var(--issue-bg); color: var(--issue); }
+.tile-icon.s-nodata { background: var(--nodata-bg); color: var(--nodata); } .tile-icon.s-review { background: var(--review-bg); color: var(--review); }
+.checklist-head { border-bottom: 1px solid var(--line); }
+.checklist-head h3 { font-size: 14px; color: var(--ink); font-weight: 600; }
+.state-bar .bar-track { height: 8px; border-radius: 999px; overflow: hidden; }
+
+/* folded sections as quiet cards */
+details.section { border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--shadow); padding: 0 18px; margin-top: 12px; }
+details.section > summary { padding: 14px 0; }
+.section-head { border-top: 0; padding-top: 0; margin-top: 32px; }
+section.evidence { border-radius: var(--r-card); }
+.side .panel { border-radius: var(--r-card); }
+.fold { border-top-color: var(--line); }
+
+/* ================= Brand, landing hero and building cards ================= */
+header.top .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 700; letter-spacing: -0.035em; line-height: 1; }
+header.top .brand svg { width: 34px; height: 34px; flex: none; }
+body { overflow-x: clip; }
+body:has(.stage.city) header.top .tag, body:has(.stage.city) .notice { display: none; }
+/* the city map is the page's background: full width, with the slogan set on it */
+#stage.city { width: 100vw; margin: -12px 0 0 calc(50% - 50vw); height: min(84vh, 880px); border: 0; border-radius: 0; background: #10161C; }
+#stage.city::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(8, 14, 20, 0.78) 0%, rgba(8, 14, 20, 0.42) 40%, rgba(8, 14, 20, 0) 70%),
+    linear-gradient(0deg, rgba(8, 14, 20, 0.5), rgba(8, 14, 20, 0) 34%); }
+#stage.city .hud.tl { top: auto; bottom: 52px; left: max(28px, calc(50vw - 712px)); max-width: min(780px, calc(100% - 56px)); padding: 0;
+  background: none; border: 0; border-radius: 0; box-shadow: none; backdrop-filter: none; color: #FFFFFF; }
+#stage.city .hud h1 { font-size: clamp(30px, 4.6vw, 68px); line-height: 1.02; white-space: nowrap; letter-spacing: -0.045em; font-weight: 650; margin: 0 0 18px;
+  color: #FFFFFF; text-shadow: 0 2px 28px rgba(0, 0, 0, 0.35); }
+#stage.city .hud h1 em { font-style: normal; color: #7FD9EE; }
+#stage.city .hud.tl .sub { font-size: clamp(15px, 1.25vw, 18px); line-height: 1.45; color: rgba(255, 255, 255, 0.86); max-width: 54ch; }
+#stage.city .hero-stats { display: flex; flex-wrap: wrap; gap: 6px 28px; margin-top: 22px; font-size: 13px; color: rgba(255, 255, 255, 0.72); }
+#stage.city .hero-stats b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; color: #FFFFFF; }
+#stage.city .hero-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 22px; }
+#stage.city .legend { margin: 0; color: rgba(255, 255, 255, 0.9); }
+#stage.city .map-filter { margin: 0; background: rgba(255, 255, 255, 0.16); backdrop-filter: blur(10px); }
+#stage.city .map-filter button { color: rgba(255, 255, 255, 0.86); }
+#stage.city .map-filter button[aria-pressed="true"] { background: #FFFFFF; color: var(--ink); }
+#stage.city .hud.br { right: max(28px, calc(50vw - 712px)); bottom: 52px; }
+@media (max-width: 700px) { #stage.city { height: 78vh; } #stage.city .hud h1 { white-space: normal; } #stage.city .hud.tl { bottom: 84px; } #stage.city .hud.br { bottom: 24px; } }
+/* buildings as photo cards */
+.bgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 18px; }
+.bcard { display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow); color: var(--ink); text-decoration: none; transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s; }
+.bcard[hidden] { display: none; }
+.bcard:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--line-strong); }
+.bcard .ph { position: relative; aspect-ratio: 16 / 10; background: linear-gradient(135deg, #DCE3EA, #EEF1F4); overflow: hidden; }
+.bcard .ph img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s; }
+.bcard:hover .ph img { transform: scale(1.04); }
+.bcard .ph .flag { position: absolute; top: 10px; left: 10px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: rgba(255, 255, 255, 0.94); color: var(--accent-ink); box-shadow: var(--shadow); }
+.bcard .ph .rent { position: absolute; right: 10px; bottom: 10px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  background: rgba(17, 20, 24, 0.78); color: #FFFFFF; backdrop-filter: blur(6px); }
+.bcard .body { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 16px; flex: 1; }
+.bcard .name { font-size: 16px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.25; }
+.bcard .addr { color: var(--muted); font-size: 13px; }
+.bcard .facts { display: flex; gap: 18px; font-size: 12px; color: var(--muted); }
+.bcard .facts b { display: block; font-size: 15px; font-weight: 600; color: var(--ink); }
+.bcard .rules { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.bcard .rules .meter { flex: 1; width: auto; }
+@media (prefers-reduced-motion: reduce) { .bcard, .bcard .ph img { transition: none; } .bcard:hover { transform: none; } .bcard:hover .ph img { transform: none; } }
 </style>
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="#/">Second<b>Stay</b></a>
-  <span class="tag">Evidence pre-check · housing conversion · Los Angeles</span>
-  <a href="#/plans" style="margin-left:auto;font-size:13px">Floor plans on record</a>
+  <a class="brand" href="#/" aria-label="SecondStay, all buildings"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0E7490"/><path d="M7 25V8.5A1.5 1.5 0 0 1 8.5 7h7A1.5 1.5 0 0 1 17 8.5V25z" fill="#fff" opacity=".45"/><path d="M12 25v-9.2a1 1 0 0 1 .34-.75l5.5-4.8a1 1 0 0 1 1.32 0l5.5 4.8a1 1 0 0 1 .34.75V25z" fill="#fff"/><rect x="17" y="19.5" width="3" height="5.5" rx=".6" fill="#0E7490"/></svg><span>Second<b>Stay</b></span></a>
+  <span class="tag">Could this office become homes? A first check for Los Angeles.</span>
+
 </header>
 <p class="notice" id="notice">This is a preliminary evidence review, not a legal or code determination. Final decisions are made by LADBS and licensed professionals.</p>
 <main id="app"><p class="loading">Loading…</p></main>
@@ -353,7 +630,8 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 const app = document.getElementById("app");
 const tip = document.getElementById("tip");
 const FT = 0.3048, HIGH_RISE_FT = 75;
-const CYAN = 0x5ad1ff, AMBER = 0xffc24a, GHOST = 0x7f93b0;
+// Pacific blue (has a 3D tour, windows) and permit ochre (plan only, doors) read on paper and on aerial photos.
+const CYAN = 0x1c7a98, AMBER = 0xc08a2e, GHOST = 0x8c8a82, INK = 0x1f1e1b, PAPER = 0xf7f6f2;
 const STATE_CLASS = {
   "Evidence found": ["s-found", "●"], "Possible issue": ["s-issue", "▲"],
   "Not enough data": ["s-nodata", "○"], "Needs professional review": ["s-review", "◆"],
@@ -363,6 +641,29 @@ const num = (v) => (v ? Math.round(v).toLocaleString("en-US") : "–");
 const badge = (state, text) => {
   const [cls, glyph] = STATE_CLASS[state];
   return `<span class="badge ${cls}" title="${esc(state)}"><i>${glyph}</i>${esc(text ?? state)}</span>`;
+};
+// Evidence states as one proportional bar with the numbers beside it, in place of four badges.
+const STATE_GLYPH = { "Evidence found": "✓", "Possible issue": "!", "Not enough data": "–", "Needs professional review": "?" };
+// Small line icons for the key figures (the stroke follows the text colour).
+const svgIcon = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  cost: svgIcon('<path d="M12 3v18"/><path d="M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.3 4.5 3-2 3-4.5 3-4.5-1.3-4.5-3"/>'),
+  check: svgIcon('<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9"/>'),
+  flag: svgIcon('<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>'),
+  area: svgIcon('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/>'),
+  rent: svgIcon('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>'),
+};
+const BAR_CLASS = { "Evidence found": "s-found", "Possible issue": "s-issue", "Not enough data": "s-nodata", "Needs professional review": "s-review" };
+const ruleMeter = (c) => {
+  const total = Object.values(c || {}).reduce((t, n) => t + n, 0), found = (c || {})["Evidence found"] || 0;
+  if (!total) return '<span class="sub">–</span>';
+  return `<span class="meter" title="${found} of ${total} rules have evidence"><span style="width:${(found / total * 100).toFixed(0)}%"></span></span> <span class="meter-n">${found}/${total}</span>`;
+};
+const stateBar = (c) => {
+  const total = Object.values(c).reduce((t, n) => t + n, 0) || 1;
+  return `<div class="state-bar" role="img" aria-label="${Object.entries(c).map(([s, n]) => `${s} ${n}`).join(", ")}">
+    <div class="bar-track">${Object.entries(c).filter(([, n]) => n).map(([s, n]) => `<span class="${BAR_CLASS[s] || ""}" style="width:${(n / total * 100).toFixed(1)}%" title="${esc(s)}: ${n}"></span>`).join("")}</div>
+    <div class="bar-keys">${Object.entries(c).map(([s, n]) => `<span class="${BAR_CLASS[s] || ""}">${n} ${esc(s.toLowerCase())}</span>`).join("")}</div></div>`;
 };
 const counts = (c) => `<div class="counts">${Object.entries(c).map(([s, n]) => badge(s, `${s} ${n}`)).join("")}</div>`;
 const shortCounts = (c) => `<div class="counts">${Object.entries(c).map(([s, n]) => badge(s, n)).join("")}</div>`;
@@ -393,17 +694,17 @@ function makeStage(host, options = {}) {
   const flatHost = document.createElement("div"); flatHost.className = "flat"; host.insertBefore(flatHost, labelHost);
   const flat = new CSS3DRenderer({ element: flatHost });
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x060a11, 0.0016);
+  scene.fog = new THREE.FogExp2(PAPER, 0.0016);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 6000);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 0.55;
   controls.maxPolarAngle = Math.PI * 0.49;
-  scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x0a1220, 0.9));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8578, 1.0));
   const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(120, 260, 80); scene.add(sun);
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  if (options.bloom !== false) composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.6, 0.72));
+  if (options.bloom === true) composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.6, 0.72)); // flat theme: no glow unless asked
   composer.addPass(new OutputPass());
 
   const size = () => {
@@ -552,7 +853,7 @@ function buildingScene(host, data) {
       contextMat.map = texture; contextMat.needsUpdate = true; contextGround.visible = true;
     }, undefined, () => { contextGround.visible = false; });
   }
-  const grid = new THREE.GridHelper(Math.max(gw, gh) * 3, 60, 0x1c3148, 0x101b2a);
+  const grid = new THREE.GridHelper(Math.max(gw, gh) * 3, 60, 0xd3d0c7, 0xe4e2db);
   grid.position.y = -0.3; scene.add(grid);
   // Lay the photo over Vexcel's surface heights, so the trees, cars, lamps and neighbouring buildings in it stand up
   // as captured. This building's own cells are pressed flat: its drawn model stands there instead.
@@ -871,10 +1172,10 @@ function cityScene(host, city, onPick) {
   const toM = ([lon, lat]) => [(lon - lon0) * kx, (lat - lat0) * ky];
   const W = (east - west) * kx, D = (north - south) * ky;
 
-  const groundMat = new THREE.MeshBasicMaterial({ color: 0x1a2230 });
+  const groundMat = new THREE.MeshBasicMaterial({ color: 0xe9e7e1 });
   new THREE.TextureLoader().load(city.image, (texture) => {
     texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 8;
-    groundMat.map = texture; groundMat.color.set(0xb8bcc0); groundMat.needsUpdate = true;
+    groundMat.map = texture; groundMat.color.set(0xeeece6); groundMat.needsUpdate = true;
   });
   scene.add(new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateX(-Math.PI / 2), groundMat));
 
@@ -892,13 +1193,13 @@ function cityScene(host, city, onPick) {
     if (ring && ring.length > 3) {
       const shape = new THREE.Shape(ring.map((p) => { const [mx, my] = toM(p); return new THREE.Vector2(mx - x, my - y); }));
       body = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: heightM, bevelEnabled: false }).rotateX(-Math.PI / 2),
-        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, roughness: 0.5, transparent: true, opacity: 0.92 }));
+        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.08, roughness: 0.7, transparent: true, opacity: 0.92 }));
     } else {
       body = new THREE.Mesh(new THREE.BoxGeometry(70, heightM, 70).translate(0, heightM / 2, 0),
-        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, transparent: true, opacity: 0.92 }));
+        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.08, transparent: true, opacity: 0.92 }));
     }
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, 900, 12, 1, true).translate(0, heightM + 450, 0),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 900, 8, 1, true).translate(0, heightM + 450, 0),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, depthWrite: false })); // a thin solid marker, not a glow
     group.add(body, beam);
     group.scale.y = 0.001;
     body.userData.building = beam.userData.building = b;
@@ -933,7 +1234,7 @@ function cityScene(host, city, onPick) {
       const k = Math.min(1, Math.max(0, (t - start - r.delay) / 0.8));
       r.group.scale.y = Math.max(0.001, ease(k)) * stretch;
       const active = hovered || focused;
-      r.beam.material.opacity = 0.32 * ease(k) * far * (active && active !== r.building ? 0.35 : 1);
+      r.beam.material.opacity = 0.85 * ease(k) * far * (active && active !== r.building ? 0.35 : 1);
       r.beam.visible = far > 0.02;
     }
     if (flight) {
@@ -952,7 +1253,7 @@ function cityScene(host, city, onPick) {
     const box = canvas.getBoundingClientRect();
     mouse.set(((event.clientX - box.left) / box.width) * 2 - 1, -((event.clientY - box.top) / box.height) * 2 + 1);
     ray.setFromCamera(mouse, camera);
-    return ray.intersectObjects(picks.filter((o) => o.visible), false)[0]?.object.userData.building || null;
+    return ray.intersectObjects(picks.filter((o) => o.visible && o.parent.visible), false)[0]?.object.userData.building || null;
   };
   const riserOf = (b) => risers.find((r) => r.building === b);
   const dimAllBut = (b) => risers.forEach((r) => r.group.children[0].material.opacity = !b || r.building === b ? 0.92 : 0.35);
@@ -995,8 +1296,12 @@ function cityScene(host, city, onPick) {
   // Any drag, scroll or pointing pauses it; it picks up again after a quiet spell.
   const OVERVIEW_MS = 6000, FOCUS_MS = 7000, IDLE_MS = 15000, EVERY = 5;
   const showcase = { on: autoTour(), next: performance.now() + 600 + 2600 + OVERVIEW_MS, shown: 0, lastInput: 0, last: null };
+  // The first visits go through the most complete buildings, in the landing's order; then any building.
+  const leaders = risers.filter((r) => (r.building.floors_3d || 0) >= 4 && r.building.footprint?.length);
   function pickNext() {
-    const pool = risers.filter((r) => r.building !== showcase.last && r.building.footprint?.length);
+    showcase.led ??= 0;
+    while (showcase.led < leaders.length) { const r = leaders[showcase.led++]; if (r.group.visible) return r; }
+    const pool = risers.filter((r) => r.group.visible && r.building !== showcase.last && r.building.footprint?.length);
     const toured = pool.filter((r) => r.building.tours);
     const from = toured.length && Math.random() < 0.7 ? toured : pool;
     return from[Math.floor(Math.random() * from.length)];
@@ -1072,6 +1377,9 @@ function cityScene(host, city, onPick) {
     if (on) { showcase.on = true; showcase.next = performance.now() + 800; return; }
     showcase.on = false; flight = null; focused = null; dimAllBut(hovered); if (!hovered) card.visible = false;
     controls.autoRotateSpeed = 0.25; controls.autoRotate = true;
+  }, setTourFilter(show) {
+    for (const r of risers) r.group.visible = show === "all" || (show === "yes" ? r.building.tours > 0 : !r.building.tours);
+    if (focused && !riserOf(focused)?.group.visible) { focused = null; card.visible = false; }
   }, setCosts(costs) {
     for (const r of risers) r.building.cost = costs[String(r.building.property_id)] || null;
     const shown = hovered || focused;
@@ -1082,23 +1390,27 @@ function cityScene(host, city, onPick) {
 // Show all rows, only those with a Matterport tour, or only those without. The choice is remembered per table.
 function tourFilter(id, total, withTour, noun) {
   return `<div class="tour-filter" role="group" aria-label="Filter ${noun} by Matterport 3D tour" data-filter="${id}">
-    <span class="sub">Matterport 3D tour</span>
+    <span class="sub">3D tour</span>
     <button type="button" data-show="all">All ${noun} · ${total}</button>
-    <button type="button" data-show="yes">With a tour · ${withTour}</button>
+    <button type="button" data-show="yes">With a 3D tour · ${withTour}</button>
     <button type="button" data-show="no">Without a tour · ${total - withTour}</button></div>`;
 }
-function wireTourFilter(root, id) {
+function savedTourFilter(id) { try { return localStorage.getItem(`secondstay-${id}`) || "all"; } catch { return "all"; } }
+function wireTourFilter(root, id, onChange = () => {}) {
   const bar = root.querySelector(`[data-filter="${id}"]`);
-  if (!bar) return;
+  if (!bar) return null;
   const table = bar.parentElement.querySelector("table.spaces");
   const apply = (show) => {
     bar.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.show === show)));
     table?.querySelectorAll("tbody tr[data-tour]").forEach((tr) => { tr.hidden = show !== "all" && tr.dataset.tour !== show; });
+    bar.parentElement.querySelector(".market")?.classList.toggle("collapsed", show === "all" && !!bar.parentElement.querySelector(".show-all"));
     try { localStorage.setItem(`secondstay-${id}`, show); } catch {}
+    onChange(show);
   };
   let saved = "all"; try { saved = localStorage.getItem(`secondstay-${id}`) || "all"; } catch {}
   apply(saved);
   bar.querySelectorAll("button").forEach((b) => (b.onclick = (event) => { event.stopPropagation(); apply(b.dataset.show); }));
+  return apply;
 }
 
 async function showList() {
@@ -1110,22 +1422,26 @@ async function showList() {
   const tours = bs.reduce((t, s) => t + s.tours, 0);
   app.innerHTML = `
     <div class="stage city" id="stage"><div class="gl"></div><div class="labels"></div>
-      <div class="hud tl"><div class="eyebrow">Office to housing · Los Angeles</div>
-        <h1>${bs.length} office buildings with space on the market</h1>
-        <div class="sub">CoStar records · Matterport 3D tours · Vexcel aerial imagery. Each building stands at its place on one Vexcel image, at its measured footprint and roof height (drawn ${CITY_EXAGGERATION}× taller from afar, true height up close). Select one to open its evidence review.</div>
-        <div class="legend"><span><i style="background:#5ad1ff"></i>has a 3D tour</span><span><i style="background:#ffc24a"></i>plan only</span></div></div>
-      <div class="hud bl">
-        <div class="metric"><div class="k">Buildings</div><div class="v">${bs.length}</div></div>
-        <div class="metric"><div class="k">Space on the market</div><div class="v">${marketed.toFixed(1)}<small> M sq ft</small></div></div>
-        <div class="metric"><div class="k">Spaces with a 3D tour</div><div class="v">${tours}</div></div>
-        <div class="metric hot"><div class="k">Top level ≥ 75 ft</div><div class="v">${tall}</div></div>
-      </div>
-      <div class="hud br"><button class="btn tour-switch" id="tour-switch" aria-pressed="${autoTour()}">Auto tour: ${autoTour() ? "on" : "off"}</button>
-        <div>drag to orbit · scroll to zoom · hover a building</div></div>
+      <div class="hud tl">
+        <h1>Empty offices,<br><em>ready for a second stay.</em></h1>
+        <div class="sub">Pick a Los Angeles office building to see what the rules ask for, what a conversion would cost and what it could earn.</div>
+        <div class="hero-stats"><span><b>${bs.length}</b>office buildings</span><span><b>${marketed.toFixed(1)}M</b>sq ft on the market</span><span><b>${tours}</b>spaces with a 3D tour</span></div>
+        <div class="hero-controls">
+        <div class="map-filter" role="group" aria-label="Show buildings">
+          <button type="button" data-map-show="all">All · ${bs.length}</button>
+          <button type="button" data-map-show="yes">With a 3D tour · ${bs.filter((x) => x.tours).length}</button></div>
+        <div class="legend"><span><i style="background:#1c7a98"></i>Has a 3D tour</span><span><i style="background:#c08a2e"></i>Plan only</span></div></div></div>
+      <div class="hud br"><button class="btn tour-switch" id="tour-switch" aria-pressed="${autoTour()}" title="Fly from building to building">Auto tour: ${autoTour() ? "on" : "off"}</button></div>
     </div>
-    <h2>Buildings, most available space first</h2>
+    <div class="section-head"><h2>Buildings</h2><span class="sub">Most complete first: 3D tours and floors drawn in 3D</span></div>
     <div id="building-table"><p class="loading">Reading every building's evidence…</p></div>`;
   live = cityScene(document.getElementById("stage"), city, (b) => (location.hash = `#/space/${b.property_id}`));
+  // One filter for the map and the table: "with a 3D tour" puts the walk-through buildings forward for a demo.
+  let syncTable = null;
+  const syncMapFilter = (show) => document.querySelectorAll("[data-map-show]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mapShow === (show === "no" ? "all" : show))));
+  const mapShow = (show) => { live?.setTourFilter?.(show); syncMapFilter(show); try { localStorage.setItem("secondstay-building-tours", show); } catch {} syncTable?.(show); };
+  document.querySelectorAll("[data-map-show]").forEach((b) => (b.onclick = () => mapShow(b.dataset.mapShow)));
+  mapShow(savedTourFilter("building-tours"));
   api("/api/city/costs").then((costs) => live?.setCosts?.(costs)).catch(() => {});
   const tourSwitch = document.getElementById("tour-switch");
   tourSwitch.onclick = () => {
@@ -1140,35 +1456,30 @@ async function showList() {
   const read = data.spaces.filter((s) => s.height_ft).length;
   const withTour = data.spaces.filter((s) => s.tours > 0).length;
   host.innerHTML = `
-    <p class="sub">${read} heights measured from Vexcel imagery.</p>
     ${tourFilter("building-tours", data.spaces.length, withTour, "buildings")}
-    <p class="counts" style="margin:0 0 12px">${data.states.map((s) => badge(s)).join(" ")}</p>
-    <div class="panel"><table class="spaces">
-      <thead><tr><th>Building</th><th class="num">Built</th><th class="num">Stories</th><th class="num">Height ft</th><th>Zone</th>
-        <th class="num">Available sq ft</th><th class="num">Asking $/sq ft/yr</th>
-        <th class="num">No tenancy on record</th><th class="num">Suites with a 3D tour</th><th>Requirements by evidence state</th></tr></thead>
-      <tbody>${data.spaces.map((s) => `
-        <tr data-id="${s.property_id}" data-tour="${s.tours > 0 ? "yes" : "no"}">
-          <td><div class="name">${esc(s.name || s.address)}</div><div class="sub">${esc(s.name ? s.address : "")}</div></td>
-          <td class="num">${s.year_built ?? "–"}</td>
-          <td class="num">${s.stories ?? "–"}</td>
-          <td class="num">${s.height_ft ? Math.round(s.height_ft) : "–"}</td>
-          <td>${esc(s.zone ?? "–")}</td>
-          <td class="num">${num(s.available_sqft)}</td>
-          <td class="num">${s.asking_rent_per_sqft_year ? s.asking_rent_per_sqft_year.toFixed(0) : "–"}</td>
-          <td class="num">${s.unaccounted_share == null ? "–" : Math.round(s.unaccounted_share * 100) + "%"}</td>
-          <td class="num">${s.tours ? `<span class="tour-yes">${s.tours}</span>` : '<span class="sub">none</span>'}</td>
-          <td>${shortCounts(s.counts)}</td>
-        </tr>`).join("")}</tbody>
-    </table></div>
-    <p class="note">Available space is space being marketed, which can still be occupied. "No tenancy on record" is the share of
-      rentable area without a current tenancy in the data; it is an indication of vacancy, and some tenancies have no area recorded.
-      Asking rents mix service types. Heights are the highest roof point seen in imagery.</p>`;
-  wireTourFilter(host, "building-tours");
-  host.querySelectorAll("tr[data-id]").forEach((tr) => {
-    tr.onclick = () => (location.hash = `#/space/${tr.dataset.id}`);
-    tr.onmouseenter = () => live?.highlight?.(Number(tr.dataset.id));
+    <div class="bgrid">${data.spaces.map((s) => `
+      <a class="bcard" href="#/space/${s.property_id}" data-id="${s.property_id}" data-tour="${s.tours > 0 ? "yes" : "no"}">
+        <div class="ph"><img loading="lazy" alt="" src="${esc(s.photo_url || `/api/spaces/${s.property_id}/aerial.jpg`)}">
+          ${s.tours ? '<span class="flag">3D tour</span>' : ""}
+          ${s.asking_rent_per_sqft_year ? `<span class="rent">$${s.asking_rent_per_sqft_year.toFixed(0)}/sq ft/yr</span>` : ""}</div>
+        <div class="body">
+          <div><div class="name">${esc(s.name || s.address)}</div><div class="addr">${esc(s.name ? s.address : s.city || "")}</div></div>
+          <div class="facts"><span><b>${num(s.available_sqft)}</b>sq ft on the market</span>
+            ${s.stories ? `<span><b>${s.stories}</b>stories</span>` : ""}
+            ${s.floors_3d ? `<span><b>${s.floors_3d}</b>floors in 3D</span>` : ""}</div>
+          <div class="rules">Rules with evidence ${ruleMeter(s.counts)}</div>
+        </div></a>`).join("")}</div>`;
+  // The photo is CoStar's; where it is missing or does not load, the building's aerial view stands in, then a plain tile.
+  host.querySelectorAll(".bcard img").forEach((img) => {
+    const aerial = `/api/spaces/${img.closest(".bcard").dataset.id}/aerial.jpg`;
+    img.onerror = () => { if (img.getAttribute("src") !== aerial) img.src = aerial; else img.remove(); };
   });
+  const cards = host.querySelectorAll(".bcard");
+  syncTable = wireTourFilter(host, "building-tours", (show) => {
+    cards.forEach((c) => { c.hidden = show !== "all" && c.dataset.tour !== show; });
+    live?.setTourFilter?.(show); syncMapFilter(show);
+  });
+  cards.forEach((c) => { c.onmouseenter = () => live?.highlight?.(Number(c.dataset.id)); });
 }
 
 const fieldTable = (row, big) => `<table class="kv">${row.fields.map((f, i) => `
@@ -1334,7 +1645,7 @@ function mountEvidence3D(host, data, key) {
   const stage = makeStage(host, { bloom: false }), { scene, camera, controls, ticks } = stage;
   sceneStage = stage;
   controls.autoRotate = false;
-  scene.fog = null; scene.background = new THREE.Color(0x101827);
+  scene.fog = null; scene.background = new THREE.Color(0xf2f1ec);
   const sun = new THREE.DirectionalLight(0xffead3, 0.8); sun.position.set(-40, 90, 50); scene.add(sun);
   const FT = 0.3048;
   const [w, s, e, n] = o.bbox, lat = (s + n) / 2, lon = (w + e) / 2;
@@ -1356,13 +1667,13 @@ function mountEvidence3D(host, data, key) {
   if (plainGround) {
     const size = Math.max(span * 4, roofM * 2.2);
     const plain = new THREE.Mesh(new THREE.CircleGeometry(size / 2, 64).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: 0x162231 }));
+      new THREE.MeshBasicMaterial({ color: 0xe9e7e1 }));
     plain.position.y = -0.06; scene.add(plain);
-    const cell = 25 * FT, grid = new THREE.GridHelper(Math.round(size / cell) * cell, Math.round(size / cell), 0x2a3a52, 0x1f2c3f);
+    const cell = 25 * FT, grid = new THREE.GridHelper(Math.round(size / cell) * cell, Math.round(size / cell), 0xd3d0c7, 0xe4e2db);
     grid.position.y = -0.03; scene.add(grid);
     // The footprint on the ground, so the base of the model reads as standing on its own outline.
     shapes.forEach((shape) => {
-      const base = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x0b111b, transparent: true, opacity: 0.6 }));
+      const base = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x8a877d, transparent: true, opacity: 0.35 }));
       base.position.y = 0.01; scene.add(base);
     });
   }
@@ -1394,12 +1705,12 @@ function mountEvidence3D(host, data, key) {
   };
   const neighbourGroup = new THREE.Group(); scene.add(neighbourGroup);
   // This building.
-  shapes.forEach((shape) => massing(shape, roofM, plainGround ? 0xb8c4cc : 0x5ad1ff, plainGround ? (topicKey ? 0.16 : 0.35) : 0.42, 0x5ad1ff));
+  shapes.forEach((shape) => massing(shape, roofM, plainGround ? 0xb9c9cf : CYAN, plainGround ? (topicKey ? 0.16 : 0.35) : 0.42, CYAN));
   // Neighbours at their measured heights; ones without a reading stay as outlines on the ground.
   if (!plainGround) o.neighbors.forEach((ring, i) => {
     const ft = (o.neighbor_heights_ft || [])[i];
-    if (ft != null) massing(shapeOf(ring), ft * FT, 0xe8eef8, 0.22, 0xffffff, neighbourGroup);
-    else neighbourGroup.add(line(ring.map((p) => world(p, 0.2)), 0xffffff));
+    if (ft != null) massing(shapeOf(ring), ft * FT, 0xc9c6bd, 0.3, 0x8c8a82, neighbourGroup);
+    else neighbourGroup.add(line(ring.map((p) => world(p, 0.2)), 0x8c8a82));
   });
 
   if (key === "height") {
@@ -1407,26 +1718,26 @@ function mountEvidence3D(host, data, key) {
       scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(shape.getPoints().map((p) => new THREE.Vector3(p.x, y, -p.y))),
         new THREE.LineBasicMaterial({ color, transparent: true, opacity })));
     });
-    if (d.story) for (let i = 1; i < d.stories; i++) outline(d.story * i * FT, 0x5ad1ff, 0.28);
+    if (d.story) for (let i = 1; i < d.stories; i++) outline(d.story * i * FT, CYAN, 0.35);
     if (d.story && d.floor) shapes.forEach((shape) => {
       const g = new THREE.ExtrudeGeometry(shape, { depth: d.story * FT, bevelEnabled: false }).rotateX(-Math.PI / 2);
-      const slab = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x5ad1ff, transparent: true, opacity: 0.7, emissive: 0x1f5670 }));
+      const slab = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: CYAN, transparent: true, opacity: 0.7 }));
       slab.position.y = d.story * (d.floor - 1) * FT; scene.add(slab);
     });
     // Level planes, with labels on a pole beside the building.
     const size = span * 1.5, poleX = span * 0.75 + 4;
     d.marks.filter((m) => !m.suite).forEach((m) => {
-      const y = m.ft * FT, color = { "hp-rule": 0xffc24a, "hp-top": 0x5fe0a0, "hp-roof": 0xe8eef8, "hp-county": 0x8fb8ff }[m.cls];
+      const y = m.ft * FT, color = { "hp-rule": AMBER, "hp-top": 0x2f6b45, "hp-roof": INK, "hp-county": 0x0f5f78 }[m.cls];
       const plane = new THREE.Mesh(new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2),
         new THREE.MeshBasicMaterial({ color, transparent: true, opacity: m.cls === "hp-rule" ? 0.22 : 0.1, side: THREE.DoubleSide, depthWrite: false }));
       plane.position.y = y; scene.add(plane);
       const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2)), new THREE.LineBasicMaterial({ color }));
       edge.position.y = y; scene.add(edge);
     });
-    line([new THREE.Vector3(poleX, 0, 0), new THREE.Vector3(poleX, roofM * 1.04, 0)], 0x8493a8);
+    line([new THREE.Vector3(poleX, 0, 0), new THREE.Vector3(poleX, roofM * 1.04, 0)], 0x66645d);
     spreadLabels(d.marks.map((m) => ({ ...m })), (d.roof ?? 30) * 0.055).forEach((m) => {
       const at = m.ft * FT, labelAt = m.label * FT;
-      line([new THREE.Vector3(poleX, at, 0), new THREE.Vector3(poleX + 3, labelAt, 0)], 0x8493a8);
+      line([new THREE.Vector3(poleX, at, 0), new THREE.Vector3(poleX + 3, labelAt, 0)], 0x66645d);
       tag(m.text, new THREE.Vector3(poleX + 3.5, labelAt, 0), { "hp-rule": "amber", "hp-suite-mark": "cyan" }[m.cls] || "", [0, 0.5]);
     });
     const mid = roofM * 0.52, size2 = Math.max(roofM, span) * 1.7;
@@ -1440,25 +1751,25 @@ function mountEvidence3D(host, data, key) {
     const story = d.story || roofM / FT / Math.max(1, d.stories || 1);
     for (let i = 1; i < (d.stories || 1); i++) shapes.forEach((shape) => {
       scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(shape.getPoints().map((pt) => new THREE.Vector3(pt.x, story * i * FT, -pt.y))),
-        new THREE.LineBasicMaterial({ color: 0x5ad1ff, transparent: true, opacity: 0.25 })));
+        new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.35 })));
     });
     counts.forEach(([f, c]) => shapes.forEach((shape) => {
       const g = new THREE.ExtrudeGeometry(shape, { depth: story * FT * 0.82, bevelEnabled: false }).rotateX(-Math.PI / 2);
-      const slab = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xffc24a, emissive: 0x4a3510, transparent: true, opacity: 0.35 + 0.55 * (c / most) }));
+      const slab = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: AMBER, transparent: true, opacity: 0.35 + 0.55 * (c / most) }));
       slab.position.y = story * (f - 1) * FT + story * FT * 0.09; scene.add(slab);
     }));
     if (d.floor) shapes.forEach((shape) => {
       scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(shape.getPoints().map((pt) => new THREE.Vector3(pt.x, story * (d.floor - 0.5) * FT, -pt.y))),
-        new THREE.LineBasicMaterial({ color: 0x5ad1ff })));
+        new THREE.LineBasicMaterial({ color: CYAN })));
     });
     const poleX = span * 0.75 + 4;
-    line([new THREE.Vector3(poleX, 0, 0), new THREE.Vector3(poleX, roofM * 1.02, 0)], 0x8493a8);
+    line([new THREE.Vector3(poleX, 0, 0), new THREE.Vector3(poleX, roofM * 1.02, 0)], 0x66645d);
     const marks = counts.length <= 8
       ? counts.map(([f, c]) => ({ ft: story * (f - 0.5), text: `Floor ${f}: ${c} permit${c > 1 ? "s" : ""}` }))
       : [{ ft: story * (d.stories - 0.5), text: `Work named on ${counts.length} of ${d.stories} floors` }];
     if (d.floor) marks.push({ ft: story * (d.floor - 0.5), text: data.floor ? `Floor ${d.floor}: this listing` : `Floor ${d.floor}: floor in view`, cyan: true });
     spreadLabels(marks, (d.roof ?? 30) * 0.055).forEach((m) => {
-      line([new THREE.Vector3(poleX, m.ft * FT, 0), new THREE.Vector3(poleX + 3, m.label * FT, 0)], 0x8493a8);
+      line([new THREE.Vector3(poleX, m.ft * FT, 0), new THREE.Vector3(poleX + 3, m.label * FT, 0)], 0x66645d);
       tag(m.text, new THREE.Vector3(poleX + 3.5, m.label * FT, 0), m.cyan ? "cyan" : "amber", [0, 0.5]);
     });
     const mid = roofM * 0.52, size2 = Math.max(roofM, span) * 1.7;
@@ -1472,7 +1783,7 @@ function mountEvidence3D(host, data, key) {
         const a = path[i - 1], c = path[i], len = a.distanceTo(c);
         if (len < 0.01) continue;
         const strip = new THREE.Mesh(new THREE.PlaneGeometry(len, 3).rotateX(-Math.PI / 2),
-          new THREE.MeshBasicMaterial({ color: 0xffc24a, transparent: true, opacity: 0.55, depthWrite: false }));
+          new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.55, depthWrite: false }));
         strip.position.copy(a.clone().add(c).multiplyScalar(0.5));
         strip.rotation.y = -Math.atan2(c.z - a.z, c.x - a.x);
         scene.add(strip);
@@ -1798,93 +2109,139 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
       <select id="scan">${b.scans.map((s, i) => `<option value="${esc(s.model_id)}" ${s.model_id === data.scan.model_id ? "selected" : ""}>
         ${esc(s.caption || "Scan")} (${i + 1} of ${b.scans.length})</option>`).join("")}</select></label>` : "";
   const metric = (k, v, unit = "", hot = false) => `<div class="metric ${hot ? "hot" : ""}"><div class="k">${k}</div><div class="v">${v}<small>${unit}</small></div></div>`;
+  const spacePick = b.spaces.length ? `<label class="field">Space <select id="space-pick" aria-label="Space on the market">
+      <option value="">Whole building</option>${b.spaces.map((x) => `<option value="${x.id}" ${sp && sp.id === x.id ? "selected" : ""}>${esc(x.suite ? "Suite " + x.suite : "Space")} · ${esc(x.floor_label.replace("Floor ", "floor "))}</option>`).join("")}</select></label>` : "";
+  const toured = b.spaces.filter((x) => x.scans.length).length;
   app.innerHTML = `
-    <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
-    <div class="review-layout"><div class="scene-column">
-      <nav class="scene-toolbar" aria-label="Building views">
-        <button class="btn" data-scene-mode="tour" aria-pressed="false" ${data.scan.model_id ? "" : 'disabled title="No 3D tour is on record for this space"'}>3D tour (photos)</button>
-        <button class="btn" data-scene-mode="building" aria-pressed="true">Building</button>
-        <button class="btn" data-scene-mode="exploded" aria-pressed="false">Separate floors</button>
-        <button class="btn" data-scene-mode="isolated" aria-pressed="false">Inside selected floor</button>
-        <label>Floor <select id="floor-picker" aria-label="Selected building floor">${(marketFloors.length ? marketFloors : Array.from({length:b.stories || 1},(_,i)=>(b.stories || 1)-i)).map(n=>`<option value="${n}" ${n===chosenFloor?"selected":""}>${n}</option>`).join("")}</select></label>
-      </nav>
-      <nav id="floor-directory" class="floor-directory" aria-label="Floors and available interior sources"></nav>
-      <div class="floor-resource-bar"><label>Interior source <select id="floor-resource" aria-label="Interior source on selected floor"></select></label><span id="floor-resource-summary" class="sub" role="status"></span></div>
-      <div class="stage" id="stage"><div class="gl"></div><div class="labels"></div><div id="floor-plan-view" hidden></div><div id="tour-view" hidden></div>
-      ${o.loaded ? "" : `<div class="empty">${esc(o.error || "No imagery for this building.")}</div>`}
-      <div class="hud tl"><h1>${esc(b.name || b.address)}</h1>
-        <div class="sub">${esc(b.address)}, Los Angeles · ${esc(b.property_type)} · built ${b.year_built ?? "–"} · zone ${esc(b.zone ?? "–")}</div>
-        ${sp ? `<div class="spacechip"><b>${esc(sp.suite ? "Suite " + sp.suite : "Space")}</b> · ${esc(sp.floor_label)} · ${num(sp.sqft)} sq ft${sp.use ? " · " + esc(sp.use) : ""}${sp.rent_per_sqft_year ? ` · $${sp.rent_per_sqft_year.toFixed(0)}/sq ft/yr` : ""}
-          <a href="#" id="clearspace">show the whole building</a></div>`
-          : b.spaces.length ? `<div class="spacechip">${b.spaces.length} spaces on the market. Choose one below, or pull the floors apart and select a floor.</div>` : ""}
-        <div class="spacechip" id="flash" style="display:none"></div></div>
-      <div class="hud tr">${counts(data.counts)}${scanPicker}</div>
-      <div class="hud mid" id="introcap"></div>
-      <div class="hud br"><span title="Drag to orbit, scroll to zoom. Select a requirement to bring its evidence forward. On a floor, click a suite's room to walk inside its 3D tour.">drag · scroll · ⓘ</span>
-        · <a href="#" id="replay" style="pointer-events:auto">replay intro</a></div>
-      <button class="hud-toggle" id="hud-toggle" aria-pressed="false" title="Hide the text over the 3D view">Hide text</button>
-      <div class="hud bl">
-        ${metric("Roof height", o.height_ft ? Math.round(o.height_ft) : "–", " ft")}
-        ${metric("Highest occupied level", top != null ? "≈ " + Math.round(top) : "–", " ft", top != null && top >= HIGH_RISE_FT)}
-        ${metric("Stories", b.stories ?? "–")}
-        ${metric("Closest structure", o.neighbor_gap_ft != null ? Math.round(o.neighbor_gap_ft) : "–", " ft")}
-        ${metric("Footprint", num(o.footprint_sqft), " sq ft")}
-        ${metric("On the market", num(b.available_sqft), " sq ft")}
-        ${metric("Imagery", esc(o.captured || "–"))}
+    <div class="page-head">
+      <div class="title">${b.photo_url ? `<img class="thumb" src="${esc(b.photo_url)}" alt="">` : ""}
+        <div><a class="back" href="#/">‹ All buildings</a>
+        <h1>${esc(b.name || b.address)}</h1>
+        <p class="meta"><span>${esc(b.address)}</span><span>Built ${b.year_built ?? "–"}</span><span>${b.stories ?? "–"} floors</span><span>Zone ${esc(b.zone ?? "–")}</span><span>${num(sp ? sp.sqft : b.available_sqft)} sq ft ${sp ? "in this space" : "on the market"}</span></p>
+        <p class="lede">What turning this office into homes would take: the rules, the least it would cost and what it could earn.</p></div></div>
+      <div class="head-actions">${spacePick}<a class="btn" href="/api/spaces/${id}/next-steps.md${query}" title="Download the open items for an architect">Export</a></div>
+    </div>
+    <div class="kpis">
+      <div class="panel kpi hero"><div class="k">${ICON.cost}Least the published rules call for</div><div class="v" id="kpi-cost">…</div><div class="s" id="kpi-cost-sub">Reading LA prices</div></div>
+      <div class="panel kpi"><div class="k">${ICON.rent}Could rent for</div><div class="v" id="kpi-rent">…</div><div class="s" id="kpi-rent-sub">Reading nearby rents</div></div>
+      <div class="panel kpi"><div class="k">${ICON.check}Requirements with evidence</div><div class="v found">${data.counts["Evidence found"] || 0}<small class="of"> / ${data.rows.length}</small></div><div class="s">Checked against LA conversion rules</div></div>
+      <div class="panel kpi" title="Converting even one home brings the whole building under the rules: the building-wide work counts in full, plus one home's average share of the per-home work."><div class="k">${ICON.cost}Least to open one home</div><div class="v" id="kpi-one">…</div><div class="s" id="kpi-one-sub">Whole-building work plus one home</div></div>
+    </div>
+    <div class="workspace">
+      <div class="scene-column" id="scene-column">
+        <nav class="scene-toolbar" aria-label="Building views">
+          <div class="seg">
+            <button class="btn" data-scene-mode="building" aria-pressed="true">Building</button>
+            <button class="btn" data-scene-mode="isolated" aria-pressed="false">Floor</button>
+            <button class="btn" data-scene-mode="exploded" aria-pressed="false" hidden>Stacked floors</button>
+            ${data.scan.model_id ? '<button class="btn" data-scene-mode="tour" aria-pressed="false">Walk-through</button>' : ""}
+          </div>
+          <label class="field">Floor <select id="floor-picker" aria-label="Selected building floor">${(marketFloors.length ? marketFloors : Array.from({length:b.stories || 1},(_,i)=>(b.stories || 1)-i)).map(n=>`<option value="${n}" ${n===chosenFloor?"selected":""}>${n}</option>`).join("")}</select></label>
+        </nav>
+        <nav id="floor-directory" class="floor-directory" aria-label="Floors with space on the market"></nav>
+        <div class="floor-resource-bar"><label class="field">Source <select id="floor-resource" aria-label="Interior source on selected floor"></select></label><span id="floor-resource-summary" class="sub" role="status"></span></div>
+        <div class="stage" id="stage"><div class="gl"></div><div class="labels"></div><div id="floor-plan-view" hidden></div><div id="tour-view" hidden></div>
+          ${o.loaded ? "" : `<div class="empty">${esc(o.error || "No imagery for this building.")}</div>`}
+          <div class="hud tl"><div class="spacechip" id="flash" style="display:none"></div></div>
+          <div class="hud mid" id="introcap"></div>
+          <div class="hud br"><a href="#" id="replay" style="pointer-events:auto">Replay intro</a></div>
+          <button class="hud-toggle" id="hud-toggle" aria-pressed="false" title="Hide the figures over the 3D view">Hide figures</button>
+          <div class="hud bl">
+            ${metric("Roof", o.height_ft ? Math.round(o.height_ft) : "–", " ft")}
+            ${metric("Top occupied level", top != null ? "≈ " + Math.round(top) : "–", " ft", top != null && top >= HIGH_RISE_FT)}
+            ${metric("Nearest building", o.neighbor_gap_ft != null ? Math.round(o.neighbor_gap_ft) : "–", " ft")}
+            ${metric("On the market", num(b.available_sqft), " sq ft")}
+          </div>
+        </div>
+        <section class="panel floor-detail" id="floor-detail" hidden>
+          <h3 id="floor-title"></h3>
+          <details class="fold"><summary>About this floor's sources</summary>
+            <p id="floor-note" role="status"></p>
+            <p id="floor-scope-note" class="sub"></p>
+            <p class="sub">Floor numbers follow the building record. Elevations and repeated outlines are approximate.</p>
+            <div id="floor-source"></div><details id="floor-unassigned"><summary>Sources without a confirmed floor</summary><div></div></details>
+          </details>
+          <details class="fold plan-import"><summary>Draft a floor from a 2D plan file</summary>
+            <p class="sub">Pick a straight-on plan image. It stays in this browser and clears when you leave.</p>
+            <input id="plan-file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Local floor plan image">
+            <canvas id="plan-preview" hidden aria-label="Plan line candidates; drag to crop"></canvas>
+            <p id="plan-draft-note" class="sub">Image observations are read from images, not measured.</p>
+            <button class="btn" id="plan-apply" disabled>Use reviewed draft on selected floor</button>
+          </details>
+        </section>
+        <section class="panel checklist">
+          <div class="checklist-head"><h3>What the rules ask for <span class="hint">Select one to see the evidence</span></h3>${stateBar(data.counts)}</div>
+          <div class="rows" id="rows">${data.rows.map((r) => `
+            <button class="row" data-key="${r.key}" title="${esc(r.state)}">
+              <span class="tile-icon ${BAR_CLASS[r.state] || ""}" aria-hidden="true">${STATE_GLYPH[r.state] || "·"}</span>
+              <div class="line1"><span class="req">${esc(r.requirement)}</span>${badge(r.state)}</div>
+              <div class="ev">${esc(r.evidence)}</div>
+              <dl class="more">
+                <dt>Published rule</dt><dd>${esc(r.rule)} ${r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" rel="noopener">Source</a>` : ""}</dd>
+                <dt>Confirmed by</dt><dd>${esc(r.confirmed_by)}</dd>
+              </dl>
+            </button>`).join("")}</div>
+        </section>
       </div>
+      <aside class="side">
+        <section class="panel costs" id="costs" aria-label="Least the published rules call for"></section>
+        <section class="panel agent-panel" id="agent-panel" aria-label="Evidence agent"></section>
+      </aside>
     </div>
-    <section class="panel floor-detail" id="floor-detail" hidden>
-      <h3 id="floor-title"></h3><p id="floor-note" role="status"></p><p id="floor-scope-note" class="sub"></p>
-      <p class="sub">Floor numbers follow the building record. Floor elevations and repeated outlines are approximate; the building footprint is not a surveyed outline of every floor.</p>
-      <div id="floor-source"></div><details id="floor-unassigned"><summary>Sources without a confirmed floor</summary><div></div></details>
-      <details class="plan-import"><summary>Build a draft from a 2D plan file</summary>
-        <p>Choose the original, straight-on plan image for the selected floor and suite. The file stays in this browser; this draft is cleared when leaving the scene. Crop out titles and legends, then review the blue line candidates.</p>
-        <input id="plan-file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Local floor plan image">
-        <canvas id="plan-preview" hidden aria-label="Plan line candidates; drag to crop"></canvas>
-        <p id="plan-draft-note">Image observations are read from images, not measured.</p>
-        <button class="btn" id="plan-apply" disabled>Use reviewed draft on selected floor</button>
-      </details>
-    </section></div>
-    <aside class="panel agent-panel" id="agent-panel" aria-label="Evidence agent"></aside></div>
-    <section class="panel costs" id="costs" aria-label="Conversion cost and housing income"></section>
-    ${b.spaces.length ? `<h2>Spaces on the market · ${b.spaces.length}</h2>
-    ${tourFilter("suite-tours", b.spaces.length, b.spaces.filter((x) => x.scans.length).length, "spaces")}
-    <div class="panel market"><table class="spaces">
-      <thead><tr><th>Floor</th><th>Suite</th><th class="num">sq ft</th><th>Use</th><th class="num">Asking $/sq ft/yr</th><th>Available</th><th>Floor plan</th><th>Matterport 3D tour</th></tr></thead>
-      <tbody>${b.spaces.map((x) => `<tr data-space="${x.id}" data-tour="${x.scans.length ? "yes" : "no"}" class="${sp && sp.id === x.id ? "on" : ""}">
-        <td>${esc(x.floor_label)}</td><td class="name">${esc(x.suite || "–")}</td><td class="num">${num(x.sqft)}</td><td>${esc(x.use || "–")}</td>
-        <td class="num">${x.rent_per_sqft_year ? x.rent_per_sqft_year.toFixed(0) : "–"}</td><td>${esc(x.available_on || "–")}</td>
-        <td>${x.plan_url ? '<span class="yes">on record</span>' : '<span class="sub">none</span>'}</td>
-        <td>${x.scans.length ? '<span class="tour-yes">' + x.scans.length + " tour" + (x.scans.length > 1 ? "s" : "") + "</span>" : '<span class="sub">none · interior cost not measurable</span>'}</td></tr>`).join("")}</tbody>
-    </table></div>
-    <p class="note">A space without a Matterport tour is still reviewed like any other space on the market. Without the tour,
-      the items read from its photos (sprinkler heads, alarm devices, exit signs, existing water lines, windows) cannot be
-      measured, so their effect on the conversion cost is not estimated.</p>` : ""}
-    <div class="cols">
-      <div class="panel rows" id="rows">${data.rows.map((r) => `
-        <button class="row" data-key="${r.key}">
-          <div class="line1"><span class="req">${esc(r.requirement)}</span>${badge(r.state)}</div>
-          <div class="ev">${esc(r.evidence)}</div>
-          <dl class="more">
-            <dt>What the published rule says</dt><dd>${esc(r.rule)} ${r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" rel="noopener">Source</a>` : ""}</dd>
-            <dt>Data layer</dt><dd>${esc(r.layer)}</dd>
-            <dt>To be confirmed by</dt><dd>${esc(r.confirmed_by)}</dd>
-          </dl>
-        </button>`).join("")}</div>
-      <div class="panel evidence"><div id="evidence"></div><section id="scan-viewer" hidden></section></div>
-    </div>
-    <h2>Work the published rules call for</h2>
-    ${changesView(data)}
-    <div class="bar"><h2>Next steps, by who confirms</h2>
-      <a class="btn" href="/api/spaces/${id}/next-steps.md${query}">Export for an architect</a></div>
-    <div class="panel steps">${data.next_steps.map((g) => `
-      <h4>${esc(g.who)}</h4>
-      <ul>${g.items.map((i) => `<li><b>${esc(i.requirement)}</b> ${badge(i.state)}<br><span class="sub">${esc(i.evidence)}</span></li>`).join("")}</ul>`).join("")}
-    </div>`;
+    <div class="drawer-scrim" id="drawer-scrim" hidden></div>
+    <section class="panel evidence drawer" id="evidence-drawer" aria-label="Evidence for the selected requirement" aria-hidden="true">
+      <div class="drawer-bar"><span>Evidence</span><button class="btn" id="drawer-close">Close</button></div>
+      <div id="evidence"></div><section id="scan-viewer" hidden></section></section>
+    ${b.spaces.length ? `<div class="section-head"><h2>Spaces on the market</h2><span class="sub">${b.spaces.length} spaces · ${toured} with a 3D tour</span></div>
+    ${tourFilter("suite-tours", b.spaces.length, toured, "spaces")}
+    <div class="panel market collapsed" id="market"><table class="spaces">
+      <thead><tr><th>Suite</th><th>Floor</th><th class="num">Sq ft</th><th class="num">Asking $/sq ft/yr</th><th>3D tour</th></tr></thead>
+      <tbody>${b.spaces.map((x, n) => `<tr data-space="${x.id}" data-tour="${x.scans.length ? "yes" : "no"}" class="${sp && sp.id === x.id ? "on" : ""}${n >= 8 ? " extra" : ""}">
+        <td class="name">${esc(x.suite || "–")}</td><td>${esc(x.floor_label)}</td><td class="num">${num(x.sqft)}</td>
+        <td class="num">${x.rent_per_sqft_year ? x.rent_per_sqft_year.toFixed(0) : "–"}</td>
+        <td>${x.scans.length ? '<span class="pill-yes">Tour</span>' : '<span class="sub">–</span>'}</td></tr>`).join("")}</tbody>
+    </table>${b.spaces.length > 8 ? `<button class="show-all" id="show-all-spaces">Show all ${b.spaces.length} spaces</button>` : ""}</div>` : ""}
+    <details class="section"><summary>Work the published rules call for</summary>${changesView(data)}</details>
+    <details class="section"><summary>Next steps, by who confirms</summary>
+      <div class="panel steps">${data.next_steps.map((g) => `
+        <h4>${esc(g.who)}</h4>
+        <ul>${g.items.map((i) => `<li><b>${esc(i.requirement)}</b> ${badge(i.state)}<br><span class="sub">${esc(i.evidence)}</span></li>`).join("")}</ul>`).join("")}
+      </div></details>`;
 
   mountAgent(document.getElementById("agent-panel"), id, spaceId || "", data.scan.model_id || "");
   const costRoot = document.getElementById("costs");
-  import("/costs.js").then(({ mountCosts }) => mountCosts(costRoot, `/api/spaces/${id}/cost${query}`)).catch(error => {
+  const showMinimum = (cost) => {
+    const m = cost?.minimum, v = document.getElementById("kpi-cost"), sub = document.getElementById("kpi-cost-sub");
+    if (!v) return;
+    if (m?.low == null) { v.textContent = "–"; sub.textContent = "No called-for work has a price yet"; return; }
+    v.textContent = "$" + Math.round(m.low).toLocaleString("en-US");
+    const homes = cost?.income?.units;
+    sub.textContent = [homes ? `${homes} homes · $${Math.round(m.low / homes).toLocaleString("en-US")} each` : "",
+      m.to_quote?.length ? `${m.to_quote.length} still to quote` : ""].filter(Boolean).join(" · ") || "Not a quote";
+    // One home: the whole building's called-for work plus one home's average share; unpriced building work is named.
+    const one = m.one_home, ov = document.getElementById("kpi-one"), os = document.getElementById("kpi-one-sub");
+    if (ov && one) {
+      ov.textContent = "$" + Math.round(one.total.low).toLocaleString("en-US");
+      const usd = (n) => "$" + Math.round(n).toLocaleString("en-US");
+      const toQuote = one.building_to_quote.length, unpriced = (one.building_possible_unpriced || []).length;
+      os.textContent = [one.building.low > 0
+          ? `whole building ${usd(one.building.low)} + one home ${usd(one.per_home.low)}`
+          : `one home ${usd(one.per_home.low)}; no building-wide work is certain to be needed`,
+        one.building_if_needed ? `+ ${usd(one.building_if_needed.low)} if the items to confirm are needed` : "",
+        toQuote ? `still to quote: ${one.building_to_quote.join(", ")}` : "",
+        unpriced ? `${unpriced} building items without a price yet` : ""].filter(Boolean).join(" · ");
+    } else if (ov) { ov.textContent = "–"; os.textContent = "No per-home work has a price yet"; }
+    // Rent per home and the year's net after vacancy and operating costs, from the same calculation.
+    const rent = cost?.rent?.monthly_rent_per_unit?.typical, rv = document.getElementById("kpi-rent"), rs = document.getElementById("kpi-rent-sub");
+    if (!rv) return;
+    if (rent == null) { rv.textContent = "–"; rs.textContent = "No nearby rents on record"; return; }
+    rv.innerHTML = `$${Math.round(rent).toLocaleString("en-US")}<small class="of"> /month</small>`;
+    const net = cost?.scenarios?.[cost.scenario]?.payback?.monthly_net_income?.typical;
+    const yearly = net != null ? net * 12 : null;
+    const money = (n) => n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : `$${Math.round(n / 1e3).toLocaleString("en-US")}K`;
+    rs.textContent = [homes ? `per home · ${homes} homes` : "per home", yearly ? `${money(yearly)} a year after costs` : ""].filter(Boolean).join(" · ");
+  };
+  import("/costs.js").then(({ mountCosts }) => mountCosts(costRoot, `/api/spaces/${id}/cost${query}`, showMinimum)).catch(error => {
     if (costRoot.isConnected) costRoot.textContent = `Cost inputs unavailable: ${error.message}`;
   });
   data.playIntro = !introSeen.has(id); introSeen.add(id);
@@ -1900,6 +2257,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     }
     if (!assets.length) resource.add(new Option("No linked interior source", ""));
     resource.disabled = !assets.length;
+    document.querySelector(".floor-resource-bar").style.display = assets.length > 1 ? "" : "none"; // only when there is a choice
     const vectors = assets.filter(a=>a.geometry_available).length;
     document.getElementById("floor-resource-summary").textContent = `Floor ${chosenFloor} · ${assets.length} linked source${assets.length === 1 ? "" : "s"} · ${vectors} with 3D geometry · ${assets.filter(a=>a.registered).length} in a floor frame`;
     const directory = document.getElementById("floor-directory"); directory.replaceChildren();
@@ -1910,7 +2268,8 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
       const button = document.createElement("button"); button.className = "btn";
       const kinds = [floor.assets.some(a=>a.geometry_available) ? "3D" : floor.assets.some(a=>a.scan_id) ? "tour" : "", floor.assets.some(a=>a.plan_url) ? "2D" : ""].filter(Boolean).join(" + ");
       const n = onMarket(floor.floor);
-      button.textContent = `F${floor.floor} · ${n} space${n === 1 ? "" : "s"} · ${kinds || "no plan"}`;
+      button.innerHTML = `F${floor.floor}<span class="n">${n}</span>`;
+      button.title = `Floor ${floor.floor}: ${n} space${n === 1 ? "" : "s"} on the market · ${kinds || "no plan"}`;
       button.setAttribute("aria-label", `Floor ${floor.floor}: ${kinds || "no linked interior source"}`);
       button.setAttribute("aria-pressed", String(floor.floor === chosenFloor));
       button.onclick = () => showScene("isolated", floor.floor); directory.appendChild(button);
@@ -1964,6 +2323,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
       document.getElementById("stage").classList.remove("floor-mode", "plan-only");
       showTour(true);
       document.querySelectorAll("[data-scene-mode]").forEach(el => el.setAttribute("aria-pressed", String(el.dataset.sceneMode === "tour")));
+      document.getElementById("scene-column").dataset.mode = "tour";
       rememberScene(); return;
     }
     showTour(false);
@@ -1984,6 +2344,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
       live.selectFloor(chosenFloor, mode);
     }
     document.querySelectorAll("[data-scene-mode]").forEach(el => el.setAttribute("aria-pressed", String(el.dataset.sceneMode === mode)));
+    document.getElementById("scene-column").dataset.mode = mode; // floor controls show only in the floor views
     rememberScene();
   }
   document.querySelectorAll("[data-scene-mode]").forEach(el => el.onclick = () => showScene(el.dataset.sceneMode));
@@ -1996,14 +2357,20 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
   if (hudToggle) {
     const stageEl = document.getElementById("stage");
     const apply = (hidden) => { stageEl.classList.toggle("clean", hidden); hudToggle.setAttribute("aria-pressed", String(hidden));
-      hudToggle.textContent = hidden ? "Show text" : "Hide text"; };
+      hudToggle.textContent = hidden ? "Show figures" : "Hide figures"; };
     let hidden = false; try { hidden = localStorage.getItem("secondstay-clean") === "1"; } catch {}
     apply(hidden);
     hudToggle.onclick = () => { hidden = !hidden; apply(hidden); try { localStorage.setItem("secondstay-clean", hidden ? "1" : "0"); } catch {} };
   }
   const showScanViewer = mountScanViewer(document.getElementById("scan-viewer"), data);
-  const select = (key) => {
+  const drawer = document.getElementById("evidence-drawer"), scrim = document.getElementById("drawer-scrim");
+  const openDrawer = (on) => { drawer.classList.toggle("open", on); drawer.setAttribute("aria-hidden", String(!on)); scrim.hidden = !on; };
+  document.getElementById("drawer-close").onclick = () => openDrawer(false);
+  scrim.onclick = () => openDrawer(false);
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && drawer.isConnected) openDrawer(false); });
+  const select = (key, open = false) => {
     current = data.rows.find((r) => r.key === key);
+    if (open) openDrawer(true);
     app.querySelectorAll(".row").forEach((el) => el.classList.toggle("on", el.dataset.key === key));
     document.getElementById("evidence").innerHTML = evidenceView(current, data);
     mountEvidence3D(document.querySelector("#evidence [data-scene3d]"), data, current.key);
@@ -2012,23 +2379,27 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     else if (viewMode === "tour") return;
     else live?.setMode?.(key);
   };
-  app.querySelectorAll(".row").forEach((el) => (el.onclick = () => select(el.dataset.key)));
+  app.querySelectorAll(".row").forEach((el) => (el.onclick = () => select(el.dataset.key, true)));
   const picker = document.getElementById("scan");
   if (picker) picker.onchange = () => reopen(spaceId, picker.value);
   wireTourFilter(app, "suite-tours");
+  const showAll = document.getElementById("show-all-spaces");
+  if (showAll) showAll.onclick = () => { document.getElementById("market").classList.remove("collapsed"); showAll.remove(); };
   app.querySelectorAll("tr[data-space]").forEach((tr) => (tr.onclick = () => reopen(tr.dataset.space)));
   const clear = document.getElementById("clearspace");
   if (clear) clear.onclick = (event) => { event.preventDefault(); reopen(""); };
+  const spaceSelect = document.getElementById("space-pick");
+  if (spaceSelect) spaceSelect.onchange = () => reopen(spaceSelect.value);
   select(current.key);
 }
 
 function mountAgent(host, buildingId, spaceId, scanId) {
   let timer = null, playing = false;
-  host.innerHTML = `<h2>Evidence agent</h2><p class="sub">Choose sources, gather evidence, cross-check, and record next steps.</p>
-    <p class="sub" id="agent-config">Checking local model settings…</p>
-    <div class="agent-actions"><button class="btn" id="agent-start" disabled>Run evidence review</button>
-    <button class="btn" id="agent-replay" disabled>Replay saved run</button></div>
-    <label class="sub">Saved reviews <select id="agent-history" aria-label="Saved evidence reviews"></select></label>
+  host.innerHTML = `<h2>Check with AI</h2><p class="sub">An AI agent re-reads every record for this building, cross-checks them and lists what to confirm next.</p>
+    <p class="sub" id="agent-config" hidden>Checking local model settings…</p>
+    <div class="agent-actions"><button class="btn primary" id="agent-start" disabled>Run the check</button>
+    <button class="btn" id="agent-replay" disabled>Show last check</button></div>
+    <label class="sub agent-history">Earlier checks <select id="agent-history" aria-label="Earlier checks"></select></label>
     <p id="agent-status" role="status" aria-live="polite"></p>
     <ol class="agent-log" id="agent-log"></ol><div class="agent-result" id="agent-result"></div>`;
   const el = (id) => host.querySelector(`#agent-${id}`);
@@ -2137,8 +2508,8 @@ async function showPlansToRead(page) {
     <p style="margin:0 0 8px"><a href="#/plans">← All floor plans</a> · the plan read for each building, ${page + 1} of ${chosen.length}
       · ${page ? `<a href="#/plans/read/${page - 1}">previous</a> · ` : ""}${page + 1 < chosen.length ? `<a href="#/plans/read/${page + 1}">next</a>` : ""}
       · <a href="#/space/${s.property_id}">${esc(s.name || s.address)}</a></p>
-    <div style="background:#fff;border-radius:8px;overflow:hidden">
-      <div style="font:600 12px var(--mono);color:#123;background:#dfe6f0;padding:4px 8px">#${s.property_id} · ${s.plan_to_read.source === "building" ? "building attachment" : "listing attachment"} · ${s.stories ?? "?"} stories on record${r ? ` · read: ${r.stairs} stairs, ${r.elevators} elevators` : ""}</div>
+    <div style="background:#fff;border:1px solid var(--line);overflow:hidden">
+      <div style="font-size:12px;font-weight:600;color:var(--ink);background:var(--paper2);padding:4px 8px">#${s.property_id} · ${s.plan_to_read.source === "building" ? "building attachment" : "listing attachment"} · ${s.stories ?? "?"} stories on record${r ? ` · read: ${r.stairs} stairs, ${r.elevators} elevators` : ""}</div>
       <img src="${esc(s.plan_to_read.url)}" alt="Floor plan" style="width:100%;height:740px;object-fit:contain;display:block"></div>`;
 }
 

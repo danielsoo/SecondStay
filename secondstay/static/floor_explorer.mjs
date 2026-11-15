@@ -10,8 +10,8 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   const stage = makeStage(host, { bloom: false }), { scene, camera, controls, ticks } = stage;
   controls.autoRotate = false;
   scene.fog = null;
-  scene.background = new THREE.Color(0x192b38);
-  scene.add(new THREE.HemisphereLight(0xfff3db, 0x7896a0, 0.8));
+  scene.background = new THREE.Color(0xf2f1ec);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x9a968a, 0.95));
   const sun = new THREE.DirectionalLight(0xffead3, 1.0); sun.position.set(-30,60,35); scene.add(sun);
   const b = data.building, o = data.outside, count = Math.max(1, b.stories || 1);
   let selected = validFloor(initial, count) || 1, mode = "isolated", alive = true, request = 0;
@@ -41,7 +41,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   const roomPicks = []; let hovered = null, touring = false;
   // Hover focus: the rest of the floor fades to a dark, see-through model and the pointed room rises as a tile.
   let focusNow = 0, focusTarget = 0, liftTile = null, wallTop = 2.4;
-  const DIM_COLOR = new THREE.Color(0x1a2533);
+  const DIM_COLOR = new THREE.Color(0xe9e7e1); // fade toward the paper, not into the dark
   const scanOf = (model) => model.scan_id || (b.spaces || []).find(s => String(s.id) === String(model.space_id))?.scans?.[0] || "";
   const marketFloors = new Set((b.spaces || []).map(s => s.floor).filter(Boolean));
   const label = document.createElement("span"); label.className = "tag3d cyan";
@@ -50,7 +50,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   for (let n = 1; n <= count; n++) {
     const group = new THREE.Group();
     const material = new THREE.MeshStandardMaterial({ color: 0xb8b4a8, transparent: true, opacity: 0.7, roughness: 0.8, side: THREE.DoubleSide });
-    const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xc2d6dd, transparent: true, opacity: 0.22 });
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x8c8a82, transparent: true, opacity: 0.35 });
     slabGeometry.forEach(geometry => {
       const mesh = new THREE.Mesh(geometry, material); mesh.userData.floor = n; group.add(mesh); picks.push(mesh);
       group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial));
@@ -61,11 +61,11 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   // While a floor's sources are being read, show nothing in their place: no reference plan, grid or "not placed" list.
   let loading = false;
   const legend = document.createElement("div");
-  legend.style.cssText = "display:flex;flex-wrap:wrap;gap:16px;margin:12px 0;color:#c5d8df;font-size:13px";
+  legend.style.cssText = "display:flex;flex-wrap:wrap;gap:16px;margin:12px 0;color:var(--muted);font-size:13px";
   document.getElementById("floor-source").before(legend);
   const coverage = document.createElement("section");
-  coverage.className = "panel";
-  coverage.style.cssText = "padding:12px 16px;margin:0 0 12px;border-color:#4a6470";
+  coverage.className = "panel floor-coverage";
+  coverage.style.cssText = "padding:12px 16px;margin:0 0 12px;border-color:var(--line)";
   coverage.setAttribute("aria-label","Interior model coverage");
   coverage.hidden = true;
   host.before(coverage);
@@ -75,7 +75,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   ledger.setAttribute("aria-label", "What is on record for this floor");
   host.before(ledger);
   const gridRoot = new THREE.Group();
-  const gridMaterial = new THREE.LineBasicMaterial({ color: 0x8fd3e8, transparent: true, opacity: 0.38 });
+  const gridMaterial = new THREE.LineBasicMaterial({ color: 0x1c7a98, transparent: true, opacity: 0.35 });
   const gridTag = document.createElement("span"); gridTag.className = "tag3d";
   const gridLabel = new CSS2DObject(gridTag);
   // A short card on the floor itself: what is on record here.
@@ -144,8 +144,8 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
     }
   };
   const SQFT = n => n == null ? "area not recorded" : `${Math.round(n).toLocaleString("en-US")} sq ft`;
-  const COLORS = { drawn: "#5fe0a0", listed_unplaced: "#ffc24a", listed_plan: "#ffb36b", listed_tour: "#f59e7a",
-    listed_none: "#e46d6d", leased: "#8fb8ff", unrecorded: "#5d6b80" };
+  const COLORS = { drawn: "#2F6B45", listed_unplaced: "#C08A2E", listed_plan: "#D9B370", listed_tour: "#1C7A98",
+    listed_none: "#A9A69C", leased: "#7FA9B8", unrecorded: "#C9C6BD" };
   function showLedger(models) {
     const a = floorAccounting({ building: b, catalog: data.floor_sources, floor: selected, shownModels: models,
       footprintSqft: o.footprint_sqft || null });
@@ -202,7 +202,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
     const segs = gridSegments(outlines, GRID_FT * 0.3048);
     const points = segs.flatMap(([x1, y1, x2, y2]) => [new THREE.Vector3(x1, lift, -y1), new THREE.Vector3(x2, lift, -y2)]);
     // On a bare slab the grid is dark so it reads against the light surface; around drawn rooms it is light.
-    gridMaterial.color.set(value?.available ? 0x8fd3e8 : 0x1f3a48); gridMaterial.opacity = value?.available ? 0.38 : 0.9;
+    gridMaterial.color.set(value?.available ? 0x1c7a98 : 0x5e5c55); gridMaterial.opacity = value?.available ? 0.35 : 0.55;
     if (points.length) gridRoot.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points), gridMaterial));
     gridTag.textContent = value?.available ? `${GRID_FT} ft reference grid · blank areas are not on the market or have no plan` : `No plan on record for the spaces here · ${GRID_FT} ft reference grid`;
     const ox = outlines.flat().map(p => p[0]), oy = outlines.flat().map(p => p[1]);
@@ -233,7 +233,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
       } else {
         // A source perimeter is context, not evidence of an empty floor surface.
         const outline = new THREE.BufferGeometry().setFromPoints(value.floor_outline.map(([x,y])=>new THREE.Vector3(x,.25,-y)));
-        const boundary = new THREE.LineLoop(outline,new THREE.LineDashedMaterial({color:0x8fb7c7,dashSize:1,gapSize:.6,transparent:true,opacity:.65}));
+        const boundary = new THREE.LineLoop(outline,new THREE.LineDashedMaterial({color:0x1c7a98,dashSize:1,gapSize:.6,transparent:true,opacity:.65}));
         boundary.computeLineDistances(); planSlab.add(boundary);
         coverage.hidden = false;
         const models = value.assembly || [value];
@@ -315,7 +315,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
       }
     }
     const counts=value.counts;
-    if(counts) for(const [color,text] of [['#75cbd7',`${counts.windows} window openings`],['#e5ac64',`${counts.doors} doorways`],['#d9c7a4',`${counts.rooms} room boundaries`]]) {
+    if(counts) for(const [color,text] of [['#1c7a98',`${counts.windows} window openings`],['#c08a2e',`${counts.doors} doorways`],['#8c8a82',`${counts.rooms} room boundaries`]]) {
       const item=document.createElement('span'); item.style.color=color; item.textContent=(value.suite ? value.suite+' · ' : '')+'● '+text; legend.appendChild(item);
     }
   }
@@ -425,7 +425,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
       const dim = marketFloors.has(level.number) || level.number === selected ? 1 : 0.5; // not on the market: kept only for the building's shape
       level.material.opacity += (p.opacity * dim * (level.number === selected ? (geometry?.available && mode === "isolated" ? 0.08 : 0.95) : 0.9) - level.material.opacity) * blend;
       const onMarket = marketFloors.has(level.number);
-      level.material.color.set(level.number === selected ? 0x9dbbc0 : onMarket ? 0xb9c6c4 : 0x4f5862);
+      level.material.color.set(level.number === selected ? 0xa9c3cb : onMarket ? 0xc3cbc8 : 0xdedbd3);
       level.edgeMaterial.opacity = level.number === selected ? 0.45 : 0.18;
       const physicalFrame = geometry?.registered && geometry.units !== "plan_relative";
       const showingInterior = geometry?.available && (mode === "isolated" || physicalFrame);
@@ -485,7 +485,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   }
   function raiseTile(mesh) {
     dropTile();
-    const room = mesh.userData.room, accent = room.scan ? 0x5fe0a0 : 0xffc24a;
+    const room = mesh.userData.room, accent = room.scan ? 0x1c7a98 : 0xc08a2e;
     const geometry = new THREE.ExtrudeGeometry(mesh.userData.shape, { depth: 0.22, bevelEnabled: false }).rotateX(-Math.PI / 2);
     // A copy of the room's own colour: the original is darkened by the focus fade.
     liftTile = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: (mesh.userData.base?.color || mesh.material.color).clone(),

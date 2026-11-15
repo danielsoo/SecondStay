@@ -1,9 +1,9 @@
 .costs { margin: 24px 0; padding: 20px; }
 .costs h2 { margin-top: 0; }
-.costs fieldset { min-width: 0; border: 1px solid var(--line); border-radius: 8px; margin: 16px 0; padding: 14px; }
+.costs fieldset { min-width: 0; border: 1px solid var(--line); border-radius: 0; margin: 16px 0; padding: 14px; }
 .costs legend { padding: 0 6px; }
 .costs label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
-.costs input, .costs select { width: 100%; min-width: 0; background: var(--bg); border: 1px solid var(--muted); color: var(--ink); border-radius: 5px; padding: 9px; font: inherit; }
+.costs input, .costs select { width: 100%; min-width: 0; background: var(--surface); border: 1px solid var(--line-strong); color: var(--ink); border-radius: 0; padding: 9px; font: inherit; }
 .costs :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .cost-range, .cost-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .costs .cost-check { flex-direction: row; align-items: center; margin-bottom: 12px; }
@@ -27,19 +27,37 @@
   .costs input { padding: 7px 4px; }
 }
 
-.cost-photos { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 0 0 18px; }
+.cost-photos { border: 1px solid var(--line); border-radius: 0; padding: 14px 16px; margin: 0 0 18px; }
 .cost-photos h3 { margin-top: 0; }
 .cost-band { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
-.cost-band > div { flex: 1 1 140px; border-radius: 8px; padding: 10px 12px; background: rgba(255,255,255,0.04); }
-.cost-band span { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.cost-band b { font-size: 24px; }
-.cost-band .expected { outline: 1px solid #5fe0a0; }
+.cost-band > div { flex: 1 1 140px; border-radius: 0; padding: 10px 12px; background: var(--panel2); }
+.cost-band span { display: block; font-size: 12px; color: var(--muted); letter-spacing: 0; }
+.cost-band b { font-size: 24px; font-weight: 700; }
+.cost-band .expected { outline: 1px solid var(--found); }
 .cost-band .muted b { font-size: 18px; color: var(--muted); }
 .cost-factors { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 8px; }
 .cost-factors .dir { font-size: 12px; margin-left: 6px; }
-.cost-factors .d-1 { color: #5fe0a0; } .cost-factors .d1 { color: #ffb36b; } .cost-factors .d0 { color: var(--muted); }
-.cost-factors.to-quote li { border-left: 3px solid #ffb36b; padding-left: 8px; }
+.cost-factors .d-1 { color: var(--found); } .cost-factors .d1 { color: var(--issue); } .cost-factors .d0 { color: var(--muted); }
+.cost-factors.to-quote li { border-left: 3px solid var(--issue); padding-left: 8px; }
 .la-permits { margin-top: 4px; font-size: 13px; }
-.la-permits summary { cursor: pointer; color: #8fd3e8; }
+.la-permits summary { cursor: pointer; color: var(--accent); }
 .la-permits table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
 .la-permits th, .la-permits td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); }
+
+/* Compact summary: the figure first, everything else folded */
+.costs .cost-photos { border: 0; padding: 0; margin: 0; }
+.costs .cost-photos h3 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 4px; }
+.cost-figure { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cost-figure b { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
+.cost-figure span { color: var(--muted); font-size: 13px; }
+.cost-sum { margin: 2px 0 10px; font-size: 13px; color: var(--muted); }
+.cost-sum .to-quote-count { color: var(--issue); font-weight: 600; }
+.fold { border-top: 1px solid var(--line); margin: 0; padding: 8px 0; }
+.fold > summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--ink); list-style-position: inside; }
+.fold[open] > summary { margin-bottom: 8px; }
+.costs details.fold { margin: 0; }
+
+/* modern layer */
+.costs input, .costs select { border-radius: 8px; }
+.costs fieldset { border-radius: 10px; }
+.cost-band > div { border-radius: 10px; }
