@@ -699,20 +699,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(run)
         history = re.fullmatch(r"/api/spaces/(\d+)/reviews", url.path)
         if history:
-            from .agent import RUN_DIR, load_run
+            from .agent import list_runs
             if int(history.group(1)) not in self.buildings:
                 return self._json({"error": "Not found"}, 404)
-            runs = []
-            for path in sorted(RUN_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
-                try:
-                    run = load_run(path.stem)
-                except (ValueError, OSError):
-                    continue
-                if (run['building_id'] == int(history.group(1))
-                        and run['space_id'] == (query.get('space') or [''])[0]
-                        and (not query.get('scan') or run['scan_id'] == query['scan'][0])):
-                    runs.append({k: run[k] for k in ('id', 'status', 'mode', 'started_at')})
-            return self._json({"runs": runs[:20]})
+            runs = list_runs(int(history.group(1)), (query.get("space") or [""])[0], (query.get("scan") or [""])[0])
+            return self._json({"runs": runs})
         top_down = re.fullmatch(r"/api/scans/([A-Za-z0-9]{6,20})/plan\.jpg", url.path)
         if top_down:
             try:

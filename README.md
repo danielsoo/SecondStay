@@ -43,7 +43,7 @@ Built at HackPrinceton Fall 2026.
 | Evidence views | Per requirement: 3D height view with level planes, separation and access views with dimension bars, permit floors in 3D, permit timelines, permits per year, age, units and stay graphics, seismic and historic cards, real CoStar photos |
 | Floor view | Floors pulled apart in 3D; a floor opens on its scan or traced plan, with a ledger of what each part of the floor is and why it is or is not drawn |
 | Walk-through | The Matterport tour of the selected suite |
-| Evidence agent panel | Runs or replays the agent's evidence review, step by step, marking steps a sub-agent ran |
+| Evidence agent panel | The latest stored evidence check, step by step, marking steps a sub-agent ran; **Run again** starts a new one |
 | Next steps | A Markdown export of open items grouped by the professional who confirms them |
 
 ## Data sources
@@ -157,8 +157,10 @@ are both known. Sources and assumptions are in `docs/cost-sources.md` and `assum
 - Guardrails: a tool allowlist hides filesystem and shell tools from the lead and both sub-agents,
   no general-purpose sub-agent is created, a run is limited to 24 evidence actions shared by all
   three agents and two reads per source, and banned words are rejected.
-- Runs are saved under the ignored `data/raw/agent_runs/`. **Show last check** replays a recorded run
-  without calling a model. Set `SECONDSTAY_OFFLINE=1` to use cached data and recorded runs only.
+- Every building is checked once ahead of time. Finished runs are saved under the ignored
+  `data/raw/agent_runs/` and in Tiger Data, and the panel opens on the latest check straight away;
+  **Run again** starts a new one when the records change. Set `SECONDSTAY_OFFLINE=1` to use cached
+  data and stored checks only.
 
 Run up to five buildings from the command line with `python -m secondstay.agent <building ids>`, or
 one suite with `--space <space id>`. Do not put real identifiers in checked-in files.
@@ -191,6 +193,7 @@ time series.
 | `python -m secondstay.tiger push` | Uploads new or changed files under `data/raw/` (one row per file: path, sha256, bytes) |
 | `python -m secondstay.tiger restore` | Writes stored files missing locally; a local file that differs is kept unless `--force` is given |
 | `python -m secondstay.tiger permits` | Loads the permit hypertables, compresses them and refreshes the yearly continuous aggregates |
+| `python -m secondstay.tiger runs` | Stores the finished evidence-agent runs saved under `data/raw/agent_runs/` |
 | `python -m secondstay.tiger status` | Local against stored files, row counts and compression per hypertable |
 
 - `building_permits` (about 30,000 LADBS permits matched by parcel) and `city_cost_permits` (about
@@ -198,7 +201,10 @@ time series.
 - `building_permits_yearly` and `city_cost_permits_yearly` are continuous aggregates. The permit
   evidence views draw all permits on the parcel by year from the first one
   (`/api/spaces/<id>/permit-years.json`).
-- Without `TIGER_DATABASE_URL` the chart is left out and every other view reads `data/raw/` as before.
+- `agent_runs` keeps every finished evidence-agent run (events, checklist and report as JSON), so
+  each building page opens on its latest check without running the model again.
+- Without `TIGER_DATABASE_URL` the chart is left out, checks are read from `data/raw/agent_runs/`, and
+  every other view reads `data/raw/` as before.
 
 Details: `docs/tiger-data.md`.
 

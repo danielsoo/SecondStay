@@ -66,6 +66,7 @@ def test_cost_rows_read_the_city_wide_search_cache():
 
 
 def test_missing_connection_is_reported_not_guessed(monkeypatch, tmp_path):
+    monkeypatch.undo()  # this test exercises the real lookup
     monkeypatch.delenv(tiger.ENV_KEY, raising=False)
     monkeypatch.setattr(tiger, "REPO_ROOT", tmp_path)
     with pytest.raises(tiger.NotConfigured):
@@ -75,6 +76,7 @@ def test_missing_connection_is_reported_not_guessed(monkeypatch, tmp_path):
 
 
 @pytest.mark.skipif(not os.getenv("TIGER_TEST_DATABASE"), reason="set TIGER_TEST_DATABASE=1 to run against the real service")
+@pytest.mark.tiger_service
 def test_round_trip_against_the_service(tmp_path):
     (tmp_path / "probe").mkdir()
     (tmp_path / "probe" / "round_trip.txt").write_bytes(b"secondstay")

@@ -467,16 +467,70 @@ def run_review(review, model=None):
         review.event('interrupted', 'The model run was interrupted. Check local configuration or provider availability.',
                      error_type=type(error).__name__)
     review.save()
+    store_run(review.data)
     return review.data
+
+
+def store_run(data):
+    """Keep a finished model run in Tiger Data as well, so the screen can show it without running again.
+    Test runs stay out of the shared store."""
+    if data.get('mode') != 'live':
+        return False
+    try:
+        from . import tiger
+        tiger.save_run(data)
+        return True
+    except Exception:  # no database configured or unreachable: the file under data/raw/ still holds it
+        return False
 
 
 def load_run(run_id, directory=None):
     if not re.fullmatch(r'[a-f0-9]{32}', run_id):
         raise ValueError('Unknown review identifier.')
-    data = json.loads(((directory or RUN_DIR) / (run_id + '.json')).read_text())
+    path = (directory or RUN_DIR) / (run_id + '.json')
+    if path.exists():
+        data = json.loads(path.read_text())
+    else:
+        data = None
+        if directory is None:
+            try:
+                from . import tiger
+                data = tiger.get_run(run_id)
+            except Exception:
+                data = None
+        if data is None:
+            raise OSError('Unknown review identifier.')
     if data['status'] == 'running' and data['id'] not in ACTIVE:
         data['status'] = 'interrupted'
     return data
+
+
+def list_runs(building_id, space_id='', scan_id='', directory=None):
+    """Runs for one building and space, newest first; runs on the requested scan come first.
+    Tiger Data and the files under data/raw/agent_runs are merged by run id."""
+    found = {}
+    if directory is None:
+        try:
+            from . import tiger
+            for run in tiger.list_runs(building_id, space_id):
+                found[run['id']] = run
+        except Exception:
+            pass
+    for path in (directory or RUN_DIR).glob('*.json'):
+        try:
+            run = load_run(path.stem, directory)
+        except (ValueError, OSError):
+            continue
+        if run['building_id'] == int(building_id) and run['space_id'] == str(space_id or ''):
+            found[run['id']] = {k: run[k] for k in ('id', 'status', 'mode', 'started_at', 'scan_id')}
+    for run in found.values():
+        if run['id'] in ACTIVE:
+            run['status'] = 'running'
+        elif run['status'] == 'running':
+            run['status'] = 'interrupted'
+    runs = sorted(found.values(), key=lambda r: r['started_at'], reverse=True)
+    runs.sort(key=lambda r: bool(scan_id) and r['scan_id'] != scan_id)  # stable: requested scan first
+    return runs[:20]
 
 
 ACTIVE = set()

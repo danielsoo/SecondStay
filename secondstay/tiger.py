@@ -16,6 +16,7 @@ Connection: TIGER_DATABASE_URL in .env (never committed).
 Run:  python -m secondstay.tiger push        # data/raw -> database
       python -m secondstay.tiger restore     # database -> data/raw (missing files only; --force to overwrite)
       python -m secondstay.tiger permits     # load permit hypertables, compress, refresh aggregates
+      python -m secondstay.tiger runs        # store finished evidence-agent runs from data/raw/agent_runs
       python -m secondstay.tiger status
 """
 
@@ -312,6 +313,73 @@ def status(root: Path = RAW_DIR, out=sys.stdout) -> dict:
     return {"local": len(local), "stored": len(remote), "permits": counts}
 
 
+# --- evidence agent runs ----------------------------------------------------------------------
+
+RUN_SCHEMA = [
+    """CREATE TABLE IF NOT EXISTS agent_runs (
+        id text PRIMARY KEY,
+        building_id bigint NOT NULL,
+        space_id text NOT NULL DEFAULT '',
+        scan_id text NOT NULL DEFAULT '',
+        status text NOT NULL,
+        mode text NOT NULL,
+        started_at timestamptz NOT NULL,
+        data jsonb NOT NULL)""",
+    "CREATE INDEX IF NOT EXISTS agent_runs_scope ON agent_runs (building_id, space_id, started_at DESC)",
+]
+_runs_ready = False
+
+
+def _run_table(conn) -> None:
+    global _runs_ready
+    if not _runs_ready:
+        with conn.cursor() as cur:
+            for statement in RUN_SCHEMA:
+                cur.execute(statement)
+        _runs_ready = True
+
+
+def save_run(data: dict) -> None:
+    """Keep one evidence-agent run (its events, checklist and report) so every screen can show it."""
+    from psycopg.types.json import Jsonb
+    with connect(autocommit=True) as conn:
+        _run_table(conn)
+        conn.execute("""INSERT INTO agent_runs (id, building_id, space_id, scan_id, status, mode, started_at, data)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, data = EXCLUDED.data""",
+            (data["id"], int(data["building_id"]), str(data.get("space_id") or ""), str(data.get("scan_id") or ""),
+             data["status"], data.get("mode") or "live", data["started_at"], Jsonb(data)))
+
+
+def get_run(run_id: str) -> Optional[dict]:
+    with connect(autocommit=True) as conn:
+        _run_table(conn)
+        row = conn.execute("SELECT data FROM agent_runs WHERE id = %s", (run_id,)).fetchone()
+    return row[0] if row else None
+
+
+def list_runs(building_id, space_id: str = "") -> list:
+    """Summaries of stored runs for one building and space, newest first."""
+    with connect(autocommit=True) as conn:
+        _run_table(conn)
+        rows = conn.execute("""SELECT id, status, mode, started_at, scan_id FROM agent_runs
+            WHERE building_id = %s AND space_id = %s ORDER BY started_at DESC LIMIT 20""",
+            (int(building_id), str(space_id or ""))).fetchall()
+    return [{"id": i, "status": st, "mode": m, "started_at": t.isoformat(), "scan_id": sc} for i, st, m, t, sc in rows]
+
+
+def push_runs(directory: Path = RAW_DIR / "agent_runs", out=sys.stdout) -> int:
+    """Store every finished run saved on disk."""
+    count = 0
+    for path in sorted(directory.glob("*.json")):
+        data = json.loads(path.read_text())
+        if data.get("status") != "running":
+            save_run(data)
+            count += 1
+    print(f"Stored {count} evidence-agent runs.", file=out)
+    return count
+
+
 # --- reads for the app ------------------------------------------------------------------------
 
 def permit_years(property_id) -> list:
@@ -339,6 +407,8 @@ def main(argv: list) -> int:
             restore(force="--force" in argv)
         elif command == "permits":
             load_permits()
+        elif command == "runs":
+            push_runs()
         elif command == "status":
             status()
         else:

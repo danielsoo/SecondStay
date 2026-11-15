@@ -246,3 +246,19 @@ def test_streets_read_before_the_footprint_do_not_count(review):
     for action in ('inspect_gaps', 'read_record', 'read_scan', 'read_outside', 'cross_check'):
         review.execute(action)
     assert 'read_streets' in review.execute('write_review').get('remaining', [])
+
+
+def test_run_history_lists_newest_first_with_the_requested_scan_first(tmp_path):
+    def write(i, scan, at, status='completed', building=1, space=''):
+        run = {'id': f'{i:032x}', 'building_id': building, 'space_id': space, 'scan_id': scan,
+               'status': status, 'mode': 'live', 'started_at': at, 'events': []}
+        (tmp_path / f'{i:032x}.json').write_text(json.dumps(run))
+    write(1, 'SCANA00001', '2026-11-15T01:00:00+00:00')
+    write(2, 'SCANB00001', '2026-11-15T03:00:00+00:00')
+    write(3, 'SCANA00001', '2026-11-15T02:00:00+00:00', status='running')
+    write(4, 'SCANA00001', '2026-11-15T04:00:00+00:00', building=2)
+    write(5, 'SCANA00001', '2026-11-15T05:00:00+00:00', space='9')
+    runs = agent.list_runs(1, '', 'SCANA00001', directory=tmp_path)
+    assert [r['id'][-1] for r in runs] == ['3', '1', '2']  # other buildings and spaces are left out
+    assert runs[0]['status'] == 'interrupted'  # a run no process is working on is not shown as running
+    assert agent.store_run({'mode': 'test'}) is False

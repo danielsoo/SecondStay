@@ -2557,12 +2557,11 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
 }
 
 function mountAgent(host, buildingId, spaceId, scanId) {
-  let timer = null, playing = false;
-  host.innerHTML = `<h2>Check with AI</h2><p class="sub">An AI agent re-reads every record for this building, cross-checks them and lists what to confirm next.</p>
+  let timer = null;
+  host.innerHTML = `<h2>Check with AI</h2><p class="sub">An AI agent reads every record for this building, cross-checks them and lists what to confirm next. The latest check is shown; run it again when the records change.</p>
     <p class="sub" id="agent-config" hidden>Checking local model settings…</p>
-    <div class="agent-actions"><button class="btn primary" id="agent-start" disabled>Run the check</button>
-    <button class="btn" id="agent-replay" disabled>Show last check</button></div>
-    <label class="sub agent-history">Earlier checks <select id="agent-history" aria-label="Earlier checks"></select></label>
+    <div class="agent-actions"><button class="btn" id="agent-start" disabled>Run the check</button></div>
+    <label class="sub agent-history" hidden>Earlier checks <select id="agent-history" aria-label="Earlier checks"></select></label>
     <p id="agent-status" role="status" aria-live="polite"></p>
     <ol class="agent-log" id="agent-log"></ol><div class="agent-result" id="agent-result"></div>`;
   const el = (id) => host.querySelector(`#agent-${id}`);
@@ -2592,14 +2591,16 @@ function mountAgent(host, buildingId, spaceId, scanId) {
       item.textContent = `${event.action.replaceAll("_", " ")}: ${event.observation.unavailable || event.observation.error}`;
       el("log").appendChild(item);
     }
-    el("status").textContent = `${playing ? "Recorded replay" : run.mode === "live" ? "Model run" : "Test run"} · ${limit < run.events.length ? "playing" : run.status}`;
+    el("status").textContent = run.status === "running" ? "Checking now…"
+      : `Checked ${new Date(run.started_at).toLocaleString()} · ${run.status}`;
     if (limit === run.events.length) showResult(run);
   };
   const history = async () => {
     const data = await request(`${endpoint}?${query}`);
     if (!host.isConnected) return;
-    el("history").innerHTML = data.runs.map(r => `<option value="${esc(r.id)}">${esc(new Date(r.started_at).toLocaleString())} · ${esc(r.mode)} · ${esc(r.status)}</option>`).join("");
-    el("replay").disabled = !data.runs.length;
+    el("history").innerHTML = data.runs.map(r => `<option value="${esc(r.id)}">${esc(new Date(r.started_at).toLocaleString())} · ${esc(r.status)}</option>`).join("");
+    el("history").parentElement.hidden = data.runs.length < 2;
+    el("start").textContent = data.runs.length ? "Run again" : "Run the check";
     return data.runs;
   };
   const poll = async (id) => {
@@ -2613,31 +2614,32 @@ function mountAgent(host, buildingId, spaceId, scanId) {
     } catch (error) { if (host.isConnected) { el("status").textContent = error.message; el("start").disabled = false; } }
   };
   el("start").onclick = async () => {
-    clearTimeout(timer); playing = false; el("start").disabled = true; el("replay").disabled = true;
+    clearTimeout(timer); el("start").disabled = true;
     el("result").innerHTML = ""; el("log").innerHTML = "";
     try {
       const run = await request(endpoint, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({space:spaceId,scan:scanId}) });
       await poll(run.id);
     } catch (error) { el("status").textContent = error.message; el("start").disabled = false; await history(); }
   };
-  el("replay").onclick = async () => {
-    clearTimeout(timer); playing = true; el("result").innerHTML = "";
+  // A stored check is shown as it was recorded, straight away; nothing runs until someone asks.
+  const show = async (id) => {
+    clearTimeout(timer);
     try {
-      const run = await request(`/api/reviews/${encodeURIComponent(el("history").value)}`);
-      let n = 0;
-      const tick = () => {
-        if (!host.isConnected) return;
-        draw(run, ++n);
-        if (n < run.events.length) timer = setTimeout(tick, 550);
-      };
-      tick();
-    } catch (error) { el("status").textContent = error.message; }
+      const run = await request(`/api/reviews/${encodeURIComponent(id)}`);
+      if (host.isConnected) draw(run);
+    } catch (error) { if (host.isConnected) el("status").textContent = error.message; }
   };
+  el("history").onchange = () => show(el("history").value);
   Promise.all([request("/api/agent"), history()]).then(([config, runs]) => {
     if (!host.isConnected) return;
     el("config").textContent = config.message;
     el("start").disabled = !config.ready;
     if (runs?.[0]?.status === "running") { el("start").disabled = true; poll(runs[0].id); }
+    else {
+      const latest = runs?.find((r) => r.status === "completed");
+      if (latest) { el("history").value = latest.id; show(latest.id); }
+      else el("status").textContent = "Not checked yet.";
+    }
   }).catch(error => { if (host.isConnected) el("status").textContent = error.message; });
 }
 
