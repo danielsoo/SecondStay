@@ -100,26 +100,6 @@
     "notes": "See docs/cost-sources.md.",
     "unpriced_reason": "Structural system and strengthening design are unknown; no building-specific rate established."
   },
-  "highrise.systems": {
-    "unit": "lump",
-    "fixed": {
-      "low": null,
-      "typical": null,
-      "high": null
-    },
-    "rate": {
-      "low": null,
-      "typical": null,
-      "high": null
-    },
-    "source": "",
-    "published": "",
-    "accessed": "2026-11-14",
-    "confidence": "needs inspection",
-    "excludes": "No amount included in totals.",
-    "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "Package scope is unresolved with A; pumps may overlap sprinkler installation and must be separated before pricing."
-  },
   "egress.add_stair": {
     "unit": "story",
     "fixed": {
@@ -159,46 +139,6 @@
     "excludes": "No amount included in totals.",
     "notes": "See docs/cost-sources.md.",
     "unpriced_reason": "Opening size, wall construction and structural work are unknown; a per-opening quote is needed."
-  },
-  "elevator.upgrade": {
-    "unit": "each",
-    "fixed": {
-      "low": null,
-      "typical": null,
-      "high": null
-    },
-    "rate": {
-      "low": null,
-      "typical": null,
-      "high": null
-    },
-    "source": "",
-    "published": "",
-    "accessed": "2026-11-14",
-    "confidence": "needs inspection",
-    "excludes": "No amount included in totals.",
-    "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "Equipment, shaft and modernization scope need an elevator contractor quote."
-  },
-  "separation.wall_upgrade": {
-    "unit": "linear_ft",
-    "fixed": {
-      "low": null,
-      "typical": null,
-      "high": null
-    },
-    "rate": {
-      "low": null,
-      "typical": null,
-      "high": null
-    },
-    "source": "",
-    "published": "",
-    "accessed": "2026-11-14",
-    "confidence": "needs inspection",
-    "excludes": "No amount included in totals.",
-    "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "Wall assembly, height and access are not known; no defensible linear-foot rate established."
   },
   "historic.review": {
     "unit": "lump",
@@ -353,5 +293,165 @@
     "accessed": "2026-11-14",
     "confidence": "estimated",
     "notes": "AECOM LA adaptive reuse analysis Table 5 p.17 uses 30% operating expense ratio. Team assumption: 25%-35% sensitivity band; reuse the 2024 ratio unchanged in 2026. Interest, acquisition and capital replacements are outside this simple model."
+  },
+  "planning.conditional_use_permit": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.smokeproof_stairs": {
+    "unit": "each",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.fire_pump_water_supply": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.emergency_power": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.fire_command_center": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.smoke_control": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "elevator.gurney_car": {
+    "unit": "each",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "elevator.fire_service_access": {
+    "unit": "each",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
   }
 }

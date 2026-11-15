@@ -172,7 +172,7 @@ def _units(f: SpaceFacts) -> Row:
         if units < 5:
             ev += " The ordinance covers projects of five or more units, so this space would be part of a larger conversion."
         return Row("units", "Unit count", rule, ARO_URL, FOUND if units >= 5 else ISSUE, ev, "CoStar listing", "Architect's layout")
-    if area <= 0 and f.building_sqft:
+    if area <= 0 and f.building_sqft and not f.space_label:
         whole = int(f.building_sqft * 0.8 / f.planning_unit_sqft)
         ev = (
             f"No floor area is measured in the scan. On the {f.building_sqft:,.0f} sq ft of rentable area on "
@@ -182,7 +182,8 @@ def _units(f: SpaceFacts) -> Row:
         state = FOUND if whole >= 5 else ISSUE
         return Row("units", "Unit count", rule, ARO_URL, state, ev, "CoStar", "Architect's layout")
     if area <= 0:
-        state, ev = NO_DATA, "No floor area measured in the scan, and no building area on record."
+        state, ev = NO_DATA, ("No area measured or on record for the selected space." if f.space_label else
+                              "No floor area measured in the scan, and no building area on record.")
     else:
         units = int(area * 0.8 / f.planning_unit_sqft)
         ev = (

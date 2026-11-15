@@ -131,11 +131,16 @@ assumptions. Utility metering, taxes and insurance need property-specific confir
 | fire_alarm.install | Isolated retrofit system rate per sqft not established |
 | seismic.evaluate | Investigation/testing scope; fixed engineer quote needed |
 | seismic.strengthen | Structural design; no defensible per-sqft rate yet |
-| highrise.systems | Package not settled; pump overlap with sprinklers unresolved |
+| planning.conditional_use_permit | Site-specific planning application and consultant scope |
+| highrise.smokeproof_stairs | Per-stair enclosure and ventilation design |
+| highrise.fire_pump_water_supply | Pump, tank and supply capacity; sprinkler overlap unresolved |
+| highrise.emergency_power | Emergency generator and distribution design |
+| highrise.fire_command_center | Room, equipment and system integration scope |
+| highrise.smoke_control | Smoke-control engineering and equipment scope |
 | egress.add_stair | Per-story structural/enclosure design and dimensions |
 | escape.add_openings | Per-opening size, wall construction and support |
-| elevator.upgrade | Per-elevator equipment/shaft/modernization scope |
-| separation.wall_upgrade | Wall height, assembly and access per linear foot |
+| elevator.gurney_car | Per-car equipment, shaft and modernization scope |
+| elevator.fire_service_access | Per-car protected access and controls scope |
 | historic.review | Fixed consultant scope/hours |
 | units.fitout | Residual interior scope after separately priced systems |
 | units.kitchen | New kitchenette scope, not a household remodel proxy |
@@ -221,7 +226,14 @@ Its `units` and `vacant` arguments are explicit caller assumptions.
 - **A:** confirm final catalog, repeated-key possibility and high-rise package
   contents. New keys remain visibly unpriced until researched.
 - **Owner to confirm:** older scoring module and its tests remain outside B's files.
-- **Integration after merge:** run A's real change generator across the 89-building
-  cohort. B cannot fabricate those change lists from raw building records.
-- **Pricing:** obtain separated contractor quotes for the 13 unpriced keys and
+- **Integration verified (2026-11-14):** A's real change generator and the financial
+  adapter ran on 89 CoStar buildings and 883 listed suites without scans. Outputs
+  serialized as strict JSON; suite fit-out quantities matched their listing areas.
+  Studio rent comparables were available for 88 buildings. All 89 base estimates
+  remained partial, and current income remained explicitly unknown. This does not
+  validate contractor pricing, scan coverage or professional determinations.
+- **Screen verification:** 144 automated tests and live local HTTP recalculation
+  passed. Browser visual checks were blocked by unavailable browser access and
+  unsupported URL-policy enforcement in the available Windows Firefox window.
+- **Pricing:** obtain separated contractor quotes for the 18 unpriced keys and
   replace the two provisional soft-cost allocations and the duration proxy.

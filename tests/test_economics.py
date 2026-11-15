@@ -42,6 +42,17 @@ def test_current_income_and_construction_loss():
     assert result["reasons"]["payback_years"]["typical"] == NO_PAYBACK
 
 
+@pytest.mark.parametrize("horizon,expected", [(0.5, -600), (1, -1200), (2, 0)])
+def test_horizon_loss_stops_at_horizon_without_changing_payback(horizon, expected):
+    settings = globals(occupancy={**spread(1), "source": "Test"},
+                       operating_cost_share={**spread(0), "source": "Test"},
+                       months_to_convert={**spread(12), "source": "Test"})
+    result = evaluate(spread(0), income(units=1, monthly_rent_per_unit=spread(200),
+                                      current_monthly_income=spread(100), horizon_years=horizon), settings)
+    assert result["gain_over_horizon"] == spread(expected)
+    assert result["payback_years"] == spread(2)
+
+
 def test_ranges_bound_all_input_corners():
     costs, rents, currents = spread(200000, 300000, 400000), spread(1000, 2000, 3000), spread(0, 500, 1000)
     settings = globals(occupancy={**spread(.7, .8, .9), "source": "Test"},

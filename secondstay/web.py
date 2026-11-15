@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import costar, matterport, panoramas, streets, vexcel
+from . import costar, matterport, panoramas, streets, vexcel, finances
 from .changes import CERTAINTIES, changes_for, to_dicts
 from .checklist import NOTICE, STATES, build_checklist, next_steps, stairs_by_floor, summary, top_occupied_ft
 
@@ -188,7 +188,7 @@ def building_card(b: costar.Building) -> dict:
 def space_payload(b: costar.Building, model_id: str = "", space_id: str = "") -> dict:
     """Everything the screen shows for one building, for one suite on the market when one is chosen."""
     space = next((s for s in b.spaces if str(s["id"]) == str(space_id)), None)
-    scan_ids = [s.model_id for s in b.scans]
+    scan_ids = space["scans"] if space else [s.model_id for s in b.scans]
     if model_id not in scan_ids:
         if space:  # only a scan of that suite stands for it
             ranked = sorted(
@@ -400,6 +400,11 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(url.query)
         if url.path in ("/", "/index.html"):
             return self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
+        if url.path in ("/costs.js", "/costs.css"):
+            kind = "text/javascript" if url.path.endswith(".js") else "text/css"
+            return self._send(200, (STATIC / url.path[1:]).read_bytes(), kind + "; charset=utf-8")
+        if re.fullmatch(r"/api/spaces/\d+/cost", url.path):
+            return self._cost(url, {})
         if url.path == "/api/spaces":
             return self._json(cached_list(list(self.buildings.values())))
         top_down = re.fullmatch(r"/api/scans/([A-Za-z0-9]{6,20})/plan\.jpg", url.path)
@@ -433,6 +438,33 @@ class Handler(BaseHTTPRequestHandler):
                 {"Content-Disposition": 'attachment; filename="secondstay-next-steps.md"'},
             )
         return self._json(payload)
+
+    def _cost(self, url, options):
+        match = re.fullmatch(r"/api/spaces/(\d+)/cost", url.path)
+        building = self.buildings.get(int(match.group(1))) if match else None
+        if building is None:
+            return self._json({"error": "Not found"}, 404)
+        query = parse_qs(url.query)
+        scan, space = (query.get("scan") or [""])[0], (query.get("space") or [""])[0]
+        if space and not any(str(s["id"]) == space for s in building.spaces):
+            return self._json({"error": "Selected space not found"}, 404)
+        try:
+            context = space_payload(building, scan, space)
+            return self._json(finances.calculate(context, options))
+        except ValueError as error:
+            return self._json({"error": str(error)}, 400)
+
+    def do_POST(self):
+        if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
+            return self._json({"error": "Expected application/json"}, 415)
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 65536:
+                raise ValueError("Request must contain 1–65536 bytes")
+            options = json.loads(self.rfile.read(length))
+        except (ValueError, UnicodeError) as error:
+            return self._json({"error": str(error)}, 400)
+        return self._cost(urlparse(self.path), options)
 
 
 def main(port: int = 8000) -> None:

@@ -28,7 +28,9 @@ Built at HackPrinceton on three data layers for the same address:
 5. **Show it**: a 3D view of the building in its surroundings, the requirement list, the evidence for
    each row, and a next-steps list to hand to an architect.
 
-Cost and payback are phase 2 (`secondstay/economics.py`) and are not on the screen yet.
+6. **Explore cost and income** below the work list: compare called-for, possible, all and custom
+   scenarios; edit quantities, prices, rent and project assumptions; see ranges, omissions and sources.
+   Payback is withheld until rent and current income are supplied. Explicitly assume vacancy to use $0.
 Who works on what is in `docs/work-split.md`.
 
 ## Status
@@ -43,7 +45,14 @@ Who works on what is in `docs/work-split.md`.
 - [x] Inside the scan: room types, windows and stairs from scan data; panoramas read by a vision model where there is none (`secondstay/panoramas.py`)
 - [x] Street frontage from OpenStreetMap (`secondstay/streets.py`)
 - [ ] Agent orchestration (deepagents)
-- [ ] Cost model connected to the list of work, phase 2 (`secondstay/economics.py`)
+- [x] Cost, rent, payback and sensitivity connected to the selected space (`secondstay/finances.py`)
+
+The price book has two provisional sourced rates and 18 unpriced keys. Partial totals omit unpriced
+work and must not be treated as full project budgets. See `docs/cost-sources.md`. Residential quantities
+use the scan, then the selected suite, then the building when no suite is selected. Building-wide work
+retains building quantities; it is not prorated to a suite. Edits are session-only Team assumptions.
+Default rent uses studio asking-rent comparables within 3 miles from `data/apartment-listing.jsonl`
+in the kit; missing data leaves rent blank. Restart after changing the kit location.
 
 ## Running the screen
 

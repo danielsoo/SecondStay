@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SecondStay · evidence pre-check</title>
+<link rel="stylesheet" href="/costs.css">
 <script type="importmap">
 { "imports": {
     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -849,7 +850,7 @@ function changesView(data) {
         <span class="q ${c.quantity == null ? "none" : ""}">${c.quantity == null ? "quantity not known" : num(c.quantity) + UNIT_WORDS[c.unit]}</span></div>
         <div class="r">${esc(c.reason)}</div><div class="w">${esc(c.quantity_basis)} · confirm with ${esc(c.confirmed_by)}</div></div>`).join("")}</div>`;
   }).join("")}</div>
-  <p class="note">Each item carries the quantity it would be priced on. The cost model is not connected yet, so no figures are shown.</p>`;
+  <p class="note">Each item carries the quantity it is priced on. Review costs, unknown prices and assumptions below.</p>`;
 }
 
 async function showSpace(id, scanId, selected, spaceId) {
@@ -867,9 +868,10 @@ async function showSpace(id, scanId, selected, spaceId) {
   };
   let current = data.rows.find((r) => r.key === selected) || data.rows[0];
   const top = data.top_occupied_ft;
-  const scanPicker = b.scans.length > 1 ? `<label class="sub" style="font-size:12px">Scan
-      <select id="scan">${b.scans.map((s, i) => `<option value="${esc(s.model_id)}" ${s.model_id === data.scan.model_id ? "selected" : ""}>
-        ${esc(s.caption || "Scan")} (${i + 1} of ${b.scans.length})</option>`).join("")}</select></label>` : "";
+  const scans = sp ? b.scans.filter(s => sp.scans.includes(s.model_id)) : b.scans;
+  const scanPicker = scans.length > 1 ? `<label class="sub" style="font-size:12px">Scan
+      <select id="scan">${scans.map((s, i) => `<option value="${esc(s.model_id)}" ${s.model_id === data.scan.model_id ? "selected" : ""}>
+        ${esc(s.caption || "Scan")} (${i + 1} of ${scans.length})</option>`).join("")}</select></label>` : "";
   const metric = (k, v, unit = "", hot = false) => `<div class="metric ${hot ? "hot" : ""}"><div class="k">${k}</div><div class="v">${v}<small>${unit}</small></div></div>`;
   app.innerHTML = `
     <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
@@ -918,6 +920,7 @@ async function showSpace(id, scanId, selected, spaceId) {
     </div>
     <h2>Work the published rules call for</h2>
     ${changesView(data)}
+    <section class="panel costs" id="costs" aria-label="Conversion cost model"></section>
     <div class="bar"><h2>Next steps, by who confirms</h2>
       <a class="btn" href="/api/spaces/${id}/next-steps.md${query}">Export for an architect</a></div>
     <div class="panel steps">${data.next_steps.map((g) => `
@@ -925,6 +928,10 @@ async function showSpace(id, scanId, selected, spaceId) {
       <ul>${g.items.map((i) => `<li><b>${esc(i.requirement)}</b> ${badge(i.state)}<br><span class="sub">${esc(i.evidence)}</span></li>`).join("")}</ul>`).join("")}
     </div>`;
 
+  const costRoot = document.getElementById('costs');
+  import('/costs.js').then(({mountCosts}) => mountCosts(costRoot, `/api/spaces/${id}/cost${query}`)).catch(error => {
+    if (costRoot.isConnected) costRoot.textContent = `Cost inputs unavailable: ${error.message}`;
+  });
   data.playIntro = !introSeen.has(id); introSeen.add(id);
   if (o.loaded) live = buildingScene(document.getElementById("stage"), data);
   const select = (key) => {

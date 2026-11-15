@@ -129,7 +129,8 @@ def evaluate(cost, income, globals):
         if payback[level] is None:
             empty[level] = NO_PAYBACK if gain <= 0 else "payback exceeds numeric range"
         if number(horizon) and horizon > 0:
-            gains[opposite] = gain * max(0, horizon * 12 - duration[level]) - cost[level] - lost
+            horizon_loss = current[level] * min(duration[level], horizon * 12)
+            gains[opposite] = gain * max(0, horizon * 12 - duration[level]) - cost[level] - horizon_loss
     result["payback_years"] = payback
     if empty:
         result["reasons"]["payback_years"] = empty
