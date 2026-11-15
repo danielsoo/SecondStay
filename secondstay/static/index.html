@@ -4,24 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SecondStay · evidence pre-check</title>
+<script type="importmap">
+{ "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
 <style>
   :root {
-    --bg: #f6f5f1; --panel: #ffffff; --ink: #1c1d1f; --muted: #6a6d73; --line: #e3e1da;
-    --accent: #1f4b99; --select: #eef3fb;
-    --found: #1e7a4c; --found-bg: #e4f3ea;
-    --issue: #9a5b00; --issue-bg: #fbefd6;
-    --nodata: #5f646b; --nodata-bg: #ecebe7;
-    --review: #2a55a8; --review-bg: #e3ebfa;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #151618; --panel: #1e2023; --ink: #ecebe7; --muted: #9a9da3; --line: #303338;
-      --accent: #8fb4f5; --select: #232b3a;
-      --found: #7fd3a4; --found-bg: #17352a;
-      --issue: #f0c070; --issue-bg: #3a2d12;
-      --nodata: #b3b6bb; --nodata-bg: #2b2d31;
-      --review: #9dbcf7; --review-bg: #1d2a45;
-    }
+    --bg: #060a11; --panel: #0c121d; --panel2: #101827; --line: #1b2535; --ink: #e8eef8; --muted: #8493a8;
+    --accent: #5ad1ff; --amber: #ffc24a; --select: #121c2e;
+    --found: #5fe0a0; --found-bg: #0f2a20;
+    --issue: #ffc24a; --issue-bg: #33270d;
+    --nodata: #a6b0bf; --nodata-bg: #1a2230;
+    --review: #8fb8ff; --review-bg: #14233f;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink);
@@ -29,13 +26,14 @@
   a { color: var(--accent); }
   button, select { font: inherit; color: inherit; }
   header.top { display: flex; align-items: baseline; gap: 16px; padding: 14px 24px 10px; }
-  header.top .brand { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; text-decoration: none; color: var(--ink); }
-  header.top .tag { color: var(--muted); font-size: 13px; }
-  .notice { margin: 0 24px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
-    background: var(--panel); color: var(--muted); font-size: 13px; }
-  main { padding: 18px 24px 48px; max-width: 1440px; margin: 0 auto; }
+  header.top .brand { font-weight: 700; font-size: 18px; letter-spacing: 0.02em; text-decoration: none; color: var(--ink); }
+  header.top .brand b { color: var(--accent); font-weight: 700; }
+  header.top .tag { color: var(--muted); font-size: 12px; font-family: var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
+  .notice { margin: 0 24px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel); color: var(--muted); font-size: 12.5px; }
+  main { padding: 16px 24px 56px; max-width: 1480px; margin: 0 auto; }
   h1 { font-size: 22px; margin: 0 0 2px; letter-spacing: -0.01em; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 28px 0 10px; }
+  h2 { font-size: 12px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 30px 0 10px; font-weight: 500; }
   .sub { color: var(--muted); }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
 
@@ -48,23 +46,62 @@
   .s-review { color: var(--review); background: var(--review-bg); }
   .counts { display: flex; flex-wrap: wrap; gap: 6px; }
 
+  /* 3D stage */
+  .stage { position: relative; height: 560px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 100%, #0d1a2b 0%, #060a11 70%); }
+  .stage.small { height: 440px; }
+  .stage .gl, .stage .labels, .stage .flat { position: absolute; inset: 0; }
+  .stage .labels, .stage .flat, .stage .flat * { pointer-events: none; }
+  .stage .gl { z-index: 0; } .stage .flat { z-index: 1; overflow: hidden; } .stage .labels { z-index: 2; }
+  .stage .flat img { display: block; background: #fff; border-radius: 6px; }
+  .stage canvas { display: block; }
+  .hud { position: absolute; z-index: 3; pointer-events: none; }
+  .hud.tl { top: 16px; left: 18px; max-width: 46%; }
+  .hud.tr { top: 16px; right: 18px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: auto; max-width: 46%; }
+  .hud.tr .counts { justify-content: flex-end; }
+  .hud.bl { left: 18px; bottom: 16px; right: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .hud.br { right: 18px; bottom: 74px; text-align: right; font: 11px var(--mono); color: var(--muted); }
+  .hud.mid { left: 50%; top: 46%; transform: translate(-50%, -50%); text-align: center; font: 600 13px var(--mono); letter-spacing: 0.06em;
+    padding: 7px 14px; border-radius: 8px; background: rgba(6, 10, 17, 0.78); border: 1px solid #2a3a52; color: var(--ink); display: none; }
+  .hud h1 { font-size: 26px; text-shadow: 0 2px 18px #000; }
+  .hud .sub { text-shadow: 0 1px 10px #000; }
+  .metric { background: rgba(8, 13, 22, 0.72); backdrop-filter: blur(8px); border: 1px solid var(--line);
+    border-radius: 10px; padding: 7px 12px; min-width: 112px; }
+  .metric .k { font: 10px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .metric .v { font: 600 18px var(--mono); color: var(--ink); }
+  .metric .v small { font-size: 11px; color: var(--muted); font-weight: 400; }
+  .metric.hot .v { color: var(--amber); }
+  .spacechip { display: inline-block; margin-top: 8px; padding: 5px 10px; border-radius: 8px; font-size: 13px; pointer-events: auto;
+    background: rgba(8, 13, 22, 0.78); border: 1px solid #2a3a52; backdrop-filter: blur(8px); }
+  .spacechip b { color: var(--accent); }
+  .spacechip a { margin-left: 8px; font-size: 12px; }
+  .market { max-height: 262px; overflow: auto; }
+  .market thead th { position: sticky; top: 0; background: var(--panel); }
+  .yes { color: var(--found); font-weight: 600; font-size: 12.5px; }
+  .tag3d { font: 600 11px var(--mono); padding: 3px 7px; border-radius: 6px; white-space: nowrap;
+    background: rgba(6, 10, 17, 0.8); border: 1px solid #2a3a52; color: var(--ink); }
+  .tag3d.amber { border-color: #6b5320; color: var(--amber); }
+  .tag3d.cyan { border-color: #1f5670; color: var(--accent); }
+  .stage .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); padding: 40px; text-align: center; }
+  .tip { position: fixed; z-index: 10; pointer-events: none; background: rgba(8, 13, 22, 0.92); border: 1px solid #2a3a52;
+    border-radius: 8px; padding: 6px 10px; font-size: 12.5px; display: none; }
+  .tip b { display: block; }
+  .tip span { font: 11px var(--mono); color: var(--muted); }
+
   /* list of spaces */
   table.spaces { width: 100%; border-collapse: collapse; }
-  table.spaces th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted);
+  table.spaces th { text-align: left; font: 500 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
     padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  table.spaces td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.spaces td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   table.spaces tr:last-child td { border-bottom: 0; }
   table.spaces tbody tr { cursor: pointer; }
-  table.spaces tbody tr:hover { background: var(--select); }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.spaces tbody tr:hover, table.spaces tbody tr.on { background: var(--select); }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-size: 13px; }
   .name { font-weight: 600; }
 
   /* one space */
-  .spacehead { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
-  .facts { display: flex; flex-wrap: wrap; gap: 4px 18px; color: var(--muted); font-size: 13px; margin-top: 4px; }
-  .facts b { color: var(--ink); font-weight: 600; }
-  .cols { display: grid; grid-template-columns: minmax(340px, 5fr) 7fr; gap: 16px; align-items: start; }
-  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .cols { display: grid; grid-template-columns: minmax(340px, 5fr) 7fr; gap: 16px; align-items: start; margin-top: 16px; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } .hud.tl { max-width: 90%; } .stage { height: 460px; } }
   .rows { overflow: hidden; }
   .row { display: block; width: 100%; text-align: left; background: none; border: 0;
     border-bottom: 1px solid var(--line); padding: 11px 14px; cursor: pointer; }
@@ -76,31 +113,53 @@
   .row .ev { color: var(--muted); font-size: 13px; margin-top: 3px; }
   .row .more { display: none; margin-top: 8px; font-size: 13px; }
   .row.on .more { display: block; }
-  .more dt { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 6px; }
+  .more dt { color: var(--muted); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 6px; }
   .more dd { margin: 0; }
 
   .evidence { position: sticky; top: 12px; padding: 16px; min-height: 420px; }
   .evidence h3 { margin: 0 0 2px; font-size: 17px; }
-  .evidence .src { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .evidence .src { color: var(--muted); font: 11px var(--mono); margin-bottom: 12px; }
   .evidence iframe { width: 100%; height: 460px; border: 0; border-radius: 8px; background: #000; }
   .aerial { position: relative; line-height: 0; }
   .aerial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .aerial .me { fill: rgba(255, 200, 0, 0.18); stroke: #ffc800; stroke-width: 0.6; }
+  .aerial .me { fill: rgba(90, 209, 255, 0.16); stroke: #5ad1ff; stroke-width: 0.6; }
   .aerial .other { fill: none; stroke: #ffffff; stroke-width: 0.35; stroke-dasharray: 1.2 0.8; }
-  .evidence .aerial img { max-height: none; object-fit: fill; }
+  .aerial img { width: 100%; border-radius: 8px; display: block; }
+  img.sheet { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; margin-bottom: 8px; }
   .legend { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
-  .evidence img { width: 100%; max-height: 460px; object-fit: cover; border-radius: 8px; display: block; }
-  .thumbs { display: flex; gap: 6px; margin-top: 6px; }
-  .thumbs img { width: 84px; height: 56px; cursor: pointer; opacity: 0.7; }
-  .thumbs img.on { opacity: 1; outline: 2px solid var(--accent); }
+  .thumbs { display: flex; gap: 6px; margin-top: 10px; }
+  .thumbs img { width: 84px; height: 56px; object-fit: cover; border-radius: 6px; }
   table.kv { width: 100%; border-collapse: collapse; margin: 6px 0 12px; }
   table.kv td { padding: 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
   table.kv td:first-child { color: var(--muted); width: 42%; }
-  table.kv .big { font-size: 20px; font-weight: 650; }
-  table.kv code { color: var(--muted); font-size: 11px; display: block; }
+  table.kv .big { font: 650 20px var(--mono); }
+  table.kv code { color: #5d6b80; font-size: 11px; display: block; }
   .note { font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding: 2px 0 2px 10px; margin: 12px 0 0; }
   .statement { margin: 0 0 12px; }
 
+  /* changes */
+  .changes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .changes { grid-template-columns: 1fr; } }
+  .lane { padding: 14px; }
+  .lane h3 { margin: 0; font-size: 14px; display: flex; justify-content: space-between; align-items: baseline; }
+  .lane h3 span { font: 600 20px var(--mono); }
+  .lane p.sub { margin: 2px 0 10px; font-size: 12.5px; }
+  .lane.c1 { border-top: 2px solid var(--accent); } .lane.c1 h3 span { color: var(--accent); }
+  .lane.c2 { border-top: 2px solid var(--amber); } .lane.c2 h3 span { color: var(--amber); }
+  .lane.c3 { border-top: 2px solid #55627a; } .lane.c3 h3 span { color: var(--nodata); }
+  .chg { border: 1px solid var(--line); background: var(--panel2); border-radius: 9px; padding: 9px 11px; margin-top: 8px; }
+  .chg .t { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; font-size: 13.5px; }
+  .chg .q { font: 600 12.5px var(--mono); color: var(--accent); white-space: nowrap; }
+  .chg .q.none { color: var(--muted); font-weight: 400; }
+  .chg .r { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .chg .w { font: 10.5px var(--mono); color: #6c7a90; margin-top: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .plan { display: block; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); text-decoration: none; }
+  .plan img { width: 100%; height: 170px; object-fit: contain; display: block; background: #fff; }
+  .plan span { display: block; padding: 5px 8px; font: 11px var(--mono); color: #334; background: #eef1f6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .planhead { display: flex; justify-content: space-between; align-items: baseline; margin: 26px 0 8px; }
+  .planhead h3 { margin: 0; font-size: 16px; }
   .steps { padding: 4px 16px 14px; }
   .steps h4 { margin: 14px 0 4px; font-size: 14px; }
   .steps ul { margin: 0; padding-left: 18px; }
@@ -109,20 +168,34 @@
   .btn { display: inline-block; border: 1px solid var(--line); background: var(--panel); border-radius: 8px;
     padding: 6px 12px; text-decoration: none; color: var(--ink); font-size: 13px; font-weight: 600; }
   .btn:hover { border-color: var(--accent); }
-  select { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; max-width: 280px; }
-  .loading { color: var(--muted); padding: 40px 0; text-align: center; }
+  select { background: rgba(8, 13, 22, 0.8); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; max-width: 260px; }
+  .loading { color: var(--muted); padding: 60px 0; text-align: center; font-family: var(--mono); font-size: 13px; }
 </style>
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="#/">SecondStay</a>
-  <span class="tag">Evidence pre-check for housing conversion · Los Angeles</span>
+  <a class="brand" href="#/">Second<b>Stay</b></a>
+  <span class="tag">Evidence pre-check · housing conversion · Los Angeles</span>
+  <a href="#/plans" style="margin-left:auto;font-size:13px">Floor plans on record</a>
 </header>
 <p class="notice" id="notice">This is a preliminary evidence review, not a legal or code determination. Final decisions are made by LADBS and licensed professionals.</p>
 <main id="app"><p class="loading">Loading…</p></main>
+<div class="tip" id="tip"></div>
 
-<script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { CSS3DRenderer, CSS3DObject } from "three/addons/renderers/CSS3DRenderer.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
 const app = document.getElementById("app");
+const tip = document.getElementById("tip");
+const FT = 0.3048, HIGH_RISE_FT = 75;
+const CYAN = 0x5ad1ff, AMBER = 0xffc24a, GHOST = 0x7f93b0;
 const STATE_CLASS = {
   "Evidence found": ["s-found", "●"], "Possible issue": ["s-issue", "▲"],
   "Not enough data": ["s-nodata", "○"], "Needs professional review": ["s-review", "◆"],
@@ -136,30 +209,515 @@ const badge = (state, text) => {
 const counts = (c) => `<div class="counts">${Object.entries(c).map(([s, n]) => badge(s, `${s} ${n}`)).join("")}</div>`;
 const shortCounts = (c) => `<div class="counts">${Object.entries(c).map(([s, n]) => badge(s, n)).join("")}</div>`;
 
+let visit = 0; // goes up on every navigation, so a slow answer for an earlier screen is dropped
 async function api(path) {
+  const mine = visit;
   const response = await fetch(path);
   if (!response.ok) throw new Error(`Request did not complete (${response.status})`);
-  return response.json();
+  const data = await response.json();
+  if (mine !== visit) throw new Error("stale");
+  return data;
 }
+
+/* ---------- shared 3D plumbing ---------- */
+
+let live = null; // the scene currently on screen
+const introSeen = new Set(); // buildings whose photo-to-model intro has already played
+function stopScene() { if (live) { live.dispose(); live = null; } tip.style.display = "none"; }
+
+function makeStage(host) {
+  const gl = host.querySelector(".gl"), labelHost = host.querySelector(".labels");
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  gl.appendChild(renderer.domElement);
+  const labels = new CSS2DRenderer({ element: labelHost });
+  // floor plan images are laid into the scene as page elements, since they cannot be read as textures
+  const flatHost = document.createElement("div"); flatHost.className = "flat"; host.insertBefore(flatHost, labelHost);
+  const flat = new CSS3DRenderer({ element: flatHost });
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x060a11, 0.0016);
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 6000);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 0.55;
+  controls.maxPolarAngle = Math.PI * 0.49;
+  scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x0a1220, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(120, 260, 80); scene.add(sun);
+
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.6, 0.72));
+  composer.addPass(new OutputPass());
+
+  const size = () => {
+    const w = host.clientWidth, h = host.clientHeight;
+    renderer.setSize(w, h); composer.setSize(w, h); labels.setSize(w, h); flat.setSize(w, h);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+  };
+  const watcher = new ResizeObserver(size); watcher.observe(host); size();
+  renderer.domElement.addEventListener("pointerdown", () => { controls.autoRotate = false; });
+
+  const ticks = [];
+  let frame = 0, alive = true;
+  const clock = new THREE.Clock();
+  const loop = () => {
+    if (!alive) return;
+    frame = requestAnimationFrame(loop);
+    const t = clock.getElapsedTime();
+    ticks.forEach((fn) => fn(t));
+    controls.update(); composer.render(); labels.render(scene, camera); flat.render(scene, camera);
+  };
+  loop();
+  const dispose = () => {
+    alive = false; cancelAnimationFrame(frame); watcher.disconnect(); controls.dispose();
+    scene.traverse((o) => { o.geometry?.dispose(); if (o.material) [].concat(o.material).forEach((m) => { m.map?.dispose(); m.dispose(); }); });
+    renderer.dispose(); gl.replaceChildren(); labelHost.replaceChildren(); flatHost.remove();
+  };
+  return { scene, camera, controls, renderer, ticks, dispose };
+}
+
+function tag(text, cls = "") {
+  const el = document.createElement("div");
+  el.className = `tag3d ${cls}`; el.textContent = text;
+  return new CSS2DObject(el);
+}
+const lineMat = (color, opacity = 1) => new THREE.LineBasicMaterial({ color, transparent: opacity < 1, opacity });
+function polyline(points, material, closed = false) {
+  const geo = new THREE.BufferGeometry().setFromPoints(points);
+  return closed ? new THREE.LineLoop(geo, material) : new THREE.Line(geo, material);
+}
+
+/* ---------- one building in its surroundings ---------- */
+
+function closestPair(ringsA, ringsB) {
+  let best = { d: Infinity };
+  const seg = (p, a, b) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = dx * dx + dy * dy;
+    const t = len ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len)) : 0;
+    return [a[0] + t * dx, a[1] + t * dy];
+  };
+  const scan = (from, to, flip) => from.forEach((ra) => ra.forEach((p) => to.forEach((rb) => {
+    for (let i = 0; i < rb.length - 1; i++) {
+      const q = seg(p, rb[i], rb[i + 1]), d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+      if (d < best.d) best = flip ? { d, a: q, b: p } : { d, a: p, b: q };
+    }
+  })));
+  scan(ringsA, ringsB, false); scan(ringsB, ringsA, true);
+  return best;
+}
+
+function buildingScene(host, data) {
+  const o = data.outside, b = data.building;
+  const stage = makeStage(host);
+  const { scene, camera, controls, ticks } = stage;
+  const [west, south, east, north] = o.bbox;
+  const lat0 = (south + north) / 2, lon0 = (west + east) / 2;
+  const kx = 111320 * Math.cos((lat0 * Math.PI) / 180), ky = 110540;
+  const toM = ([lon, lat]) => [(lon - lon0) * kx, (lat - lat0) * ky]; // x east, y north
+  const subject = o.footprint.map((ring) => ring.map(toM));
+  const others = o.neighbors.map((ring) => ring.map(toM));
+  const all = subject.flat();
+  const minX = Math.min(...all.map((p) => p[0])), maxX = Math.max(...all.map((p) => p[0]));
+  const minY = Math.min(...all.map((p) => p[1])), maxY = Math.max(...all.map((p) => p[1]));
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, span = Math.max(maxX - minX, maxY - minY);
+  const at = ([x, y], h = 0) => new THREE.Vector3(x - cx, h, -(y - cy)); // north is -Z, up is Y
+  const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
+
+  const H = (o.height_ft || (b.stories || 2) * 12) * FT;
+  const stories = b.stories || Math.max(1, Math.round(H / 4));
+  const floorH = H / stories;
+  const topFt = data.top_occupied_ft, highRise = topFt != null && topFt >= HIGH_RISE_FT;
+  const main = highRise ? AMBER : CYAN;
+  const white = lineMat(0xffffff, 0.95);
+
+  // ground: the aerial image, toned down so the drawing reads on top of it
+  const gw = (east - west) * kx, gh = (north - south) * ky;
+  const groundMat = new THREE.MeshBasicMaterial({ color: 0x5b6779 });
+  new THREE.TextureLoader().load(`/api/spaces/${b.property_id}/aerial.jpg`, (texture) => {
+    texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 8; groundMat.map = texture; groundMat.needsUpdate = true;
+  });
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh).rotateX(-Math.PI / 2), groundMat);
+  ground.position.set(-cx, 0, cy); scene.add(ground);
+  const grid = new THREE.GridHelper(Math.max(gw, gh) * 3, 60, 0x1c3148, 0x101b2a);
+  grid.position.y = -0.3; scene.add(grid);
+
+  const shapeOf = (ring) => new THREE.Shape(ring.map(([x, y]) => new THREE.Vector2(x - cx, y - cy)));
+  const extrude = (ring, height) => new THREE.ExtrudeGeometry(shapeOf(ring), { depth: height, bevelEnabled: false }).rotateX(-Math.PI / 2);
+
+  // neighbours as ghosts; the closest one is kept apart so it can be brought forward
+  const pair = others.length ? closestPair(subject, others) : {};
+  const nearestIndex = pair.b ? others.findIndex((ring) => ring.some((p, k) => k < ring.length - 1 &&
+    Math.abs((ring[k + 1][0] - p[0]) * (pair.b[1] - p[1]) - (ring[k + 1][1] - p[1]) * (pair.b[0] - p[0])) < 0.5 &&
+    Math.min(p[0], ring[k + 1][0]) - 0.5 <= pair.b[0] && pair.b[0] <= Math.max(p[0], ring[k + 1][0]) + 0.5 &&
+    Math.min(p[1], ring[k + 1][1]) - 0.5 <= pair.b[1] && pair.b[1] <= Math.max(p[1], ring[k + 1][1]) + 0.5)) : -1;
+  const ghosts = new THREE.Group(), nearest = new THREE.Group(); scene.add(ghosts, nearest);
+  const ghostFill = new THREE.MeshStandardMaterial({ color: 0x23344d, transparent: true, opacity: 0.42, roughness: 0.9, depthWrite: false });
+  const ghostEdge = lineMat(GHOST, 0.45);
+  const nearFill = new THREE.MeshStandardMaterial({ color: 0x35507a, transparent: true, opacity: 0.42, roughness: 0.9, depthWrite: false });
+  const nearEdge = lineMat(0xffffff, 0.45);
+  others.forEach((ring, k) => {
+    const geo = extrude(ring, Math.max(3, (o.neighbor_heights_ft?.[k] ?? 20) * FT));
+    const close = k === nearestIndex;
+    (close ? nearest : ghosts).add(new THREE.Mesh(geo, close ? nearFill : ghostFill));
+    (close ? nearest : ghosts).add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), close ? nearEdge : ghostEdge));
+  });
+
+  // the building: a translucent shell, and one slab per story that can be pulled apart
+  const shell = new THREE.Group(); scene.add(shell);
+  const shellFill = new THREE.MeshStandardMaterial({ color: main, transparent: true, opacity: 0.2, roughness: 0.35, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false });
+  const shellEdge = lineMat(main, 1);
+  subject.forEach((ring) => {
+    const geo = extrude(ring, H);
+    shell.add(new THREE.Mesh(geo, shellFill));
+    shell.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), shellEdge));
+  });
+  const slabs = new THREE.Group(); scene.add(slabs);
+  const slabFill = new THREE.MeshBasicMaterial({ color: main, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+  const slabEdge = lineMat(main, 0.32);
+  const topFill = slabFill.clone();  // the floor that is opened
+  const marketFill = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+  const marketEdge = lineMat(0xffffff, 0.9);
+  const marketed = new Set((b.spaces || []).map((sp) => sp.floor).filter(Boolean));
+  const openAt = Math.min(stories, Math.max(1, data.floor || stories)) - 1; // index of the floor that opens
+  const levels = [], slabMeshes = [];
+  for (let n = 0; n < stories; n++) {
+    const level = new THREE.Group(); level.userData.base = n * floorH; level.userData.floor = n + 1;
+    const onMarket = marketed.has(n + 1);
+    subject.forEach((ring) => {
+      const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shapeOf(ring)).rotateX(-Math.PI / 2), n === openAt ? topFill : onMarket ? marketFill : slabFill);
+      mesh.userData.floor = n + 1; level.add(mesh); slabMeshes.push(mesh);
+      level.add(polyline(ring.map((p) => at(p, 0)), onMarket || n === openAt ? marketEdge : slabEdge, true));
+    });
+    slabs.add(level); levels.push(level);
+  }
+  const openLevel = levels[openAt];
+
+  // the plan of the open floor: walls, windows and doors from the scan when it has them, else an image
+  const planGroup = new THREE.Group(); planGroup.position.y = 0.25; openLevel.add(planGroup);
+  const wallMat = lineMat(0xffffff, 0.95), windowMat = lineMat(CYAN, 1), doorMat = lineMat(AMBER, 1);
+  const floorLines = Object.values(data.scan?.lines || {}).find((f) => f.walls.length);
+  let planImage = null, planSpan = span;
+  if (floorLines) {
+    const pts = floorLines.walls.flatMap(([x1, y1, x2, y2]) => [[x1, y1], [x2, y2]]);
+    const mx = (Math.min(...pts.map((q) => q[0])) + Math.max(...pts.map((q) => q[0]))) / 2;
+    const my = (Math.min(...pts.map((q) => q[1])) + Math.max(...pts.map((q) => q[1]))) / 2;
+    planSpan = Math.max(Math.max(...pts.map((q) => q[0])) - Math.min(...pts.map((q) => q[0])), Math.max(...pts.map((q) => q[1])) - Math.min(...pts.map((q) => q[1])), 12);
+    const seg = ([x1, y1, x2, y2], material, lift) => planGroup.add(polyline([v3(x1 - mx, lift, -(y1 - my)), v3(x2 - mx, lift, -(y2 - my))], material));
+    floorLines.walls.forEach((w) => seg(w, wallMat, 0));
+    floorLines.doors.forEach((w) => seg(w, doorMat, 0.15));
+    floorLines.windows.forEach((w) => { seg(w, windowMat, 0.15); seg(w, windowMat, 0.45); });
+  } else {
+    const src = data.space?.plan_url || (data.scan?.loaded ? `/api/scans/${encodeURIComponent(data.scan.model_id)}/plan.jpg` : (!data.space && data.plan?.image?.url) || "");
+    if (src) {
+      const img = document.createElement("img"); img.alt = "Floor plan"; img.style.opacity = "0";
+      img.onload = () => { // fitted inside the floor outline; it carries no position of its own
+        const fit = Math.min((maxX - minX) / img.naturalWidth, (maxY - minY) / img.naturalHeight) * 1.15;
+        planImage.scale.setScalar(fit); planImage.userData.ready = true;
+      };
+      img.onerror = () => { planImage.userData.ready = false; };
+      img.src = src;
+      planImage = new CSS3DObject(img); planImage.rotation.x = -Math.PI / 2; planImage.scale.setScalar(0.001);
+      planGroup.add(planImage);
+    }
+  }
+
+  // a scan line that keeps travelling up the building
+  const sweep = new THREE.Group(); scene.add(sweep);
+  subject.forEach((ring) => sweep.add(polyline(ring.map((p) => at(p, 0)), white, true)));
+
+  // 75 ft threshold, measured to the highest occupied level
+  const limit = new THREE.Group(); scene.add(limit);
+  const limitY = HIGH_RISE_FT * FT, half = span * 0.62;
+  const limitMat = new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false });
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, half * 2).rotateX(-Math.PI / 2), limitMat);
+  plane.position.y = limitY; limit.add(plane);
+  const corners = [[-half, -half], [half, -half], [half, half], [-half, half]].map(([x, z]) => new THREE.Vector3(x, limitY, z));
+  const limitLine = lineMat(AMBER, 0.9);
+  limit.add(polyline(corners, limitLine, true));
+  const limitTag = tag("75 ft · high-rise threshold", "amber"); limitTag.position.copy(corners[2]); limit.add(limitTag);
+
+  // height read-out beside the corner furthest east
+  const dims = new THREE.Group(); scene.add(dims);
+  const east0 = subject[0].reduce((m, p) => (p[0] > m[0] ? p : m)), west0 = subject[0].reduce((m, p) => (p[0] < m[0] ? p : m));
+  const off = at(east0).add(new THREE.Vector3(span * 0.08, 0, 0));
+  dims.add(polyline([off.clone(), off.clone().setY(H)], white));
+  [0, H].forEach((y) => dims.add(polyline([off.clone().setY(y).add(new THREE.Vector3(-2.5, 0, 0)), off.clone().setY(y).add(new THREE.Vector3(2.5, 0, 0))], white)));
+  const tags = []; // labels do not follow a hidden group, so each is switched on its own
+  if (o.height_ft) { const t = tag(`roof ≈ ${Math.round(o.height_ft)} ft`); t.position.copy(off.clone().setY(H)); dims.add(t); tags.push([t, "dims"]); }
+  if (topFt != null && stories > 1) {
+    const t = tag(`highest occupied level ≈ ${Math.round(topFt)} ft`, highRise ? "amber" : "cyan");
+    t.position.copy(at(west0, topFt * FT)); dims.add(t); tags.push([t, "dims"]);
+  }
+
+  // gap to the closest structure
+  const gap = new THREE.Group(); scene.add(gap);
+  let gapMid = new THREE.Vector3(0, 4, 0), gapDir = new THREE.Vector3(1, 0, 0), gapLen = 10;
+  if (pair.a) {
+    const a = at(pair.a, 2), c = at(pair.b, 2);
+    gap.add(polyline([a, c], white));
+    [a, c].forEach((p) => gap.add(polyline([p.clone().setY(0), p.clone().setY(7)], white)));
+    gapMid = a.clone().lerp(c, 0.5); gapLen = Math.max(a.distanceTo(c), 1);
+    if (gapLen > 1.5) gapDir = c.clone().sub(a).setY(0).normalize();
+    const t = tag(`≈ ${Math.round(pair.d / FT)} ft to the closest structure`); t.position.copy(gapMid.clone().setY(8)); gap.add(t); tags.push([t, "gap"]);
+  }
+
+  // public streets around the building
+  const roads = new THREE.Group(); scene.add(roads);
+  const streetMat = lineMat(0x9fe6ff, 0.55), laneMat = lineMat(GHOST, 0.25);
+  (data.streets || []).forEach((street) => {
+    roads.add(polyline(street.points.map((p) => at(toM(p), street.public ? 0.9 : 0.6)), street.public ? streetMat : laneMat));
+  });
+  const front = (data.streets || []).find((street) => street.public && street.distance_ft != null);
+  let streetTag = null;
+  if (front) {
+    const near = front.points.map(toM).reduce((m, p) => (Math.hypot(p[0] - cx, p[1] - cy) < Math.hypot(m[0] - cx, m[1] - cy) ? p : m));
+    streetTag = tag(`${front.name || "public street"} · ≈ ${Math.round(front.distance_ft)} ft`, "cyan"); streetTag.position.copy(at(near, 4)); roads.add(streetTag);
+  }
+
+  /* ---- shots: where the camera goes and how the model is arranged for each requirement ---- */
+  const reach = Math.max(span * 1.7, H * 2.1, 90);
+  const v = (x, y, z) => new THREE.Vector3(x, y, z);
+  const side = gapDir.clone().cross(v(0, 1, 0)).normalize();
+  const hero = { pos: v(reach * 0.78, H * 0.75 + reach * 0.3, reach * 0.78), look: v(0, H * 0.4, 0) };
+  const pulled = 1.9; // how far the stories are pulled apart
+  const openY = openAt * floorH * pulled, gapUp = Math.max(floorH * 3, span * 0.55); // room made above the open floor
+  const frame = Math.max(planSpan * 1.25, span * 0.55); // how far back to stand to see the plan
+  const openShot = { pos: v(frame * 0.8, openY + frame * 1.05, frame * 0.8), look: v(0, openY, 0), explode: 1, ghost: 0.05, limit: 0, lift: 1 };
+  const shots = {
+    "": data.space || floorLines ? { ...openShot } : { ...hero },
+    height: { pos: v(reach * 1.05, H * 0.5, reach * 0.3), look: v(0, H * 0.5, 0), limit: 0.24, ghost: 0.16 },
+    elevator: { pos: v(reach * 0.85, H * pulled * 0.62, reach * 0.85), look: v(0, H * pulled * 0.5, 0), explode: 1, ghost: 0.08, limit: 0.03 },
+    units: { ...openShot },
+    exits: { ...openShot, pos: v(frame * 0.15, openY + frame * 1.45, frame * 0.5) },
+    escape: { ...openShot, pos: v(frame * 1.3, openY + frame * 0.55, frame * 0.5) },
+    separation: { pos: gapMid.clone().add(side.clone().multiplyScalar(Math.max(70, gapLen * 4, span))).setY(Math.max(55, gapLen * 2.5, span * 0.7)), look: gapMid.clone(), ghost: 0.14, near: 0.85, shell: 0.34, limit: 0 },
+    access: { pos: v(0.5, Math.max(reach * 1.5, 230), 1), look: v(0, 0, 0), flat: 0.06, ghost: 0.5, shell: 0.3, limit: 0, street: 1, bright: 1 },
+    sprinklers: { pos: v(reach * 0.5, H * 0.62, reach * 0.62), look: v(0, H * 0.5, 0), ghost: 0.1, shell: 0.3, limit: 0.03 },
+    seismic: { pos: v(-reach * 0.6, H * 0.3, reach * 0.75), look: v(0, H * 0.42, 0), ghost: 0.1, shell: 0.28, limit: 0.03 },
+  };
+  shots.alarm = shots.sprinklers; shots.historic = shots.seismic; shots.age = shots.zone = shots.stay = shots[""];
+
+  // everything that moves is one of these numbers, eased from where it is to where the shot wants it
+  const now = { explode: 0, lift: 0, flat: 1, ghost: 0.42, near: 0.42, shell: 0.2, limit: 0.08, street: 0.55 };
+  const want = { ...now };
+  let fly = null;
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const setMode = (key) => {
+    lastKey = key;
+    if (intro) return; // the intro ends by coming to this view
+    const shot = shots[key] || shots[""];
+    Object.assign(want, { explode: 0, lift: 0, flat: 1, ghost: 0.42, near: 0.42, shell: 0.2, limit: 0.08, street: 0.55 }, shot);
+    want.near = shot.near ?? want.ghost;
+    fly = { t0: performance.now(), ms: 1300, fromPos: camera.position.clone(), fromLook: controls.target.clone(), toPos: shot.pos, toLook: shot.look, from: { ...now } };
+    controls.autoRotate = false;
+    groundMat.color.set(shot.bright ? 0xc4cedb : 0x5b6779);
+    const closed = !shot.explode;
+    dims.visible = closed && ["", "age", "zone", "stay", "height", "sprinklers", "alarm", "seismic", "historic"].includes(key);
+    gap.visible = closed && ["", "age", "zone", "stay", "separation"].includes(key);
+    tags.forEach(([t, group]) => { t.visible = group === "dims" ? dims.visible : gap.visible; });
+    limitTag.visible = closed && ["", "age", "zone", "stay", "height"].includes(key);
+    if (streetTag) streetTag.visible = (closed && ["", "age", "zone", "stay"].includes(key)) || key === "access";
+    sweep.visible = !shot.explode && key !== "access";
+  };
+  ticks.push((t) => {
+    if (intro) stepIntro();
+    if (fly) {
+      const k = Math.min(1, (performance.now() - fly.t0) / fly.ms), e = ease(k);
+      camera.position.lerpVectors(fly.fromPos, fly.toPos, e);
+      controls.target.lerpVectors(fly.fromLook, fly.toLook, e);
+      Object.keys(now).forEach((name) => { now[name] = fly.from[name] + (want[name] - fly.from[name]) * e; });
+      if (k === 1) { fly = null; controls.autoRotate = true; }
+    }
+    const spread = 1 + now.explode * (pulled - 1);
+    // the stories above the open floor rise clear of it, so its plan can be seen
+    levels.forEach((level, n) => { level.position.y = (level.userData.base * spread + (n > openAt ? now.lift * gapUp : 0)) * grow; });
+    shell.scale.y = Math.max(grow, 0.001); slabs.visible = grow > 0.02;
+    slabFill.opacity = 0.05 + now.explode * 0.3 * (1 - 0.8 * now.lift); slabEdge.opacity = 0.32 + now.explode * 0.6 * (1 - 0.6 * now.lift);
+    marketFill.opacity = 0.02 + now.explode * 0.1 * (1 - 0.8 * now.lift); marketEdge.opacity = 0.45 + now.explode * 0.5;
+    slabFill.opacity = 0.04 + now.explode * 0.16 * (1 - 0.85 * now.lift);
+    topFill.opacity = 0.05 + now.explode * 0.2 + now.lift * 0.12;
+    planGroup.visible = now.lift > 0.02;
+    wallMat.opacity = 0.95 * now.lift; windowMat.opacity = now.lift; doorMat.opacity = now.lift;
+    if (planImage) planImage.element.style.opacity = planImage.userData.ready ? String(0.92 * now.lift) : "0";
+    shell.visible = now.explode < 0.98; shellFill.opacity = now.shell * (1 - now.explode); shellEdge.opacity = 1 - now.explode;
+    ghosts.scale.y = nearest.scale.y = Math.max(now.flat * grow, 0.001);
+    ghostFill.opacity = now.ghost; ghostEdge.opacity = Math.min(1, now.ghost + 0.1);
+    nearFill.opacity = now.near; nearEdge.opacity = Math.min(1, now.near + 0.15);
+    limitMat.opacity = now.limit; limitLine.opacity = Math.min(0.9, now.limit * 6); limit.visible = now.limit > 0.005;
+    streetMat.opacity = now.street; laneMat.opacity = now.street * 0.5;
+    sweep.position.y = ((t * 0.16) % 1) * H;
+  });
+
+  /* ---- intro: the aerial photo turns into the model ---- */
+  const trace = new THREE.Group(); scene.add(trace);
+  const traced = [];
+  const outlineOf = (ring, material) => {
+    const line = polyline([...ring, ring[0]].map((p) => at(p, 0.7)), material);
+    line.geometry.setDrawRange(0, 0); line.userData.count = ring.length + 1; trace.add(line); traced.push(line);
+  };
+  subject.forEach((ring) => outlineOf(ring, lineMat(0xffffff, 1)));
+  others.forEach((ring) => outlineOf(ring, lineMat(0x9fe6ff, 0.9)));
+  const scanBar = polyline([v(-gw / 2 - cx, 1.2, 0), v(gw / 2 - cx, 1.2, 0)], lineMat(0xffffff, 1)); scene.add(scanBar); scanBar.visible = false;
+  const caption = host.querySelector("#introcap");
+  const say = (text) => { if (caption) { caption.textContent = text; caption.style.display = text ? "block" : "none"; } };
+  const above = v(0.01, Math.max(span * 2.4, 170), 0.5);
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  let intro = null, grow = 1, lastKey = "";
+  const playIntro = () => {
+    intro = { t0: performance.now(), ms: 6200 };
+    fly = null; controls.autoRotate = false; controls.enabled = false;
+    Object.assign(now, { explode: 0, lift: 0, flat: 1, ghost: 0.42, near: 0.42, shell: 0.2, limit: 0, street: 0 });
+    [dims, gap, limit, roads, sweep].forEach((g) => { g.visible = false; });
+    tags.forEach(([t]) => { t.visible = false; }); limitTag.visible = false; if (streetTag) streetTag.visible = false;
+    camera.position.copy(above); controls.target.set(0, 0, 0);
+  };
+  const stepIntro = () => {
+    const k = clamp((performance.now() - intro.t0) / intro.ms);
+    // 1. the photo as it is, swept once
+    scanBar.visible = k < 0.26; scanBar.position.z = cy - gh / 2 + gh * clamp(k / 0.26);
+    // 2. footprints are traced on it
+    const drawn = clamp((k - 0.18) / 0.27);
+    traced.forEach((line) => line.geometry.setDrawRange(0, Math.ceil(line.userData.count * drawn)));
+    // 3. the photo recedes and the buildings rise to their measured heights
+    const rise = clamp((k - 0.45) / 0.33); grow = 1 - Math.pow(1 - rise, 3);
+    groundMat.color.lerpColors(new THREE.Color(0xffffff), new THREE.Color(0x5b6779), clamp((k - 0.42) / 0.3));
+    trace.children.forEach((line) => { line.material.opacity = 1 - clamp((k - 0.7) / 0.25); });
+    // 4. the camera comes down from overhead to the working view
+    const swing = ease(clamp((k - 0.5) / 0.5)), shot = shots[lastKey] || shots[""];
+    camera.position.lerpVectors(above, shot.pos, swing); controls.target.lerpVectors(v(0, 0, 0), shot.look, swing);
+    say(k < 0.18 ? `Vexcel aerial image${o.captured ? " · captured " + o.captured : ""}`
+      : k < 0.45 ? `Tracing ${others.length + 1} building footprints`
+      : k < 0.8 ? `Raising to measured height${o.height_ft ? " · " + Math.round(o.height_ft) + " ft" : ""}` : "");
+    if (k === 1) {
+      intro = null; grow = 1; trace.visible = false; scanBar.visible = false; controls.enabled = true; say("");
+      [limit, roads].forEach((g) => { g.visible = true; });
+      setMode(lastKey);
+    }
+  };
+  host.querySelector("#replay")?.addEventListener("click", (event) => { event.preventDefault(); trace.visible = true; playIntro(); });
+
+  // taking hold of the view stops the flight, so the camera never fights the person
+  stage.renderer.domElement.addEventListener("pointerdown", () => { if (fly) { fly.toPos = camera.position.clone(); fly.fromPos = fly.toPos; fly.toLook = controls.target.clone(); fly.fromLook = fly.toLook; } });
+  stage.renderer.domElement.addEventListener("wheel", () => { if (fly) { fly.toPos = camera.position.clone(); fly.fromPos = fly.toPos; fly.toLook = controls.target.clone(); fly.fromLook = fly.toLook; } }, { passive: true });
+  // choosing a floor: a click that is not a drag, on one of the floor slabs
+  const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+  let downAt = null;
+  const canvas = stage.renderer.domElement;
+  canvas.addEventListener("pointerdown", (event) => { downAt = [event.clientX, event.clientY]; });
+  canvas.addEventListener("pointerup", (event) => {
+    if (!downAt || Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) > 5 || now.explode < 0.5) return;
+    const box = canvas.getBoundingClientRect();
+    mouse.set(((event.clientX - box.left) / box.width) * 2 - 1, -((event.clientY - box.top) / box.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    const hit = ray.intersectObjects(slabMeshes, false)[0];
+    if (hit) data.onFloor?.(hit.object.userData.floor);
+  });
+  controls.minDistance = 20; controls.maxDistance = reach * 5;
+  if (data.playIntro) playIntro();
+  else {
+    trace.visible = false;
+    camera.position.copy(hero.pos).multiplyScalar(2.2); // start far out and come in
+    controls.target.copy(hero.look);
+  }
+  controls.update();
+  setMode("");
+  return { dispose: stage.dispose, setMode };
+}
+
+/* ---------- every building at once ---------- */
+
+function skylineScene(host, spaces, onPick) {
+  const stage = makeStage(host);
+  const { scene, camera, controls, renderer } = stage;
+  const placed = spaces.filter((s) => s.latitude && s.longitude);
+  const lat0 = placed.reduce((t, s) => t + s.latitude, 0) / placed.length;
+  const lon0 = placed.reduce((t, s) => t + s.longitude, 0) / placed.length;
+  const kx = 111.32 * Math.cos((lat0 * Math.PI) / 180), ky = 110.54; // km
+  const pos = placed.map((s) => [(s.longitude - lon0) * kx, (s.latitude - lat0) * ky]);
+  // scale to where most buildings are, so a few far-off ones do not shrink the cluster
+  const reachKm = pos.map(([x, y]) => Math.max(Math.abs(x), Math.abs(y))).sort((a, c) => a - c);
+  const scale = 120 / Math.max(reachKm[Math.floor(reachKm.length * 0.8)], 1);
+
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(260, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x08101b }));
+  ground.position.y = -0.2; scene.add(ground);
+  scene.add(new THREE.GridHelper(520, 104, 0x1b3350, 0x0e1826));
+  scene.fog.density = 0.0022;
+
+  const meshes = [];
+  placed.forEach((s, i) => {
+    const feet = s.height_ft || (s.stories ? s.stories * 13 : 30);
+    const top = s.stories ? (feet * (s.stories - 1)) / s.stories : feet;
+    const color = top >= HIGH_RISE_FT ? AMBER : CYAN;
+    const side = Math.max(2.2, Math.min(7, Math.sqrt(s.footprint_sqft || 8000) / 28));
+    const h = Math.max(1.2, feet / 9);
+    const geo = new THREE.BoxGeometry(side, h, side); geo.translate(0, h / 2, 0);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.28, roughness: 0.4, depthWrite: false }));
+    mesh.position.set(pos[i][0] * scale, 0, -pos[i][1] * scale);
+    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), lineMat(color, 0.95)));
+    mesh.userData = s; scene.add(mesh); meshes.push(mesh);
+  });
+
+  camera.position.set(130, 95, 170); controls.target.set(0, 10, 0); controls.autoRotateSpeed = 0.35;
+  controls.minDistance = 40; controls.maxDistance = 520; controls.update();
+
+  const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+  let hot = null;
+  const light = (mesh, on) => { if (mesh) { mesh.material.opacity = on ? 0.85 : 0.28; mesh.scale.setScalar(on ? 1.12 : 1); } };
+  const pick = (event) => {
+    const box = renderer.domElement.getBoundingClientRect();
+    mouse.set(((event.clientX - box.left) / box.width) * 2 - 1, -((event.clientY - box.top) / box.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    return ray.intersectObjects(meshes, false)[0]?.object ?? null;
+  };
+  const highlight = (mesh) => { if (mesh !== hot) { light(hot, false); hot = mesh; light(hot, true); } };
+  renderer.domElement.addEventListener("pointermove", (event) => {
+    const mesh = pick(event); highlight(mesh);
+    renderer.domElement.style.cursor = mesh ? "pointer" : "grab";
+    if (!mesh) { tip.style.display = "none"; return; }
+    const s = mesh.userData;
+    tip.innerHTML = `<b>${esc(s.name || s.address)}</b><span>${s.stories ?? "–"} stories · ${s.height_ft ? Math.round(s.height_ft) + " ft" : "height not read"} · built ${s.year_built ?? "–"}</span>`;
+    tip.style.display = "block"; tip.style.left = `${event.clientX + 14}px`; tip.style.top = `${event.clientY + 14}px`;
+  });
+  renderer.domElement.addEventListener("pointerleave", () => { highlight(null); tip.style.display = "none"; });
+  let downAt = null;
+  renderer.domElement.addEventListener("pointerdown", (event) => { downAt = [event.clientX, event.clientY]; });
+  renderer.domElement.addEventListener("pointerup", (event) => {
+    if (downAt && Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) < 5) { const mesh = pick(event); if (mesh) onPick(mesh.userData); }
+  });
+  return { dispose: stage.dispose, highlight: (id) => highlight(meshes.find((m) => m.userData.property_id === id) ?? null) };
+}
+
+/* ---------- screens ---------- */
 
 async function showList() {
   const data = await api("/api/spaces");
   document.getElementById("notice").textContent = data.notice;
-  const legend = data.states.map((s) => badge(s)).join(" ");
+  const tall = data.spaces.filter((s) => s.height_ft && s.stories && (s.height_ft * (s.stories - 1)) / s.stories >= HIGH_RISE_FT).length;
+  const read = data.spaces.filter((s) => s.height_ft).length;
+  const marketed = data.spaces.reduce((t, s) => t + s.available_sqft, 0) / 1e6;
   app.innerHTML = `
-    <h1>Office buildings with space on the market</h1>
-    <p class="sub">${data.spaces.length} existing Los Angeles office buildings with a 3D scan, most available space first.
-      Counts show the evidence state of each requirement from records alone, before a scan is read.</p>
-    <p class="counts" style="margin:10px 0 14px">${legend}</p>
+    <div class="stage small" id="stage"><div class="gl"></div><div class="labels"></div>
+      <div class="hud tl"><h1>${data.spaces.length} office buildings, read from three data layers</h1>
+        <div class="sub">CoStar records · Matterport 3D scans · Vexcel aerial imagery. Each bar is one Los Angeles office building at its measured height. Select one to open its evidence review.</div></div>
+      <div class="hud bl">
+        <div class="metric"><div class="k">Buildings</div><div class="v">${data.spaces.length}</div></div>
+        <div class="metric"><div class="k">Height measured</div><div class="v">${read}</div></div>
+        <div class="metric hot"><div class="k">Top level ≥ 75 ft</div><div class="v">${tall}</div></div>
+        <div class="metric"><div class="k">Space on the market</div><div class="v">${marketed.toFixed(1)}<small> M sq ft</small></div></div>
+      </div>
+      <div class="hud br">drag to orbit · scroll to zoom<br>amber: highest occupied level estimated at 75 ft or more</div>
+    </div>
+    <h2>Buildings, most available space first</h2>
+    <p class="counts" style="margin:0 0 12px">${data.states.map((s) => badge(s)).join(" ")}</p>
     <div class="panel"><table class="spaces">
-      <thead><tr><th>Building</th><th class="num">Built</th><th class="num">Stories</th><th>Zone</th>
-        <th class="num">Available sq ft</th><th class="num">Asking rent $/sq ft/yr</th>
+      <thead><tr><th>Building</th><th class="num">Built</th><th class="num">Stories</th><th class="num">Height ft</th><th>Zone</th>
+        <th class="num">Available sq ft</th><th class="num">Asking $/sq ft/yr</th>
         <th class="num">No tenancy on record</th><th class="num">Scans</th><th>Requirements by evidence state</th></tr></thead>
       <tbody>${data.spaces.map((s) => `
         <tr data-id="${s.property_id}">
           <td><div class="name">${esc(s.name || s.address)}</div><div class="sub">${esc(s.name ? s.address : "")}</div></td>
           <td class="num">${s.year_built ?? "–"}</td>
           <td class="num">${s.stories ?? "–"}</td>
+          <td class="num">${s.height_ft ? Math.round(s.height_ft) : "–"}</td>
           <td>${esc(s.zone ?? "–")}</td>
           <td class="num">${num(s.available_sqft)}</td>
           <td class="num">${s.asking_rent_per_sqft_year ? s.asking_rent_per_sqft_year.toFixed(0) : "–"}</td>
@@ -170,20 +728,21 @@ async function showList() {
     </table></div>
     <p class="note">Available space is space being marketed, which can still be occupied. "No tenancy on record" is the share of
       rentable area without a current tenancy in the data; it is an indication of vacancy, and some tenancies have no area recorded.
-      Asking rents mix service types.</p>`;
-  app.querySelectorAll("tr[data-id]").forEach((tr) => (tr.onclick = () => (location.hash = `#/space/${tr.dataset.id}`)));
+      Asking rents mix service types. Heights are the highest roof point seen in imagery.</p>`;
+  live = skylineScene(document.getElementById("stage"), data.spaces, (s) => (location.hash = `#/space/${s.property_id}`));
+  app.querySelectorAll("tr[data-id]").forEach((tr) => {
+    tr.onclick = () => (location.hash = `#/space/${tr.dataset.id}`);
+    tr.onmouseenter = () => live?.highlight?.(Number(tr.dataset.id));
+  });
 }
 
+const fieldTable = (row, big) => `<table class="kv">${row.fields.map((f, i) => `
+  <tr><td>${esc(f.label)}<code>${esc(f.field)}</code></td>
+  <td class="${big && i === 0 ? "big" : ""}">${f.value == null || f.value === "" ? '<span class="sub">not measured or recorded</span>' : esc(f.value)}</td></tr>`).join("")}</table>`;
+
 function recordView(row) {
-  const filled = row.fields.filter((f) => f.value != null && f.value !== "");
-  return `
-    <div class="src">Source: CoStar commercial property record</div>
-    <p class="statement">${esc(row.evidence)}</p>
-    <table class="kv">${row.fields.map((f, i) => `
-      <tr><td>${esc(f.label)}<code>${esc(f.field)}</code></td>
-      <td class="${i === 0 ? "big" : ""}">${f.value == null || f.value === "" ? '<span class="sub">not recorded</span>' : esc(f.value)}</td></tr>`).join("")}
-    </table>
-    ${filled.length ? "" : '<p class="note">The record has no value for this requirement.</p>'}`;
+  return `<div class="src">SOURCE · CoStar commercial property record</div>
+    <p class="statement">${esc(row.evidence)}</p>${fieldTable(row, true)}`;
 }
 
 function scanView(row, data) {
@@ -193,15 +752,30 @@ function scanView(row, data) {
   const measured = scan.loaded ? `
     <table class="kv">
       <tr><td>Floors in the scan</td><td>${scan.floors}</td></tr>
-      <tr><td>Floor area measured</td><td>${num(scan.area_sqft)} sq ft</td></tr>
+      <tr><td>Floor area measured</td><td>${scan.area_sqft ? num(scan.area_sqft) + " sq ft" : '<span class="sub">not measured</span>'}</td></tr>
       <tr><td>Use recorded on the scan</td><td>${esc(scan.uses.join(", ") || "not recorded")}</td></tr>
-      <tr><td>Room labels in the scan</td><td>${esc(Object.entries(scan.room_kinds).map(([k, n]) => `${k} ${n}`).join(", ") || "none")}</td></tr>
+      <tr><td>Room types in the scan</td><td>${esc(Object.entries(scan.room_kinds).map(([k, n]) => `${k} ${n}`).join(", ") || "none")}</td></tr>
+      <tr><td>Windows in the wall geometry</td><td>${scan.windows == null ? '<span class="sub">no wall geometry</span>' : scan.windows}</td></tr>
+      <tr><td>Stairs seen, by floor</td><td>${esc(Object.entries(scan.stairs).filter(([, n]) => n).map(([k, n]) => `${k || "Floor"}: ${n}`).join(", ") || "none")}</td></tr>
     </table>` : `<p class="note">${esc(scan.error)}</p>`;
-  return `
-    <div class="src">Source: Matterport 3D scan${scan.name ? " · " + esc(scan.name) : ""}</div>
+  const r = scan.reading;
+  const reading = r ? `
+    <h3 style="margin-top:18px">Read from the panoramas</h3>
+    <div class="src">SOURCE · ${esc(r.reader || "AI model")} · read from images, not measured</div>
+    ${scan.sheet ? `<a href="/api/scans/${encodeURIComponent(scan.model_id)}/sheet.jpg" target="_blank" rel="noopener"><img class="sheet" src="/api/scans/${encodeURIComponent(scan.model_id)}/sheet.jpg" alt="Panoramas read from the scan"></a>` : ""}
+    <table class="kv">
+      <tr><td>Panoramas read</td><td>${r.panoramas}</td></tr>
+      <tr><td>With a window to the outside</td><td>${r.with_windows}</td></tr>
+      <tr><td>Staircases visible</td><td>${r.stairs}</td></tr>
+      <tr><td>Doors marked EXIT</td><td>${r.exit_doors}</td></tr>
+      <tr><td>Kind of space</td><td>${esc(r.space)}${r.indoor === false ? " (outdoors)" : ""}</td></tr>
+      <tr><td>Limits of the reading</td><td>${esc(r.notes)}</td></tr>
+    </table>` : "";
+  const where = [scan.suite ? `Suite ${scan.suite}` : "", scan.floor ? `floor ${scan.floor} (${scan.floor_basis})` : "floor not known"].filter(Boolean).join(" · ");
+  return `<div class="src">SOURCE · Matterport 3D scan${scan.name ? " · " + esc(scan.name) : ""} · ${esc(where)}</div>
     <p class="statement">${esc(row.evidence)}</p>
     <iframe src="https://my.matterport.com/show/?m=${encodeURIComponent(scan.model_id)}&qs=1&brand=0&help=0${key}" allow="xr-spatial-tracking; fullscreen" allowfullscreen></iframe>
-    ${measured}`;
+    ${measured}${reading}`;
 }
 
 function outline(rings, box, cls) {
@@ -214,62 +788,121 @@ function aerialView(row, data) {
   const b = data.building, o = data.outside;
   const photos = b.aerial_urls.length ? b.aerial_urls : (b.photo_url ? [b.photo_url] : []);
   const photoLabel = b.aerial_urls.length ? "CoStar aerial photo" : "CoStar building photo";
-  const fields = row.fields.length ? `<table class="kv">${row.fields.map((f) => `
-      <tr><td>${esc(f.label)}<code>${esc(f.field)}</code></td>
-      <td>${f.value == null ? '<span class="sub">not measured or recorded</span>' : esc(f.value)}</td></tr>`).join("")}</table>` : "";
-  const sources = [o.loaded ? `Vexcel aerial imagery${o.captured ? ", captured " + esc(o.captured) : ""}` : "", photos.length ? photoLabel : "",
+  const sources = [o.loaded ? `Vexcel aerial imagery${o.captured ? ", captured " + esc(o.captured) : ""}` : "",
     row.fields.some((f) => !f.field.startsWith("Vexcel")) ? "CoStar commercial property record" : ""].filter(Boolean);
   const image = o.loaded ? `
     <div class="aerial"><img src="/api/spaces/${b.property_id}/aerial.jpg" alt="Vexcel aerial image">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none">${outline(o.neighbors, o.bbox, "other")}${outline(o.footprint, o.bbox, "me")}</svg></div>
-    <p class="legend">Yellow: the footprint matched to this building. Dashed white: other structures nearby.</p>` : "";
-  return `
-    <div class="src">Source: ${sources.join(" · ") || "no image on record"}</div>
+    <p class="legend">Blue: the footprint matched to this building. Dashed white: other structures nearby. The same data drives the 3D view above.</p>` : "";
+  return `<div class="src">SOURCE · ${sources.join(" · ") || "no image on record"}</div>
     <p class="statement">${esc(row.evidence)}</p>
+    ${row.fields.length ? fieldTable(row, false) : ""}
     ${image}
-    ${fields}
-    ${photos.length ? `<div class="thumbs">${photos.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="${photoLabel}" style="opacity:1"></a>`).join("")}</div>
+    ${photos.length ? `<div class="thumbs">${photos.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="${photoLabel}"></a>`).join("")}</div>
       <p class="legend">${photoLabel}${photos.length > 1 ? "s" : ""} from the record.</p>` : ""}
-    <p class="note">${o.loaded ? "Height is the highest roof point sampled over the footprint, minus the ground below; it includes rooftop equipment. Distances are measured between footprint outlines. Both are approximate."
-      : esc(o.error)} Location used for imagery: ${b.latitude?.toFixed(5)}, ${b.longitude?.toFixed(5)}.</p>`;
+    <p class="note">${o.loaded ? "Height is the highest roof point sampled over the footprint, minus the ground below; it includes rooftop equipment. The highest occupied level is our estimate: roof height less one story. Distances are measured between footprint outlines."
+      : esc(o.error)}</p>`;
+}
+
+function planView(data) {
+  const p = data.plan;
+  if (!p || (!p.image && !p.reading)) return data.space ? `<h3 style="margin-top:18px">Floor plan on record</h3><p class="note">CoStar holds no floor plan for this suite.</p>` : "";
+  const r = p.reading;
+  if (!p.image) p.image = p.reading_from;
+  const shown = (v) => (v == null ? '<span class="sub">not legible on the plan</span>' : v);
+  return `<h3 style="margin-top:18px">Floor plan on record</h3>
+    <div class="src">SOURCE · CoStar ${p.image.source === "building" ? "building record" : "space for lease"} · ${p.count} plans on record · <a href="#/plans">see all</a></div>
+    <a href="${esc(p.image.url)}" target="_blank" rel="noopener"><img class="sheet" style="background:#fff" src="${esc(p.image.url)}" alt="Floor plan"></a>
+    ${p.reading_from ? `<p class="legend">The reading below is from a whole-floor plan of this building, not from this suite's plan.</p>` : ""}
+    ${r ? `<table class="kv">
+      <tr><td>Stairwells drawn</td><td>${shown(r.stairs)}</td></tr>
+      <tr><td>Elevator cars drawn</td><td>${shown(r.elevators)}</td></tr>
+      <tr><td>What the plan covers</td><td>${esc({ floor: "A whole floor with the core", part: "Part of a floor", suite: "One suite, no core", diagram: "A leasing diagram" }[r.covers] || r.covers)}</td></tr>
+      <tr><td>Limits of the reading</td><td>${esc(r.notes)}</td></tr>
+    </table><p class="legend">${esc(r.reader)} · read from the image, not measured</p>` : '<p class="legend">This plan has not been read yet.</p>'}`;
 }
 
 function evidenceView(row, data) {
   let body;
-  if (row.view === "record") body = recordView(row);
-  else if (row.view === "scan") body = scanView(row, data);
+  if (row.view === "record") body = recordView(row) + (row.key === "elevator" ? planView(data) : "");
+  else if (row.view === "scan") body = scanView(row, data) + (row.key === "exits" ? planView(data) : "");
   else if (row.view === "aerial") body = aerialView(row, data);
-  else if (row.view === "setting") body = `<div class="src">Source: product setting</div><p class="statement">${esc(row.evidence)}</p>
+  else if (row.view === "setting") body = `<div class="src">SOURCE · product setting</div><p class="statement">${esc(row.evidence)}</p>
       <p class="note">SecondStay plans stays of 31 days or longer. This is a setting, not a property of the building.</p>`;
-  else body = `<div class="src">Source: none of our data layers</div><p class="statement">${esc(row.evidence)}</p>
+  else body = `<div class="src">SOURCE · none of our data layers</div><p class="statement">${esc(row.evidence)}</p>
       <p class="note">Records, 3D scans and aerial imagery cannot answer this requirement. To be confirmed by: ${esc(row.confirmed_by)}.</p>`;
   return `<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
       <h3>${esc(row.requirement)}</h3>${badge(row.state)}</div>${body}`;
 }
 
-async function showSpace(id, scanId, selected) {
-  const query = scanId ? `?scan=${encodeURIComponent(scanId)}` : "";
+const UNIT_WORDS = { sqft: " sq ft", each: "", linear_ft: " ft", story: " stories", lump: "" };
+const LANES = [
+  ["called_for", "c1", "Called for by the published rule", "The rule applies and the evidence shows the work is missing."],
+  ["possible", "c2", "Possible, to be confirmed", "The evidence points to the work, but what is already in the building is not known."],
+  ["unknown", "c3", "Not known from the data", "Records, scans and imagery cannot say either way."],
+];
+function changesView(data) {
+  return `<div class="changes">${LANES.map(([key, cls, title, sub]) => {
+    const items = data.changes.filter((c) => c.certainty === key);
+    return `<div class="panel lane ${cls}"><h3>${title}<span>${items.length}</span></h3><p class="sub">${sub}</p>
+      ${items.map((c) => `<div class="chg"><div class="t"><span>${esc(c.title)}</span>
+        <span class="q ${c.quantity == null ? "none" : ""}">${c.quantity == null ? "quantity not known" : num(c.quantity) + UNIT_WORDS[c.unit]}</span></div>
+        <div class="r">${esc(c.reason)}</div><div class="w">${esc(c.quantity_basis)} · confirm with ${esc(c.confirmed_by)}</div></div>`).join("")}</div>`;
+  }).join("")}</div>
+  <p class="note">Each item carries the quantity it would be priced on. The cost model is not connected yet, so no figures are shown.</p>`;
+}
+
+async function showSpace(id, scanId, selected, spaceId) {
+  const params = new URLSearchParams();
+  if (scanId) params.set("scan", scanId);
+  if (spaceId) params.set("space", spaceId);
+  const query = params.toString() ? `?${params}` : "";
   const data = await api(`/api/spaces/${id}${query}`);
-  const b = data.building;
+  const b = data.building, o = data.outside, sp = data.space;
+  const reopen = (space, scan) => { stopScene(); showSpace(id, scan, current.key, space).catch(showError); };
+  data.onFloor = (floor) => {
+    const there = b.spaces.filter((x) => x.floor === floor);
+    if (there.length) reopen(there.find((x) => x.plan_url || x.scans.length)?.id ?? there[0].id);
+    else flash(`Nothing is on the market on floor ${floor}.`);
+  };
   let current = data.rows.find((r) => r.key === selected) || data.rows[0];
-  const scanPicker = b.scans.length > 1 ? `<label class="sub">Scan
+  const top = data.top_occupied_ft;
+  const scanPicker = b.scans.length > 1 ? `<label class="sub" style="font-size:12px">Scan
       <select id="scan">${b.scans.map((s, i) => `<option value="${esc(s.model_id)}" ${s.model_id === data.scan.model_id ? "selected" : ""}>
         ${esc(s.caption || "Scan")} (${i + 1} of ${b.scans.length})</option>`).join("")}</select></label>` : "";
+  const metric = (k, v, unit = "", hot = false) => `<div class="metric ${hot ? "hot" : ""}"><div class="k">${k}</div><div class="v">${v}<small>${unit}</small></div></div>`;
   app.innerHTML = `
     <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
-    <div class="spacehead">
-      <div>
-        <h1>${esc(b.name || b.address)}</h1>
-        <div class="sub">${esc(b.address)}, Los Angeles · ${esc(b.property_type)}</div>
-        <div class="facts">
-          <span>Built <b>${b.year_built ?? "–"}</b></span><span>Stories <b>${b.stories ?? "–"}</b></span>
-          <span>Zone <b>${esc(b.zone ?? "–")}</b></span><span>Rentable <b>${num(b.rentable_sqft)} sq ft</b></span>
-          <span>On the market <b>${num(b.available_sqft)} sq ft</b> in ${b.available_spaces} spaces</span>
-          ${b.asking_rent_per_sqft_year ? `<span>Asking <b>$${b.asking_rent_per_sqft_year.toFixed(0)}/sq ft/yr</b></span>` : ""}
-        </div>
+    <div class="stage" id="stage"><div class="gl"></div><div class="labels"></div>
+      ${o.loaded ? "" : `<div class="empty">${esc(o.error || "No imagery for this building.")}</div>`}
+      <div class="hud tl"><h1>${esc(b.name || b.address)}</h1>
+        <div class="sub">${esc(b.address)}, Los Angeles · ${esc(b.property_type)} · built ${b.year_built ?? "–"} · zone ${esc(b.zone ?? "–")}</div>
+        ${sp ? `<div class="spacechip"><b>${esc(sp.suite ? "Suite " + sp.suite : "Space")}</b> · ${esc(sp.floor_label)} · ${num(sp.sqft)} sq ft${sp.use ? " · " + esc(sp.use) : ""}${sp.rent_per_sqft_year ? ` · $${sp.rent_per_sqft_year.toFixed(0)}/sq ft/yr` : ""}
+          <a href="#" id="clearspace">show the whole building</a></div>`
+          : b.spaces.length ? `<div class="spacechip">${b.spaces.length} spaces on the market. Choose one below, or pull the floors apart and select a floor.</div>` : ""}
+        <div class="spacechip" id="flash" style="display:none"></div></div>
+      <div class="hud tr">${counts(data.counts)}${scanPicker}</div>
+      <div class="hud mid" id="introcap"></div>
+      <div class="hud br">drag to orbit · scroll to zoom<br>select a requirement to bring its evidence forward<br><a href="#" id="replay" style="pointer-events:auto">replay: aerial photo to model</a></div>
+      <div class="hud bl">
+        ${metric("Roof height", o.height_ft ? Math.round(o.height_ft) : "–", " ft")}
+        ${metric("Highest occupied level", top != null ? "≈ " + Math.round(top) : "–", " ft", top != null && top >= HIGH_RISE_FT)}
+        ${metric("Stories", b.stories ?? "–")}
+        ${metric("Closest structure", o.neighbor_gap_ft != null ? Math.round(o.neighbor_gap_ft) : "–", " ft")}
+        ${metric("Footprint", num(o.footprint_sqft), " sq ft")}
+        ${metric("On the market", num(b.available_sqft), " sq ft")}
+        ${metric("Imagery", esc(o.captured || "–"))}
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">${counts(data.counts)}${scanPicker}</div>
     </div>
+    ${b.spaces.length ? `<h2>Spaces on the market · ${b.spaces.length}</h2>
+    <div class="panel market"><table class="spaces">
+      <thead><tr><th>Floor</th><th>Suite</th><th class="num">sq ft</th><th>Use</th><th class="num">Asking $/sq ft/yr</th><th>Available</th><th>Floor plan</th><th>3D scan</th></tr></thead>
+      <tbody>${b.spaces.map((x) => `<tr data-space="${x.id}" class="${sp && sp.id === x.id ? "on" : ""}">
+        <td>${esc(x.floor_label)}</td><td class="name">${esc(x.suite || "–")}</td><td class="num">${num(x.sqft)}</td><td>${esc(x.use || "–")}</td>
+        <td class="num">${x.rent_per_sqft_year ? x.rent_per_sqft_year.toFixed(0) : "–"}</td><td>${esc(x.available_on || "–")}</td>
+        <td>${x.plan_url ? '<span class="yes">on record</span>' : '<span class="sub">none</span>'}</td>
+        <td>${x.scans.length ? '<span class="yes">' + x.scans.length + " scan" + (x.scans.length > 1 ? "s" : "") + "</span>" : '<span class="sub">none</span>'}</td></tr>`).join("")}</tbody>
+    </table></div>` : ""}
     <div class="cols">
       <div class="panel rows" id="rows">${data.rows.map((r) => `
         <button class="row" data-key="${r.key}">
@@ -283,6 +916,8 @@ async function showSpace(id, scanId, selected) {
         </button>`).join("")}</div>
       <div class="panel evidence" id="evidence"></div>
     </div>
+    <h2>Work the published rules call for</h2>
+    ${changesView(data)}
     <div class="bar"><h2>Next steps, by who confirms</h2>
       <a class="btn" href="/api/spaces/${id}/next-steps.md${query}">Export for an architect</a></div>
     <div class="panel steps">${data.next_steps.map((g) => `
@@ -290,27 +925,74 @@ async function showSpace(id, scanId, selected) {
       <ul>${g.items.map((i) => `<li><b>${esc(i.requirement)}</b> ${badge(i.state)}<br><span class="sub">${esc(i.evidence)}</span></li>`).join("")}</ul>`).join("")}
     </div>`;
 
+  data.playIntro = !introSeen.has(id); introSeen.add(id);
+  if (o.loaded) live = buildingScene(document.getElementById("stage"), data);
   const select = (key) => {
     current = data.rows.find((r) => r.key === key);
     app.querySelectorAll(".row").forEach((el) => el.classList.toggle("on", el.dataset.key === key));
-    const pane = document.getElementById("evidence");
-    pane.innerHTML = evidenceView(current, data);
-    pane.querySelectorAll(".thumbs img").forEach((img) => (img.onclick = () => {
-      pane.querySelector("#aerial").src = img.src;
-      pane.querySelectorAll(".thumbs img").forEach((t) => t.classList.toggle("on", t === img));
-    }));
+    document.getElementById("evidence").innerHTML = evidenceView(current, data);
+    live?.setMode?.(key);
   };
   app.querySelectorAll(".row").forEach((el) => (el.onclick = () => select(el.dataset.key)));
   const picker = document.getElementById("scan");
-  if (picker) picker.onchange = () => showSpace(id, picker.value, current.key).catch(showError);
+  if (picker) picker.onchange = () => reopen(spaceId, picker.value);
+  app.querySelectorAll("tr[data-space]").forEach((tr) => (tr.onclick = () => reopen(tr.dataset.space)));
+  const clear = document.getElementById("clearspace");
+  if (clear) clear.onclick = (event) => { event.preventDefault(); reopen(""); };
   select(current.key);
 }
 
-function showError(error) { app.innerHTML = `<p class="loading">${esc(error.message)}</p>`; }
+async function showPlans() {
+  const data = await api("/api/spaces");
+  const withPlans = data.spaces.filter((s) => s.floor_plans?.length)
+    .sort((a, c) => c.floor_plans.filter((p) => p.source === "building").length - a.floor_plans.filter((p) => p.source === "building").length);
+  const total = withPlans.reduce((t, s) => t + s.floor_plans.length, 0);
+  app.innerHTML = `
+    <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
+    <h1>Floor plans CoStar holds for these buildings</h1>
+    <p class="sub">${total} plans on ${withPlans.length} of ${data.spaces.length} buildings. Whole-floor plans come from the building record;
+      suite plans come from spaces listed for lease. Select a plan to open it at full size.</p>
+    ${withPlans.map((s) => {
+      const shown = s.floor_plans.slice(0, 12);
+      return `<div class="planhead"><h3>${esc(s.name || s.address)}</h3>
+        <span class="sub">${s.floor_plans.filter((p) => p.source === "building").length} whole-floor · ${s.floor_plans.filter((p) => p.source === "space").length} suite ·
+          <a href="#/space/${s.property_id}">open the evidence review</a></span></div>
+        <div class="plans">${shown.map((p) => `<a class="plan" href="${esc(p.url)}" target="_blank" rel="noopener">
+          <img loading="lazy" src="${esc(p.url)}" alt="Floor plan"><span>${p.source === "building" ? "Whole floor" : "Suite"} · ${esc(p.caption)}</span></a>`).join("")}</div>
+        ${s.floor_plans.length > shown.length ? `<p class="legend">and ${s.floor_plans.length - shown.length} more</p>` : ""}`;
+    }).join("")}`;
+}
+
+async function showPlansToRead(page) {
+  const data = await api("/api/spaces");
+  const chosen = data.spaces.filter((s) => s.plan_to_read);
+  const s = chosen[page];
+  if (!s) { app.innerHTML = '<p class="loading">No more plans.</p>'; return; }
+  const r = s.plan_reading;
+  app.innerHTML = `
+    <p style="margin:0 0 8px"><a href="#/plans">← All floor plans</a> · the plan read for each building, ${page + 1} of ${chosen.length}
+      · ${page ? `<a href="#/plans/read/${page - 1}">previous</a> · ` : ""}${page + 1 < chosen.length ? `<a href="#/plans/read/${page + 1}">next</a>` : ""}
+      · <a href="#/space/${s.property_id}">${esc(s.name || s.address)}</a></p>
+    <div style="background:#fff;border-radius:8px;overflow:hidden">
+      <div style="font:600 12px var(--mono);color:#123;background:#dfe6f0;padding:4px 8px">#${s.property_id} · ${s.plan_to_read.source === "building" ? "whole floor" : "suite"} · ${s.stories ?? "?"} stories on record${r ? ` · read: ${r.stairs} stairs, ${r.elevators} elevators` : ""}</div>
+      <img src="${esc(s.plan_to_read.url)}" alt="Floor plan" style="width:100%;height:740px;object-fit:contain;display:block"></div>`;
+}
+
+function flash(text) {
+  const el = document.getElementById("flash");
+  if (!el) return;
+  el.textContent = text; el.style.display = "block";
+  clearTimeout(flash.timer); flash.timer = setTimeout(() => { el.style.display = "none"; }, 2600);
+}
+
+function showError(error) { if (error.message === "stale") return; app.innerHTML = `<p class="loading">${esc(error.message)}</p>`; }
 function route() {
   const match = location.hash.match(/^#\/space\/(\d+)/);
-  app.innerHTML = '<p class="loading">Loading…</p>';
-  (match ? showSpace(match[1]) : showList()).catch(showError);
+  visit += 1;
+  stopScene();
+  app.innerHTML = '<p class="loading">Reading the three data layers…</p>';
+  const read = location.hash.match(/^#\/plans\/read\/(\d+)/);
+  (match ? showSpace(match[1]) : read ? showPlansToRead(Number(read[1])) : location.hash.startsWith("#/plans") ? showPlans() : showList()).catch(showError);
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", route);

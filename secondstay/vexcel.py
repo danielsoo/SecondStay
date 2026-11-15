@@ -32,7 +32,7 @@ API_URL = "https://api.vexcelgroup.com/v2"
 M_TO_FT = 3.28084
 SEARCH_RADIUS_M = 90.0
 MIN_STRUCTURE_SQM = 40.0  # ignore sheds, kiosks and footprint slivers
-IMAGE_ZOOM = 19  # about 0.25 m per pixel in Los Angeles
+IMAGE_ZOOM = 20  # about 0.13 m per pixel in Los Angeles
 MAX_MATCH_DISTANCE_M = 40.0  # how far the CoStar point may sit from its footprint
 
 
@@ -45,6 +45,8 @@ class Outside:
     footprint_sqft: Optional[float] = None
     footprint: list = field(default_factory=list)  # rings of the building itself
     neighbors: list = field(default_factory=list)  # rings of the other structures nearby
+    neighbor_heights_ft: list = field(default_factory=list)  # one per neighbour ring, None if unread
+    ground_m: Optional[float] = None  # ground elevation under the building
     bbox: list = field(default_factory=list)  # [west, south, east, north] of the image
     captured: str = ""
     collection: str = ""
@@ -202,8 +204,28 @@ def read_outside(lat: float, lon: float) -> Outside:
     with ThreadPoolExecutor(max_workers=8) as pool:
         ground = pool.submit(_elevation, "dtm", points[0])
         roofs = [r for r in pool.map(lambda p: _elevation("dsm", p), points) if r is not None]
-    if roofs and ground.result() is not None:
-        outside.height_ft = round((max(roofs) - ground.result()) * M_TO_FT)
+    outside.ground_m = ground.result()
+    if roofs and outside.ground_m is not None:
+        outside.height_ft = round((max(roofs) - outside.ground_m) * M_TO_FT)
+    return add_neighbor_heights(outside)
+
+
+def add_neighbor_heights(outside: Outside) -> Outside:
+    """Rough height of each neighbouring structure, used only to draw the surroundings."""
+    if not outside.neighbors:
+        return outside
+    if outside.ground_m is None:
+        outside.ground_m = _elevation("dtm", _centroid(outside.footprint[0]))
+
+    def height(ring):
+        points = roof_sample_points(ring, grid=2)[:3]
+        roofs = [r for r in (_elevation("dsm", p) for p in points) if r is not None]
+        if not roofs or outside.ground_m is None:
+            return None
+        return max(0.0, round((max(roofs) - outside.ground_m) * M_TO_FT))
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        outside.neighbor_heights_ft = list(pool.map(height, outside.neighbors))
     return outside
 
 

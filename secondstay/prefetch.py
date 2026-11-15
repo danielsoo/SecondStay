@@ -8,8 +8,8 @@ to retry them.
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 
-from . import costar, matterport, vexcel, web
-from .checklist import STATES, build_checklist
+from . import costar, matterport, panoramas, streets, vexcel, web
+from .checklist import STATES, build_checklist, stairs_by_floor
 
 
 def read_building(b: costar.Building) -> dict:
@@ -26,20 +26,45 @@ def read_building(b: costar.Building) -> dict:
             "area_sqft": sum(a for a in facts.floor_areas_sqft if a),
             "floors": len(facts.floor_areas_sqft),
             "labelled_rooms": sum(1 for r in facts.rooms if r.kind not in ("", "Void", "Other")),
-            "stairs": sum(1 for r in facts.rooms if r.kind == "Staircase"),
+            "stairs": sum(stairs_by_floor(facts).values()),
             "facts": facts,
         })
     return {"building": b, "outside": outside, "scans": scans}
+
+
+def read_all_streets(buildings: list) -> None:
+    """One OpenStreetMap request for every building not yet in the street cache."""
+    import json
+
+    todo = [
+        b for b in buildings
+        if b.latitude and b.longitude and not (web.STREET_CACHE / f"{b.property_id}.json").exists()
+    ]
+    if not todo:
+        return
+    try:
+        found = streets.fetch_many([(b.latitude, b.longitude) for b in todo])
+    except Exception as error:
+        print(f"Streets not read: {error}")
+        return
+    web.STREET_CACHE.mkdir(parents=True, exist_ok=True)
+    for b, roads in zip(todo, found):
+        (web.STREET_CACHE / f"{b.property_id}.json").write_text(json.dumps(roads))
 
 
 def best_rows(result: dict) -> tuple:
     """The checklist using the building's most informative scan: (scan, rows)."""
     b, outside = result["building"], result["outside"]
     readable = [s for s in result["scans"] if "facts" in s]
-    best = max(readable, key=lambda s: (s["labelled_rooms"] > 0, s["area_sqft"]), default=None)
+    best = max(readable, key=lambda s: matterport.scan_rank(s["facts"]), default=None)
     facts = costar.to_facts(b, best["facts"] if best else None)
+    if best:
+        facts.pano_reading = panoramas.reading(best["model_id"])
+    facts.plan_reading = web.plan_reading(b)
     if outside.loaded:
         vexcel.to_facts(outside, facts)
+    found = web.read_streets(b, outside)
+    web.add_street_facts(facts, found, bool(found))
     return best, build_checklist(facts, datetime.date.today().year)
 
 
@@ -48,6 +73,7 @@ def main() -> None:
     buildings = costar.load_buildings()
     with ThreadPoolExecutor(max_workers=3) as pool:
         results = list(pool.map(read_building, buildings))
+    read_all_streets(buildings)
 
     scans = [s for r in results for s in r["scans"]]
     readable = [s for s in scans if "facts" in s]

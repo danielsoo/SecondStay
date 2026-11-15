@@ -123,3 +123,37 @@ def test_unmatched_zone_and_missing_sprinklers(tmp_path, monkeypatch):
     assert rows["sprinklers"].state == ISSUE
     assert rows["height"].state == ISSUE and "likely 75 ft or above" in rows["height"].evidence
     assert rows["elevator"].state == REVIEW and "Passenger elevators on record: 2" in rows["elevator"].evidence
+
+
+def test_floor_codes_and_scan_captions():
+    from secondstay.costar import floor_label, floor_number, scan_place
+
+    assert [floor_number(c) for c in (24, 25, 27, 28, 44, 26, 0)] == [1, 2, 3, 4, 20, None, None]
+    assert floor_label(27) == "Floor 3" and floor_label(26) == "Mezzanine"
+    assert scan_place("3D Tour of Suite 300", 15) == ("300", 3, "read from the suite number")
+    assert scan_place("Suite 1520", 12)[1] is None  # floor 15 does not exist in a 12-story building
+    assert scan_place("5th Floor walkthrough", 12)[1] == 5
+    assert scan_place("Lobby", 12) == ("", None, "")
+
+
+def test_spaces_on_the_market_carry_floor_plan_and_scan(tmp_path, monkeypatch):
+    record = property_record(numStoriesAboveGrade=6, attachments=[
+        {"videoExternalReferenceType": 36, "videoKey": "MODEL0300", "caption": "3D Tour of Suite 300"},
+        {"videoExternalReferenceType": 36, "videoKey": "MODELLOBBY", "caption": "Lobby"},
+    ], floors=[{"floorName": 27, "floorSize": {"squareFeet": 9000.0}}, {"floorName": 24, "floorSize": {"squareFeet": 9500.0}}])
+    listings = [{
+        "propertyId": 1, "listingStatus": 1,
+        "forLeaseSummary": {"spaces": [
+            {"id": 11, "propertyId": 1, "suite": "300", "floorName": 27, "squareFeetMax": 4200, "spaceUse": 1,
+             "rateHigh": 36.0, "rateBasis": 2, "floorPlan": {"attachmentUri": "https://example.com/plan300.jpg"}},
+            {"id": 12, "propertyId": 1, "suite": "510", "floorName": 29, "squareFeetMax": 1800, "isFullFloor": False},
+            {"id": 13, "propertyId": 1, "suite": "100", "floorName": 24, "squareFeetMax": 900, "dateOffMarket": "2025-01-01"},
+        ]},
+    }]
+    (b,) = load(tmp_path, monkeypatch, [record], listings)
+    assert [(s["suite"], s["floor"]) for s in b.spaces] == [("510", 5), ("300", 3)]  # highest floor first, off-market left out
+    suite = b.spaces[1]
+    assert suite["plan_url"].endswith("plan300.jpg") and suite["scans"] == ["MODEL0300"] and suite["rent_per_sqft_year"] == 36.0
+    assert [f["floor"] for f in b.floors] == [1, 3]
+    scan = next(s for s in b.scans if s.model_id == "MODEL0300")
+    assert (scan.floor, scan.floor_basis) == (3, "the floor of that suite in the listing")
