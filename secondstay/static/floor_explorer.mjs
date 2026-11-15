@@ -39,6 +39,9 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   const levels = [], picks = [], vectorRoot = new THREE.Group(), planSlab = new THREE.Group();
   // Room floors of listed suites: hovering names the suite, clicking walks into its 3D tour.
   const roomPicks = []; let hovered = null, touring = false;
+  // Hover focus: the rest of the floor fades to a dark, see-through model and the pointed room rises as a tile.
+  let focusNow = 0, focusTarget = 0, liftTile = null, wallTop = 2.4;
+  const DIM_COLOR = new THREE.Color(0x1a2533);
   const scanOf = (model) => model.scan_id || (b.spaces || []).find(s => String(s.id) === String(model.space_id))?.scans?.[0] || "";
   const marketFloors = new Set((b.spaces || []).map(s => s.floor).filter(Boolean));
   const label = document.createElement("span"); label.className = "tag3d cyan";
@@ -133,7 +136,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
     }
   }
   const clearVectors = () => {
-    roomPicks.length = 0; hovered = null;
+    roomPicks.length = 0; hovered = null; liftTile = null; focusNow = focusTarget = 0;
     for (const child of [...vectorRoot.children]) {
       child.geometry?.dispose();
       if (child.material) [].concat(child.material).forEach(m => m.dispose());
@@ -272,7 +275,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
     const px = points.map(p => p[0]), py = points.map(p => p[1]);
     const mx = value.registered ? 0 : (Math.min(...px) + Math.max(...px)) / 2, my = value.registered ? 0 : (Math.min(...py) + Math.max(...py)) / 2;
     geometrySpan = Math.max(12, Math.max(...px) - Math.min(...px), Math.max(...py) - Math.min(...py));
-    const wallH = Math.min(2.8, storyH * 0.85);
+    const wallH = Math.min(2.8, storyH * 0.85); wallTop = 0.46 + wallH;
     const material = (color, transparent = false) => new THREE.MeshStandardMaterial({ color, roughness: transparent ? 0.18 : 0.8, metalness: transparent ? 0.2 : 0, transparent, opacity: transparent ? 0.38 : 1, side: THREE.DoubleSide });
     const roomColors = [0xc9ac83, 0x9fb7aa, 0xaaaec8, 0xc9b896, 0x9fb9c4, 0xc5a89a];
     for (const [i,room] of (value.rooms || []).entries()) {
@@ -283,6 +286,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
       if (value.space_id) {
         floor.userData.room = { suite: value.suite || "", space_id: String(value.space_id), scan: scanOf(value),
           label: room.label && room.label !== "Unlabelled area" ? room.label : "" };
+        floor.userData.shape = shape;
         roomPicks.push(floor);
       }
     }
@@ -405,6 +409,14 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   let last = performance.now();
   ticks.push(() => {
     const now = performance.now(), blend = 1 - Math.exp(-Math.min(100, now - last) / 180); last = now;
+    // Ease the hover focus in and out, and float the pointed room just above the wall tops.
+    const ease = Math.min(1, blend * 1.6);
+    if (Math.abs(focusTarget - focusNow) > 0.002) { focusNow += (focusTarget - focusNow) * ease; applyFocus(focusNow); }
+    else if (focusNow !== focusTarget) { focusNow = focusTarget; applyFocus(focusNow); }
+    if (liftTile) {
+      const y = liftTile.position.y + (wallTop + 0.35 - liftTile.position.y) * ease;
+      liftTile.position.y = liftTile.userData.edge.position.y = y;
+    }
     levels.forEach(level => {
       const p = floorPose(level.number, count, storyH, span, mode, selected);
       level.group.position.x += (p.x - level.group.position.x) * blend;
@@ -451,18 +463,51 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   const roomTag = document.createElement("span"); roomTag.className = "tag3d room-tag"; roomTag.style.display = "none";
   const roomLabel = new CSS2DObject(roomTag); scene.add(roomLabel);
   const roomName = (room) => (room.suite ? `Suite ${room.suite}` : "Listed space") + (room.label ? ` · ${room.label}` : "");
+  // Every drawn mesh keeps its own colour and opacity, so focus can fade it and restore it exactly.
+  function applyFocus(t) {
+    for (const child of vectorRoot.children) {
+      const m = child.material;
+      if (!m || child === liftTile || child.userData.isTileEdge) continue;
+      const base = child.userData.base || (child.userData.base = { color: m.color.clone(), opacity: m.opacity, transparent: m.transparent });
+      m.color.copy(base.color).lerp(DIM_COLOR, 0.6 * t);
+      m.opacity = base.opacity * (1 - 0.62 * t);
+      m.transparent = base.transparent || t > 0.001;
+      m.depthWrite = t < 0.5 || !m.transparent ? true : false;
+    }
+  }
+  function dropTile() {
+    if (!liftTile) return;
+    for (const part of [liftTile, liftTile.userData.edge]) {
+      if (!part) continue;
+      part.geometry.dispose(); part.material.dispose(); vectorRoot.remove(part);
+    }
+    liftTile = null;
+  }
+  function raiseTile(mesh) {
+    dropTile();
+    const room = mesh.userData.room, accent = room.scan ? 0x5fe0a0 : 0xffc24a;
+    const geometry = new THREE.ExtrudeGeometry(mesh.userData.shape, { depth: 0.22, bevelEnabled: false }).rotateX(-Math.PI / 2);
+    // A copy of the room's own colour: the original is darkened by the focus fade.
+    liftTile = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: (mesh.userData.base?.color || mesh.material.color).clone(),
+      emissive: accent, emissiveIntensity: 0.28, roughness: 0.55 }));
+    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 30), new THREE.LineBasicMaterial({ color: accent }));
+    edge.userData.isTileEdge = true; liftTile.userData.edge = edge;
+    liftTile.position.y = edge.position.y = 0.48;
+    vectorRoot.add(liftTile, edge);
+  }
   function highlight(hit) {
     const mesh = hit?.object || null;
-    if (mesh === hovered) { if (hit) roomLabel.position.copy(hit.point).add(new THREE.Vector3(0, 1.4, 0)); return; }
-    if (hovered) hovered.material.emissive?.setHex(0x000000);
+    const above = (point) => new THREE.Vector3(point.x, vectorRoot.getWorldPosition(new THREE.Vector3()).y + wallTop + 1.6, point.z);
+    if (mesh === hovered) { if (hit) roomLabel.position.copy(above(hit.point)); return; }
     hovered = mesh;
     stage.renderer.domElement.style.cursor = mesh ? "pointer" : "";
     roomTag.style.display = mesh ? "" : "none";
-    if (!mesh) return;
+    focusTarget = mesh ? 1 : 0;
+    if (!mesh) { dropTile(); return; }
     const room = mesh.userData.room;
-    mesh.material.emissive?.setHex(room.scan ? 0x2f6f62 : 0x3a3a3a);
+    raiseTile(mesh);
     roomTag.textContent = roomName(room) + (room.scan ? " · click to walk inside" : " · plan only");
-    roomLabel.position.copy(hit.point).add(new THREE.Vector3(0, 1.4, 0));
+    roomLabel.position.copy(above(hit.point));
   }
   let moveQueued = false;
   stage.renderer.domElement.addEventListener("pointermove", e => {
@@ -474,7 +519,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   function enterRoom(hit) {
     const room = hit.object.userData.room;
     if (!room.scan) { onTour({ ...room, name: roomName(room) }); return; }
-    touring = true; highlight(null);
+    touring = true; roomTag.style.display = "none"; // keep the lifted room in view during the dive
     const target = hit.point.clone();
     controls.minDistance = 0.5;
     flight = { at: performance.now(), from: camera.position.clone(), look: controls.target.clone(),
@@ -542,6 +587,6 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
   };
   return { selectFloor, setMode() {}, get floor() { return selected; },
     // Back from the tour: rise out of the room to the whole floor again.
-    leaveTour() { touring = false; controls.minDistance = 5; frame(); },
+    leaveTour() { touring = false; highlight(null); controls.minDistance = 5; frame(); },
     dispose() { planView.hidden=true; planView.replaceChildren(); host.classList.remove("plan-only"); legend.remove(); coverage.remove(); ledger.remove(); gridMaterial.dispose(); scene.remove(roomLabel); roomTag.remove(); alive = false; request++; clearVectors(); bitmap?.close(); file.onchange = null; apply.onclick = null; preview.onpointerdown = preview.onpointerup = null; preview.hidden = true; apply.disabled = true; host.classList.remove("floor-mode"); stage.dispose(); } };
 }
