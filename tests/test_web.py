@@ -57,7 +57,7 @@ def test_next_steps_export_follows_the_wording_rules(tmp_path, monkeypatch):
 
 
 def test_screen_text_follows_the_wording_rules():
-    html = (Path(web.__file__).parent / "static" / "index.html").read_text()
+    html = (Path(web.__file__).parent / "static" / "index.html").read_text(encoding="utf-8")
     assert NOTICE in html
     visible = re.sub(r"<style>.*?</style>", "", html, flags=re.S).replace(NOTICE, "")
     assert not BANNED.search(visible), BANNED.search(visible).group(0)
@@ -76,6 +76,46 @@ def test_cached_imagery_fills_height_and_separation(tmp_path, monkeypatch):
     assert rows["height"]["state"] == "Evidence found" and "about 42 ft" in rows["height"]["evidence"]
     assert rows["separation"]["state"] == "Needs professional review" and "12 ft" in rows["separation"]["evidence"]
     assert any(f["value"] == "about 42 ft" for f in rows["height"]["fields"])
+
+
+def test_context_photo_has_separate_geographic_bounds_and_cache(tmp_path, monkeypatch):
+    from secondstay import vexcel
+
+    box = [-118.001, 33.999, -117.999, 34.001]
+    outside = vexcel.Outside(bbox=box)
+    monkeypatch.setattr(web, "OUTSIDE_CACHE", tmp_path)
+    monkeypatch.setattr(web, "read_outside", lambda b: outside)
+    monkeypatch.delenv("SECONDSTAY_OFFLINE", raising=False)
+    calls = []
+
+    def fetch(bounds, zoom):
+        calls.append((bounds, zoom))
+        return b"context-photo"
+
+    monkeypatch.setattr(vexcel, "fetch_image", fetch)
+    detail = tmp_path / f"1.z{vexcel.IMAGE_ZOOM}.jpg"
+    detail.write_bytes(b"detailed-photo")
+    assert web.read_image(building(), context=True) == b"context-photo"
+    bounds, zoom = calls[0]
+    assert abs((bounds[2] - bounds[0]) / (box[2] - box[0]) - 8) < 1e-8
+    assert abs((bounds[3] - bounds[1]) / (box[3] - box[1]) - 8) < 1e-8
+    assert abs((bounds[0] + bounds[2]) / 2 + 118) < 1e-8
+    assert abs((bounds[1] + bounds[3]) / 2 - 34) < 1e-8
+    assert zoom == vexcel.IMAGE_ZOOM - 3
+    assert outside.bbox == box
+    monkeypatch.setenv("SECONDSTAY_OFFLINE", "1")
+    assert web.read_image(building(), context=True) == b"context-photo"
+    assert web.read_image(building()) == b"detailed-photo"
+    assert len(calls) == 1
+
+
+def test_missing_context_photo_stays_offline(tmp_path, monkeypatch):
+    import pytest
+
+    monkeypatch.setattr(web, "OUTSIDE_CACHE", tmp_path)
+    monkeypatch.setenv("SECONDSTAY_OFFLINE", "1")
+    with pytest.raises(FileNotFoundError):
+        web.read_image(building(), context=True)
 
 
 def test_payload_lists_the_work_the_rules_call_for(tmp_path, monkeypatch):
@@ -130,3 +170,4 @@ def test_selecting_a_suite_shows_only_that_suite(tmp_path, monkeypatch):
     assert data["plan"]["image"]["url"].endswith("plan300.jpg") and data["plan"]["reading"] is None
     assert "Suite 300 is listed at 4,200 sq ft" in rows["units"]["evidence"]
     assert web.space_payload(b)["space"] is None
+    assert web.space_payload(b, "MODEL0001", "11")["scan"]["model_id"] == ""

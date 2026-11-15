@@ -299,6 +299,7 @@ def _exits(f: SpaceFacts) -> Row:
         return row
     whole = plan.get("covers") == "floor"
     cars = plan.get("elevators")
+    plan_source = "Matterport" if plan.get("source") == "Matterport" else "CoStar"
     seen = (
         f"The floor plan on record shows {stairs} stairwell{'s' if stairs != 1 else ''}"
         + (f" and {cars} elevator cars" if isinstance(cars, int) else "")
@@ -306,12 +307,12 @@ def _exits(f: SpaceFacts) -> Row:
         + f" {READ_NOTE}"
     )
     if stairs >= 2:
-        row.state, row.evidence, row.layer = FOUND, seen, "CoStar floor plan, read by an AI model"
+        row.state, row.evidence, row.layer = FOUND, seen, f"{plan_source} floor plan, read by an AI model"
     elif whole and row.state != FOUND:
-        row.state, row.evidence, row.layer = ISSUE, seen, "CoStar floor plan, read by an AI model"
+        row.state, row.evidence, row.layer = ISSUE, seen, f"{plan_source} floor plan, read by an AI model"
     else:
         row.evidence += " " + seen
-        row.layer += ", CoStar floor plan"
+        row.layer += f", {plan_source} floor plan"
     return row
 
 

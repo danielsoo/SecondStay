@@ -229,11 +229,11 @@ def add_neighbor_heights(outside: Outside) -> Outside:
     return outside
 
 
-def fetch_image(box: list) -> bytes:
+def fetch_image(box: list, zoom: int = IMAGE_ZOOM) -> bytes:
     """Top-down JPEG of the bounding box."""
     return _get(
         "/ortho/extract",
-        **{"wkt": _box_wkt(box), "image-format": "jpeg", "crop": "bounding_box", "zoom": IMAGE_ZOOM},
+        **{"wkt": _box_wkt(box), "image-format": "jpeg", "crop": "bounding_box", "zoom": zoom},
     )
 
 

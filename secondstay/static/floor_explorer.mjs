@@ -1,0 +1,351 @@
+import * as THREE from "three";
+import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { floorPose, validFloor, sameScope, chooseFloorAsset, floorCoverage } from "./floor_motion.mjs";
+import { wallSections } from "./opening_layout.mjs";
+import { traceCandidates } from "./plan_trace.mjs";
+
+export function floorExplorer(host, data, makeStage, initial, onFloor) {
+  const stage = makeStage(host, { bloom: false }), { scene, camera, controls, ticks } = stage;
+  controls.autoRotate = false;
+  scene.fog = null;
+  scene.background = new THREE.Color(0x192b38);
+  scene.add(new THREE.HemisphereLight(0xfff3db, 0x7896a0, 0.8));
+  const sun = new THREE.DirectionalLight(0xffead3, 1.0); sun.position.set(-30,60,35); scene.add(sun);
+  const b = data.building, o = data.outside, count = Math.max(1, b.stories || 1);
+  let selected = validFloor(initial, count) || 1, mode = "isolated", alive = true, request = 0;
+  const basis = o.bbox, lat = (basis[1] + basis[3]) / 2, lon = (basis[0] + basis[2]) / 2;
+  const rings = o.footprint.map(ring => ring.map(([x, y]) => [(x - lon) * 111320 * Math.cos(lat * Math.PI / 180), (y - lat) * 110540]));
+  const pts = rings.flat(), xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 10);
+  const height = (o.height_ft || count * 12) * 0.3048, storyH = height / count;
+  const context = new THREE.Group(); scene.add(context);
+  const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+  for (const [bounds, suffix, elevation] of [[o.bbox, "", -0.5], [o.context_bbox, "?context=1", -0.6]]) {
+    if (!bounds?.length) continue;
+    const [w,s,e,n] = bounds;
+    const mat = new THREE.MeshBasicMaterial({color:0xffffff});
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry((e-w)*kx,(n-s)*ky).rotateX(-Math.PI/2),mat);
+    ground.position.set(((w+e)/2-lon)*kx-cx,elevation,-(((s+n)/2-lat)*ky-cy));
+    ground.visible=false; context.add(ground);
+    new THREE.TextureLoader().load(`/api/spaces/${b.property_id}/aerial.jpg${suffix}`,texture=>{
+      if(!alive) {texture.dispose(); return;}
+      texture.colorSpace=THREE.SRGBColorSpace; texture.anisotropy=8;
+      mat.map=texture; mat.needsUpdate=true; ground.visible=true;
+    });
+  }
+  const levels = [], picks = [], vectorRoot = new THREE.Group(), planSlab = new THREE.Group();
+  const label = document.createElement("span"); label.className = "tag3d cyan";
+  const marker = new CSS2DObject(label);
+  const slabGeometry = rings.map(r => new THREE.ExtrudeGeometry(new THREE.Shape(r.map(([x, y]) => new THREE.Vector2(x - cx, y - cy))), { depth: 0.45, bevelEnabled: false }).rotateX(-Math.PI / 2));
+  for (let n = 1; n <= count; n++) {
+    const group = new THREE.Group();
+    const material = new THREE.MeshStandardMaterial({ color: 0xb8b4a8, transparent: true, opacity: 0.7, roughness: 0.8, side: THREE.DoubleSide });
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xc2d6dd, transparent: true, opacity: 0.22 });
+    slabGeometry.forEach(geometry => {
+      const mesh = new THREE.Mesh(geometry, material); mesh.userData.floor = n; group.add(mesh); picks.push(mesh);
+      group.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial));
+    });
+    scene.add(group); levels.push({ group, material, edgeMaterial, number: n });
+  }
+  let scope = {}, geometry = null, geometrySpan = span, flight = null;
+  const legend = document.createElement("div");
+  legend.style.cssText = "display:flex;flex-wrap:wrap;gap:16px;margin:12px 0;color:#c5d8df;font-size:13px";
+  document.getElementById("floor-source").before(legend);
+  const coverage = document.createElement("section");
+  coverage.className = "panel";
+  coverage.style.cssText = "padding:12px 16px;margin:0 0 12px;border-color:#4a6470";
+  coverage.setAttribute("aria-label","Interior model coverage");
+  coverage.hidden = true;
+  host.before(coverage);
+  const geometryCache = new Map(), scopeKey = s => `${s.floor}:${s.asset_key || ""}`;
+  let asset = null;
+  const planView = document.getElementById("floor-plan-view");
+  const detail = document.getElementById("floor-detail"), note = document.getElementById("floor-note");
+  const title = document.getElementById("floor-title");
+  const source = document.getElementById("floor-source");
+  const link = (container, text, url) => {
+    const a=document.createElement("a"); a.textContent=text; a.href=url; a.target="_blank"; a.rel="noopener"; container.appendChild(a); return a;
+  };
+  const tourUrl = id => `https://my.matterport.com/show/?m=${encodeURIComponent(id)}`;
+  const unassigned = document.getElementById("floor-unassigned");
+  unassigned.hidden = !data.floor_sources?.unassigned?.length;
+  const unassignedList = unassigned.querySelector("div"); unassignedList.replaceChildren();
+  for(const item of data.floor_sources?.unassigned || []) link(unassignedList, item.label, item.plan_url || tourUrl(item.scan_id));
+  function showSource() {
+    source.replaceChildren(); planView.replaceChildren();
+    const onlyPlan = mode === "isolated" && !geometry?.available && !!asset && (!asset.geometry_available || !!geometry);
+    planView.hidden = !onlyPlan; host.classList.toggle("plan-only",onlyPlan);
+    if(asset?.plan_url) {
+      link(source, `Open original 2D plan · ${asset.label}`, asset.plan_url);
+      if(onlyPlan) {
+        const img=document.createElement("img"); img.src=asset.plan_url; img.alt=`Original 2D plan · Floor ${selected} · ${asset.label}`;
+        const caption=document.createElement("p"); caption.textContent="Original 2D plan · image only; no 3D interior vectors linked to this source.";
+        img.onerror=()=>{ if(alive && img.isConnected) {img.hidden=true; caption.textContent="The plan preview could not load. Open the original plan below.";} };
+        planView.append(img,caption);
+      }
+    }
+    if(asset?.model_source_url) link(source, "Placement / reconstruction source", asset.model_source_url);
+    if(asset?.scan_id) {
+      link(source, `Open original scan · ${asset.label}`, tourUrl(asset.scan_id));
+      if(onlyPlan && !asset.plan_url) {
+        const p=document.createElement("p"); p.textContent="A scan is linked to this floor, but usable interior vectors are not available in the local cache.";
+        planView.appendChild(p); link(planView,"Open original 3D tour",tourUrl(asset.scan_id));
+      }
+    }
+    if(asset?.space_id && String(data.space?.id || "") !== asset.space_id) {
+      const review=document.createElement("a"); review.textContent=`Review ${asset.label}`;
+      review.href=`#/space/${b.property_id}?${new URLSearchParams({floor:selected,view:mode,space:asset.space_id,interior:asset.key})}`;
+      source.appendChild(review);
+    }
+  }
+  const clearVectors = () => {
+    for (const child of [...vectorRoot.children]) {
+      child.geometry?.dispose();
+      if (child.material) [].concat(child.material).forEach(m => m.dispose());
+      vectorRoot.remove(child);
+    }
+  };
+  function showGeometry(value) {
+    geometry = value; clearVectors(); geometrySpan = span; legend.replaceChildren();
+    coverage.replaceChildren(); coverage.hidden = true;
+    for(const child of [...planSlab.children]) { child.geometry?.dispose(); child.material?.dispose(); planSlab.remove(child); }
+    if (!value?.available) return;
+    if(value.registered && value.floor_outline) {
+      if(value.floor_scope === "whole_floor") {
+        const shape = new THREE.Shape(value.floor_outline.map(([x,y])=>new THREE.Vector2(x,y)));
+        const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.22,bevelEnabled:false}).rotateX(-Math.PI/2),new THREE.MeshStandardMaterial({color:0xb2bec1,transparent:true,opacity:.26,side:THREE.DoubleSide}));
+        planSlab.add(mesh);
+      } else {
+        // A source perimeter is context, not evidence of an empty floor surface.
+        const outline = new THREE.BufferGeometry().setFromPoints(value.floor_outline.map(([x,y])=>new THREE.Vector3(x,.25,-y)));
+        const boundary = new THREE.LineLoop(outline,new THREE.LineDashedMaterial({color:0x8fb7c7,dashSize:1,gapSize:.6,transparent:true,opacity:.65}));
+        boundary.computeLineDistances(); planSlab.add(boundary);
+        coverage.hidden = false;
+        const models = value.assembly || [value];
+        const heading = document.createElement("strong");
+        heading.textContent = `Partial floor model · shown: ${models.map(m=>m.space_id ? `Suite ${m.suite || "on record"}` : m.suite || "Linked geometry").join(" + ")}`;
+        const explanation = document.createElement("p"); explanation.style.margin="6px 0";
+        explanation.textContent = "The dashed boundary marks the source floor perimeter. Remaining interiors are not represented; their occupancy is not inferred.";
+        coverage.append(heading,explanation);
+        const missing = floorCoverage(data.floor_sources,b.spaces,selected,models.map(m=>m.space_id).filter(Boolean));
+        if(missing.otherModels.length) {
+          const line = document.createElement("div"); line.style.cssText="display:flex;align-items:center;flex-wrap:wrap;gap:8px";
+          const caption = document.createElement("span"); caption.textContent="Other suite models, not placed in this floor frame:"; line.append(caption);
+          for(const item of missing.otherModels) {
+            const button=document.createElement("button"); button.className="btn"; button.textContent=`Open ${item.label}`;
+            button.onclick=()=>{ data.interiorAsset=item.key; selectFloor(selected,"isolated"); }; line.append(button);
+          }
+          coverage.append(line);
+        }
+        if(missing.withoutGeometry.length) {
+          const line=document.createElement("p"); line.className="sub"; line.style.margin="8px 0 0";
+          line.textContent="Listed spaces without a linked interior model: "+missing.withoutGeometry.map(s=>s.suite ? `Suite ${s.suite}` : "Listed space").join(", ");
+          coverage.append(line);
+        }
+      }
+    }
+    for(const model of value.assembly || [value]) renderGeometry(model);
+    if(value.floor_outline) {
+      const xs=value.floor_outline.map(p=>p[0]), ys=value.floor_outline.map(p=>p[1]);
+      geometrySpan=Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys));
+    }
+    const hint=document.createElement('span');
+    hint.textContent=value.registered ? "Source floor plan · geographic orientation not registered" : "Suite model · position within the floor not yet linked";
+    if(value.units === "plan_relative") hint.textContent += " · drawing proportions only; no physical scale";
+    if(value.reconstructed) hint.textContent = "Plan reconstruction draft · " + hint.textContent;
+    legend.prepend(hint);
+  }
+  function renderGeometry(value) {
+    const points = value.walls.flatMap(s => [[s[0], s[1]], [s[2], s[3]]]);
+    const px = points.map(p => p[0]), py = points.map(p => p[1]);
+    const mx = value.registered ? 0 : (Math.min(...px) + Math.max(...px)) / 2, my = value.registered ? 0 : (Math.min(...py) + Math.max(...py)) / 2;
+    geometrySpan = Math.max(12, Math.max(...px) - Math.min(...px), Math.max(...py) - Math.min(...py));
+    const wallH = Math.min(2.8, storyH * 0.85);
+    const material = (color, transparent = false) => new THREE.MeshStandardMaterial({ color, roughness: transparent ? 0.18 : 0.8, metalness: transparent ? 0.2 : 0, transparent, opacity: transparent ? 0.38 : 1, side: THREE.DoubleSide });
+    const roomColors = [0xc9ac83, 0x9fb7aa, 0xaaaec8, 0xc9b896, 0x9fb9c4, 0xc5a89a];
+    for (const [i,room] of (value.rooms || []).entries()) {
+      const shape = new THREE.Shape(room.polygon.map(([x,y])=>new THREE.Vector2(x-mx,y-my)));
+      for(const ring of room.holes || []) shape.holes.push(new THREE.Path(ring.map(([x,y])=>new THREE.Vector2(x-mx,y-my))));
+      const floor = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI/2), material(roomColors[i % roomColors.length]));
+      floor.position.y = 0.48; vectorRoot.add(floor);
+    }
+    const wallData = value.wall_segments || value.walls.map(segment=>({segment,openings:[]}));
+    for (const wall of wallData) {
+      const [x1,y1,x2,y2] = wall.segment, layout = wallSections(wall,wallH);
+      if(layout.length < 0.03) continue;
+      const box = (start,end,bottom,top,thickness,color,glass=false) => {
+        if(end-start < 0.001 || top-bottom < 0.001) return;
+        const fraction=(start+end)/2/layout.length;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(end-start,top-bottom,thickness),material(color,glass));
+        mesh.position.set(x1+(x2-x1)*fraction-mx,0.46+(bottom+top)/2,-(y1+(y2-y1)*fraction-my));
+        mesh.rotation.y=Math.atan2(y2-y1,x2-x1); vectorRoot.add(mesh);
+      };
+      layout.panels.forEach(p=>box(p.start,p.end,p.bottom,p.top,0.13,0xe6ded0));
+      for(const o of layout.openings) {
+        const color=o.kind==='window'?0x398f9e:0xc28a47, trim=0.045;
+        // Frames surround the opening; doorway voids stay empty. Swing/entrance type is not recorded.
+        box(o.start,o.start+trim,o.bottom,o.top,0.17,color);
+        box(o.end-trim,o.end,o.bottom,o.top,0.17,color);
+        box(o.start,o.end,o.top-trim,o.top,0.17,color);
+        if(o.kind==='window') {
+          box(o.start,o.end,o.bottom,o.bottom+trim,0.17,color);
+          box(o.start+trim,o.end-trim,o.bottom+trim,o.top-trim,0.025,0x74cad7,true);
+        } else box(o.start,o.end,o.bottom,o.bottom+0.025,0.24,0xc28a47);
+      }
+    }
+    const counts=value.counts;
+    if(counts) for(const [color,text] of [['#75cbd7',`${counts.windows} window openings`],['#e5ac64',`${counts.doors} doorways`],['#d9c7a4',`${counts.rooms} room boundaries`]]) {
+      const item=document.createElement('span'); item.style.color=color; item.textContent=(value.suite ? value.suite+' · ' : '')+'● '+text; legend.appendChild(item);
+    }
+  }
+
+  function frame() {
+    marker.position.z = (mode === "isolated" ? geometrySpan : span) * 0.52;
+    const p = floorPose(selected, count, storyH, span, mode, selected);
+    const end = floorPose(count, count, storyH, span, mode, selected);
+    const target = mode === "exploded" ? new THREE.Vector3(span * 0.08, end.y * 0.48, 0) : new THREE.Vector3(p.x, p.y, p.z);
+    const wide = Math.max(1, 1.2 / camera.aspect);
+    const range = (mode === "isolated" ? geometrySpan * 1.18 : Math.max(span * 1.5, end.y * 1.25)) * wide;
+    const position = target.clone().add(new THREE.Vector3(range * 0.55, range * (mode === "isolated" ? 0.95 : 0.65), range));
+    flight = { at: performance.now(), from: camera.position.clone(), look: controls.target.clone(), position, target };
+    controls.autoRotate = false;
+  }
+  function arrange() {
+    context.visible = false; // Floor-plan coordinates have no geographic registration.
+    const floor = levels[selected - 1];
+    floor.group.add(vectorRoot, marker, planSlab);
+    marker.position.set(0, 3.5, span * 0.52);
+    label.textContent = `Floor ${selected}${asset ? " · " + asset.label : ""}`;
+    title.textContent = label.textContent;
+    document.getElementById("floor-scope-note").textContent = data.space && String(data.space.id) !== scope.space_id
+      ? `Viewing Floor ${selected}${asset ? " · " + asset.label : ""}. The checklist below still reviews Suite ${data.space.suite || "on record"} on Floor ${data.space.floor}. Use the review link below to change the checklist scope.`
+      : !data.space ? "The interior view focuses on this source. The checklist below reviews the building." : "The interior view and checklist refer to the selected suite.";
+    showSource();
+    detail.hidden = false;
+    host.classList.add("floor-mode");
+    document.querySelectorAll("[data-scene-mode]").forEach(el => el.setAttribute("aria-pressed", String(el.dataset.sceneMode === mode)));
+    document.getElementById("floor-picker").value = String(selected);
+    frame();
+  }
+  async function selectFloor(number, nextMode = mode) {
+    const checked = validFloor(number, count);
+    if (checked === null) return;
+    const nextAsset = chooseFloorAsset(data.floor_sources, checked, data.interiorAsset, data.space?.floor === checked ? data.space.id : "");
+    const nextScope = {floor:checked,space_id:nextAsset?.space_id || "",scan_id:nextAsset?.scan_id || "",asset_key:nextAsset?.key || ""};
+    const changed = !sameScope(scope,nextScope) || !geometry;
+    selected = checked; mode = nextMode; asset = nextAsset; scope = nextScope;
+    data.interiorAsset = asset?.key || "";
+    if (changed) { showGeometry(null); note.textContent = "Reading interior sources for this floor…"; }
+    arrange(); onFloor?.(selected, mode, asset?.key);
+    if (!changed) return;
+    const mine = ++request, requested = { ...scope };
+    const cached = geometryCache.get(scopeKey(scope));
+    if (cached) { showGeometry(cached); note.textContent = cached.note; showSource(); frame(); return; }
+    if(!asset?.geometry_available && !asset?.scan_id) {
+      const result={available:false,note:asset?.plan_url ? "CoStar plan linked to this floor. The original image is shown without inferring walls, orientation or dimensions." : "No floor-linked plan or scan is recorded for this selection. The outline repeats the building footprint."};
+      geometryCache.set(scopeKey(scope),result); showGeometry(result); note.textContent=result.note; showSource(); return;
+    }
+    try {
+      const params = new URLSearchParams({ floor: selected, space: scope.space_id, scan: scope.scan_id });
+      const response = await fetch(`/api/spaces/${b.property_id}/floor-geometry?${params}`);
+      const result = await response.json();
+      if (!alive || mine !== request || !sameScope(requested, scope)) return;
+      if (!response.ok) throw new Error(result.error || "Interior geometry is unavailable.");
+      geometryCache.set(scopeKey(scope), result);
+      showGeometry(result); note.textContent = result.note;
+      showSource(); frame();
+    } catch (error) {
+      if (alive && mine === request) { showGeometry(null); note.textContent = error.message; showSource(); }
+    }
+  }
+  let last = performance.now();
+  ticks.push(() => {
+    const now = performance.now(), blend = 1 - Math.exp(-Math.min(100, now - last) / 180); last = now;
+    levels.forEach(level => {
+      const p = floorPose(level.number, count, storyH, span, mode, selected);
+      level.group.position.x += (p.x - level.group.position.x) * blend;
+      level.group.position.y += (p.y - level.group.position.y) * blend;
+      level.group.position.z += (p.z - level.group.position.z) * blend;
+      level.material.opacity += (p.opacity * (level.number === selected ? (geometry?.available && mode === "isolated" ? 0.08 : 0.95) : 0.9) - level.material.opacity) * blend;
+      level.material.color.set(level.number === selected ? 0x9dbbc0 : 0x9a9e99);
+      level.edgeMaterial.opacity = level.number === selected ? 0.45 : 0.18;
+      const physicalFrame = geometry?.registered && geometry.units !== "plan_relative";
+      const showingInterior = geometry?.available && (mode === "isolated" || physicalFrame);
+      for(const child of level.group.children) if(child !== vectorRoot && child !== marker && child !== planSlab) child.visible = !(showingInterior && level.number === selected);
+      level.group.visible = level.material.opacity > 0.005;
+      vectorRoot.visible = !!showingInterior;
+      planSlab.visible = !!geometry?.registered && !!showingInterior;
+      marker.element.style.display = "";
+    });
+    if (flight) {
+      const t = Math.min(1, (now - flight.at) / (matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 900));
+      const e = t * t * (3 - 2 * t);
+      camera.position.lerpVectors(flight.from, flight.position, e); controls.target.lerpVectors(flight.look, flight.target, e);
+      if (t === 1) flight = null;
+    }
+  });
+  const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(); let down;
+  stage.renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; flight = null; });
+  stage.renderer.domElement.addEventListener("wheel", () => { flight = null; }, { passive: true });
+  stage.renderer.domElement.addEventListener("pointerup", e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || mode !== "exploded") return;
+    const r = stage.renderer.domElement.getBoundingClientRect();
+    pointer.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+    ray.setFromCamera(pointer, camera);
+    const hit = ray.intersectObjects(picks.filter(m => m.parent.visible))[0];
+    if (hit) selectFloor(hit.object.userData.floor, "isolated");
+  });
+  controls.minDistance = 5; controls.maxDistance = Math.max(height * 5, span * 6);
+  camera.position.set(span * 1.5, height + span, span * 2);
+
+  // A local, reviewed image draft stays attached to the selected floor/suite only.
+  const file = document.getElementById("plan-file"), preview = document.getElementById("plan-preview");
+  const apply = document.getElementById("plan-apply"), draftNote = document.getElementById("plan-draft-note");
+  let bitmap = null, segments = [], crop = null, fileScope = null, start = null;
+  const ctx = preview.getContext("2d", { willReadFrequently: true });
+  const drawDraft = () => {
+    ctx.drawImage(bitmap, 0, 0, preview.width, preview.height);
+    const area = crop || { x: 0, y: 0, w: preview.width, h: preview.height };
+    const pixels = ctx.getImageData(area.x, area.y, area.w, area.h);
+    segments = traceCandidates(pixels.data, area.w, area.h, 110, Math.max(12, Math.round(Math.min(area.w, area.h) * 0.045))).map(([a,b,c,d]) => [a + area.x,b + area.y,c + area.x,d + area.y]);
+    ctx.strokeStyle = "#00a6e8"; ctx.lineWidth = 2;
+    segments.forEach(([a,b,c,d]) => { ctx.beginPath(); ctx.moveTo(a,b); ctx.lineTo(c,d); ctx.stroke(); });
+    ctx.strokeStyle = "#ff9f1a"; ctx.strokeRect(area.x, area.y, area.w, area.h);
+    draftNote.textContent = `${segments.length} horizontal/vertical line candidates. Drag to crop out titles and legends. Diagonals, curves and openings are not reconstructed. Review the overlay before using this draft. Observations are read from images, not measured.`;
+    apply.disabled = !segments.length;
+  };
+  file.onchange = async () => {
+    const f = file.files[0]; if (!f) return;
+    if (!/^image\/(png|jpeg|webp)$/.test(f.type) || f.size > 20 * 1024 * 1024) { draftNote.textContent = "Choose a PNG, JPEG or WebP under 20 MB."; return; }
+    const selectedScope = { ...scope };
+    let image;
+    try { image = await createImageBitmap(f); }
+    catch { draftNote.textContent = "This image could not be opened. Choose a PNG, JPEG or WebP."; return; }
+    if (!alive || !sameScope(selectedScope, scope)) { image.close(); return; }
+    bitmap?.close(); bitmap = image; fileScope = selectedScope;
+    const scale = Math.min(1, 1000 / Math.max(image.width, image.height));
+    preview.width = Math.round(image.width * scale); preview.height = Math.round(image.height * scale);
+    preview.hidden = false; crop = null; drawDraft();
+  };
+  const local = e => { const r = preview.getBoundingClientRect(); return [Math.max(0, Math.min(preview.width - 1, Math.round((e.clientX - r.left) / r.width * preview.width))), Math.max(0, Math.min(preview.height - 1, Math.round((e.clientY - r.top) / r.height * preview.height)))]; };
+  preview.onpointerdown = e => { start = local(e); preview.setPointerCapture(e.pointerId); };
+  preview.onpointerup = e => {
+    if (!start || !bitmap) return;
+    const end = local(e), w = Math.abs(end[0] - start[0]), h = Math.abs(end[1] - start[1]);
+    if (w > 20 && h > 20) { crop = { x: Math.min(start[0],end[0]), y: Math.min(start[1],end[1]), w, h }; drawDraft(); }
+    start = null;
+  };
+  apply.onclick = () => {
+    if (!sameScope(fileScope || {}, scope) || !segments.length) { draftNote.textContent = "Choose a plan for the currently selected floor and suite."; return; }
+    request++;
+    const area = crop || { x:0, y:0, w:preview.width, h:preview.height }, scale = 10 / Math.max(area.w, area.h);
+    const value = { ...scope, available: true, walls: segments.map(([a,b,c,d]) => [a*scale,-b*scale,c*scale,-d*scale]), windows: [], doors: [], source:"Local image draft",
+      note: "Draft line extrusion · read from images, not measured. Scale, orientation, wall height and placement are illustrative. This local preview is cleared when leaving the scene." };
+    geometryCache.set(scopeKey(scope), value);
+    showGeometry(value); mode = "isolated"; arrange();
+    note.textContent = value.note;
+  };
+  return { selectFloor, setMode() {}, get floor() { return selected; },
+    dispose() { planView.hidden=true; planView.replaceChildren(); host.classList.remove("plan-only"); legend.remove(); coverage.remove(); alive = false; request++; clearVectors(); bitmap?.close(); file.onchange = null; apply.onclick = null; preview.onpointerdown = preview.onpointerup = null; preview.hidden = true; apply.disabled = true; host.classList.remove("floor-mode"); stage.dispose(); } };
+}

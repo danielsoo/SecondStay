@@ -55,6 +55,8 @@ def read_scan(model_id: str):
         return json.loads(cached.read_text()), ""
     if not matterport_configured():
         return None, "Matterport keys are not set in .env, so the scan has not been measured."
+    if os.environ.get("SECONDSTAY_OFFLINE"):
+        return None, "Offline mode: no cached scan is available."
     try:
         model = matterport.fetch_model(model_id)
     except Exception as error:  # network, auth or API error: show it, keep the screen working
@@ -71,7 +73,7 @@ def read_outside(b: costar.Building, fetch: bool = True) -> vexcel.Outside:
     cached = OUTSIDE_CACHE / f"{b.property_id}.json"
     if cached.exists():
         outside = vexcel.load(cached.read_text())
-        if fetch and outside.neighbors and not outside.neighbor_heights_ft and vexcel.configured():
+        if fetch and not os.environ.get("SECONDSTAY_OFFLINE") and outside.neighbors and not outside.neighbor_heights_ft and vexcel.configured():
             try:  # caches written before the 3D view have no neighbour heights
                 cached.write_text(vexcel.dump(vexcel.add_neighbor_heights(outside)))
             except Exception:
@@ -81,6 +83,8 @@ def read_outside(b: costar.Building, fetch: bool = True) -> vexcel.Outside:
         return vexcel.Outside(error="The record has no location, so imagery could not be looked up.")
     if not vexcel.configured():
         return vexcel.Outside(error="The Vexcel key is not set in .env, so nothing has been measured from the air.")
+    if os.environ.get("SECONDSTAY_OFFLINE"):
+        return vexcel.Outside(error="Offline mode: no cached aerial measurements are available.")
     if not fetch:
         return vexcel.Outside(error="Not read yet.")
     try:
@@ -118,11 +122,31 @@ def add_street_facts(facts, found: list, read: bool) -> None:
         facts.street_name, facts.street_distance_ft = front.name, front.distance_ft
 
 
-def read_image(b: costar.Building) -> bytes:
-    cached = OUTSIDE_CACHE / f"{b.property_id}.z{vexcel.IMAGE_ZOOM}.jpg"
+def context_bbox(box: list) -> list:
+    """Eight times the photo coverage per axis, for the orbiting 3D scene only."""
+    if len(box) != 4:
+        return []
+    west, south, east, north = box
+    lon, lat = (west + east) / 2, (south + north) / 2
+    dx, dy = (east - west) * 4, (north - south) * 4
+    return [lon - dx, lat - dy, lon + dx, lat + dy]
+
+
+def read_image(b: costar.Building, context: bool = False) -> bytes:
+    # Lower zoom keeps the wider overview near the original image's pixel count.
+    zoom = vexcel.IMAGE_ZOOM - 3 if context else vexcel.IMAGE_ZOOM
+    suffix = ".context-v1" if context else ""
+    cached = OUTSIDE_CACHE / f"{b.property_id}{suffix}.z{zoom}.jpg"
     if cached.exists():
         return cached.read_bytes()
-    image = vexcel.fetch_image(read_outside(b).bbox)
+    if os.environ.get("SECONDSTAY_OFFLINE"):
+        raise FileNotFoundError("No cached image is available.")
+    box = read_outside(b).bbox
+    if context:
+        box = context_bbox(box)
+    if not box:
+        raise FileNotFoundError("No imagery bounds are available.")
+    image = vexcel.fetch_image(box, zoom=zoom)
     OUTSIDE_CACHE.mkdir(parents=True, exist_ok=True)
     cached.write_bytes(image)
     return image
@@ -187,6 +211,7 @@ def building_card(b: costar.Building) -> dict:
 
 def space_payload(b: costar.Building, model_id: str = "", space_id: str = "") -> dict:
     """Everything the screen shows for one building, for one suite on the market when one is chosen."""
+    from .floor_geometry import source_catalog
     space = next((s for s in b.spaces if str(s["id"]) == str(space_id)), None)
     scan_ids = space["scans"] if space else [s.model_id for s in b.scans]
     if model_id not in scan_ids:
@@ -256,9 +281,10 @@ def space_payload(b: costar.Building, model_id: str = "", space_id: str = "") ->
         "building": building_card(b),
         "space": space,
         "floor": floor,
+        "floor_sources": source_catalog(b),
         "scan": scan,
         "sdk_key": os.environ.get("MATTERPORT_SDK_KEY", ""),
-        "outside": {**asdict(outside), "loaded": outside.loaded},
+        "outside": {**asdict(outside), "loaded": outside.loaded, "context_bbox": context_bbox(outside.bbox)},
         "plan": {
             "image": image, "reading": reading, "count": len(b.floor_plans),
             "reading_from": stand_in if reading and (not image or image["url"] != stand_in["url"]) else None,
@@ -291,6 +317,8 @@ def read_scan_plan(model_id: str):
     cached = SCAN_CACHE / f"{model_id}.plan.jpg"
     if cached.exists():
         return cached.read_bytes()
+    if os.environ.get("SECONDSTAY_OFFLINE"):
+        return None
     if not matterport_configured():
         return None
     image = matterport.fetch_plan_image(model_id)
@@ -304,9 +332,9 @@ PLAN_READING_DIR = REPO_ROOT / "data" / "raw" / "plan_readings"
 
 
 def plan_to_read(b: costar.Building):
-    """The floor plan that stands for the building: a whole-floor plan if CoStar has one, else a suite plan."""
-    whole = [p for p in b.floor_plans if p["source"] == "building"]
-    return (whole or b.floor_plans or [None])[0]
+    """Prefer a building attachment; its coverage must be read from the sheet."""
+    attached = [p for p in b.floor_plans if p["source"] == "building"]
+    return (attached or b.floor_plans or [None])[0]
 
 
 def plan_reading(b: costar.Building):
@@ -395,6 +423,37 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, data, status: int = 200):
         self._send(status, json.dumps(data).encode(), "application/json")
 
+    def _post_review(self):
+        from . import agent
+        # A browser on another origin must not initiate billable local runs.
+        host = self.headers.get("Host", "")
+        origin = self.headers.get("Origin")
+        if (urlparse("http://" + host).hostname not in ("localhost", "127.0.0.1")
+                or (origin and origin != "http://" + host)
+                or self.headers.get("Content-Type") != "application/json"):
+            return self._json({"error": "Use the local evidence review screen."}, 403)
+        match = re.fullmatch(r"/api/spaces/(\d+)/reviews", self.path)
+        building = self.buildings.get(int(match.group(1))) if match else None
+        if building is None:
+            return self._json({"error": "Not found"}, 404)
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+            if not 0 < size <= 2048:
+                raise ValueError("Invalid request length.")
+            data = json.loads(self.rfile.read(size))
+            if not isinstance(data, dict) or set(data) - {"space", "scan"}:
+                raise ValueError("Supply only space and scan.")
+            if any(not isinstance(value, str) for value in data.values()):
+                raise ValueError("Space and scan must be text identifiers.")
+            run_id = agent.start_review(building, data.get("space", ""), data.get("scan", ""))
+            return self._json({"id": run_id}, 202)
+        except agent.ConfigurationError as error:
+            return self._json({"error": str(error)}, 503)
+        except ValueError:
+            return self._json({"error": "Choose a space and scan linked to this building."}, 400)
+        except RuntimeError as error:
+            return self._json({"error": str(error)}, 409)
+
     def do_GET(self):
         url = urlparse(self.path)
         query = parse_qs(url.query)
@@ -405,8 +464,53 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, (STATIC / url.path[1:]).read_bytes(), kind + "; charset=utf-8")
         if re.fullmatch(r"/api/spaces/\d+/cost", url.path):
             return self._cost(url, {})
+        if url.path in ("/static/floor_explorer.mjs", "/static/floor_motion.mjs", "/static/plan_trace.mjs", "/static/opening_layout.mjs"):
+            return self._send(200, (STATIC / url.path.rsplit("/", 1)[1]).read_bytes(), "text/javascript; charset=utf-8")
+        floor_route = re.fullmatch(r"/api/spaces/(\d+)/floor-geometry", url.path)
+        if floor_route:
+            from .floor_geometry import geometry_for
+            building = self.buildings.get(int(floor_route.group(1)))
+            if not building:
+                return self._json({"error": "Not found"}, 404)
+            try:
+                result = geometry_for(building, int((query.get("floor") or ["0"])[0]), (query.get("space") or [""])[0], (query.get("scan") or [""])[0])
+                return self._json(result)
+            except ValueError as error:
+                return self._json({"error": str(error)}, 400)
         if url.path == "/api/spaces":
             return self._json(cached_list(list(self.buildings.values())))
+        if url.path == "/api/agent":
+            from .agent import configuration
+            return self._json(configuration())
+        review = re.fullmatch(r"/api/reviews/([a-f0-9]{32})(/report\.md)?", url.path)
+        if review:
+            from .agent import load_run
+            try:
+                run = load_run(review.group(1))
+            except (ValueError, OSError):
+                return self._json({"error": "Not found"}, 404)
+            if review.group(2):
+                if not run.get("report"):
+                    return self._json({"error": "The review has not been recorded yet."}, 409)
+                return self._send(200, run["report"].encode(), "text/markdown; charset=utf-8",
+                                  {"Content-Disposition": 'attachment; filename="secondstay-agent-review.md"'})
+            return self._json(run)
+        history = re.fullmatch(r"/api/spaces/(\d+)/reviews", url.path)
+        if history:
+            from .agent import RUN_DIR, load_run
+            if int(history.group(1)) not in self.buildings:
+                return self._json({"error": "Not found"}, 404)
+            runs = []
+            for path in sorted(RUN_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+                try:
+                    run = load_run(path.stem)
+                except (ValueError, OSError):
+                    continue
+                if (run['building_id'] == int(history.group(1))
+                        and run['space_id'] == (query.get('space') or [''])[0]
+                        and (not query.get('scan') or run['scan_id'] == query['scan'][0])):
+                    runs.append({k: run[k] for k in ('id', 'status', 'mode', 'started_at')})
+            return self._json({"runs": runs[:20]})
         top_down = re.fullmatch(r"/api/scans/([A-Za-z0-9]{6,20})/plan\.jpg", url.path)
         if top_down:
             try:
@@ -426,7 +530,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "Not found"}, 404)
         if match.group(2) == "/aerial.jpg":
             try:
-                return self._send(200, read_image(building), "image/jpeg")
+                return self._send(200, read_image(building, context=query.get("context") == ["1"]), "image/jpeg")
             except Exception:
                 return self._json({"error": "The image could not be read"}, 502)
         scan = (query.get("scan") or [""])[0]
@@ -455,6 +559,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": str(error)}, 400)
 
     def do_POST(self):
+        if re.fullmatch(r"/api/spaces/\d+/reviews", self.path):
+            return self._post_review()
         if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
             return self._json({"error": "Expected application/json"}, 415)
         try:
@@ -474,7 +580,7 @@ def main(port: int = 8000) -> None:
     except FileNotFoundError as error:
         sys.exit(f"CoStar kit not found ({error.filename}). Set COSTAR_KIT_DIR in .env.")
     Handler.buildings = {b.property_id: b for b in buildings}
-    cached_list(buildings)  # build the list once before the first visitor arrives
+    # The list endpoint fills its cache on demand; a floor deep link need not wait for all buildings.
     print(f"SecondStay: {len(buildings)} Los Angeles office buildings · http://127.0.0.1:{port}")
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 
