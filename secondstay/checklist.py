@@ -437,7 +437,8 @@ def _access(f: SpaceFacts) -> Row:
 def _elevator(f: SpaceFacts) -> Row:
     rule = (
         "At least one gurney-sized elevator car must serve all occupied levels (CBC 3002.4.1a). "
-        "Buildings of four stories or fewer may not need one."
+        "Buildings of four stories or fewer may not need one. With an occupied floor more than 120 ft up, not fewer "
+        "than two fire service access elevators, or all elevators if fewer, each also stretcher-sized (CBC 403.6.1)."
     )
     if f.stories is None:
         state, ev = NO_DATA, "No stories on record."

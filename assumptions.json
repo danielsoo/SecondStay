@@ -21,26 +21,6 @@
     "notes": "Source reports approximately $3-$7/sqft for LA commercial retrofits. Team assumption: midpoint $5; treat the published range as including a 30% soft-cost allowance and divide by 1.30 before adding scenario soft costs. This allocation is not a contractor breakdown. No time or location adjustment; publication date unavailable. Confirm scope before budgeting."
   },
   "sprinklers.verify_coverage": {
-    "unit": "lump",
-    "fixed": {
-      "low": null,
-      "typical": null,
-      "high": null
-    },
-    "rate": {
-      "low": null,
-      "typical": null,
-      "high": null
-    },
-    "source": "",
-    "published": "",
-    "accessed": "2026-11-14",
-    "confidence": "needs inspection",
-    "excludes": "No amount included in totals.",
-    "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "Coverage survey needs a site-specific fire-protection quote; installation rates do not price a survey."
-  },
-  "fire_alarm.install": {
     "unit": "sqft",
     "fixed": {
       "low": null,
@@ -58,27 +38,45 @@
     "confidence": "needs inspection",
     "excludes": "No amount included in totals.",
     "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "No isolated Los Angeles retrofit alarm rate verified; the bundled conversion benchmark includes multiple systems."
+    "unpriced_reason": "No team price for adapting existing coverage over the converted area; the LA permit price book supplies one when built."
+  },
+  "fire_alarm.install": {
+    "unit": "sqft",
+    "fixed": {
+      "low": 0,
+      "typical": 0,
+      "high": 0
+    },
+    "rate": {
+      "low": 0.32,
+      "typical": 0.64,
+      "high": 16.64
+    },
+    "source": "https://media.api.sf.gov/documents/BLA.High_Rise_Sprinkler_Retrofit_Costs.080326.pdf",
+    "published": "2026-08-03",
+    "accessed": "2026-11-15",
+    "confidence": "estimated",
+    "excludes": "Monitoring service fees. The report prices bringing an existing residential system to code; devices in every new sleeping room of a converted office may cost more.",
+    "notes": "San Francisco Budget and Legislative Analyst, High Rise Fire Sprinkler Retrofit Ordinance Cost Estimates (2026-08-03), built from interviews with C-16 fire protection contractors and city departments for a 50-unit residential high-rise. San Francisco figures used for Los Angeles without a location adjustment. Fire alarm brought to NFPA 72: $200-$400 per home; electrical upgrades to support it up to $10,000 per home. Team assumption: low $200, typical $400, high $400 plus $10,000 electrical, per home, divided by 625 gross sq ft per home (our 500 sq ft planning unit at 80% usable area)."
   },
   "seismic.evaluate": {
     "unit": "lump",
     "fixed": {
-      "low": null,
-      "typical": null,
-      "high": null
+      "low": 0,
+      "typical": 0,
+      "high": 0
     },
     "rate": {
-      "low": null,
-      "typical": null,
-      "high": null
+      "low": 15000,
+      "typical": 40000,
+      "high": 100000
     },
-    "source": "",
-    "published": "",
-    "accessed": "2026-11-14",
-    "confidence": "needs inspection",
-    "excludes": "No amount included in totals.",
-    "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "Engineering investigation scope and testing are not known; obtain a structural engineer quote."
+    "source": "https://www.mmcginvest.com/post/seismic-risk-in-commercial-real-estate-the-definitive-guide-for-lender-developers-and-investors",
+    "published": "2026-04-08",
+    "accessed": "2026-11-15",
+    "confidence": "estimated",
+    "excludes": "Concrete coring and material testing that LADBS asks for in concrete buildings, and retrofit design. The fee is itself a soft cost, so the scenario soft-cost allowance on top of it reads high.",
+    "notes": "ASCE 41 evaluation fees from one industry guide: Tier 2 (simplified analysis) $15,000-$40,000, Tier 3 (nonlinear analysis) $30,000-$100,000+. Team assumption: low is the Tier 2 floor, typical the Tier 2 top, high the top of the Tier 3 range, which the guide leaves open-ended ($100,000+). Tall concrete buildings may run above it. Not checked against engineer quotes."
   },
   "seismic.strengthen": {
     "unit": "sqft",
@@ -332,27 +330,26 @@
     "confidence": "needs inspection",
     "excludes": "No amount included in totals.",
     "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+    "unpriced_reason": "No published cost found for adding this to an existing building: not in LA permit records (too few permits), and the San Francisco high-rise retrofit report does not price it."
   },
   "highrise.fire_pump_water_supply": {
     "unit": "lump",
     "fixed": {
-      "low": null,
-      "typical": null,
-      "high": null
+      "low": 0,
+      "typical": 0,
+      "high": 0
     },
     "rate": {
-      "low": null,
-      "typical": null,
-      "high": null
+      "low": 90000,
+      "typical": 350000,
+      "high": 675000
     },
-    "source": "",
-    "published": "",
-    "accessed": "2026-11-14",
-    "confidence": "needs inspection",
-    "excludes": "No amount included in totals.",
-    "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+    "source": "https://media.api.sf.gov/documents/BLA.High_Rise_Sprinkler_Retrofit_Costs.080326.pdf",
+    "published": "2026-08-03",
+    "accessed": "2026-11-15",
+    "confidence": "estimated",
+    "excludes": "The secondary on-site water supply (tank) for high-rises in high seismic areas, water main work, asbestos and electrical upgrades are not separated.",
+    "notes": "San Francisco Budget and Legislative Analyst, High Rise Fire Sprinkler Retrofit Ordinance Cost Estimates (2026-08-03), built from interviews with C-16 fire protection contractors and city departments for a 50-unit residential high-rise. San Francisco figures used for Los Angeles without a location adjustment. Low: a new or upgraded fire pump only ($90,000, where a pump room to NFPA 20 already exists). Typical: the report's mid-range scenario, new pump $150,000 plus pump room $200,000. High: pump upgrade $175,000, pump room $300,000 and fire service line $200,000."
   },
   "highrise.emergency_power": {
     "unit": "lump",
@@ -377,22 +374,21 @@
   "highrise.fire_command_center": {
     "unit": "lump",
     "fixed": {
-      "low": null,
-      "typical": null,
-      "high": null
+      "low": 0,
+      "typical": 0,
+      "high": 0
     },
     "rate": {
-      "low": null,
-      "typical": null,
-      "high": null
+      "low": 150000,
+      "typical": 200000,
+      "high": 300000
     },
-    "source": "",
-    "published": "",
-    "accessed": "2026-11-14",
-    "confidence": "needs inspection",
-    "excludes": "No amount included in totals.",
-    "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+    "source": "https://media.api.sf.gov/documents/BLA.High_Rise_Sprinkler_Retrofit_Costs.080326.pdf",
+    "published": "2026-08-03",
+    "accessed": "2026-11-15",
+    "confidence": "estimated",
+    "excludes": "The command panels themselves (fire alarm annunciator, voice, elevator and smoke control status) are not included.",
+    "notes": "San Francisco Budget and Legislative Analyst, High Rise Fire Sprinkler Retrofit Ordinance Cost Estimates (2026-08-03), built from interviews with C-16 fire protection contractors and city departments for a 50-unit residential high-rise. San Francisco figures used for Los Angeles without a location adjustment. Proxy, no direct figure: the report's cost of a dedicated pump room of 100-200 sq ft built to NFPA 20 ($150,000 low, $200,000 mid-range, $300,000 high), used for a fire command center, which the code sets at a dedicated room of at least 200 sq ft with a 1-hour separation."
   },
   "highrise.smoke_control": {
     "unit": "lump",
@@ -412,7 +408,7 @@
     "confidence": "needs inspection",
     "excludes": "No amount included in totals.",
     "notes": "See docs/cost-sources.md.",
-    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+    "unpriced_reason": "No published cost found for adding this to an existing building: not in LA permit records (too few permits), and the San Francisco high-rise retrofit report does not price it."
   },
   "elevator.gurney_car": {
     "unit": "each",

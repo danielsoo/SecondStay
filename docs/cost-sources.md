@@ -72,8 +72,9 @@ Sensitivity describes only the priced subset when costs are incomplete.
 
 ## Price research and derivations
 
-Access date for every source below: **2026-11-14**. Two catalog entries have
-published local anchors; thirteen deliberately remain unpriced. The two estimates
+Access date for every source below: **2026-11-14**. In this first price book, two
+catalog entries had published local anchors; the update of 2026-11-15 further down
+adds Los Angeles permit prices and published figures. The two estimates
 are **Team-assumption allocations**, not disaggregated contractor quotations.
 No unsupported rate was inferred from a whole-project cost.
 
@@ -123,28 +124,78 @@ Team ranges are occupancy **90% / 95% / 98%** and operating share **25% / 30% / 
 The endpoints and reuse of 2024 typical ratios without a 2026 adjustment are Team
 assumptions. Utility metering, taxes and insurance need property-specific confirmation.
 
-### Why the remaining keys are unpriced
+### Update 2026-11-15: Los Angeles permit prices, building-wide work and published figures
 
-| Key | Missing price basis / intended scale |
+The entries above were the first price book. Where a later price exists, the cost
+screen uses it and keeps the earlier source in the line's notes. Ranges are low /
+typical / high. Rates from permits are the 25th percentile, median and 75th percentile.
+
+**Los Angeles permit price book** (`la_permit_prices.json`, built by
+`python -m secondstay.la_costs`, then `--building` for building-wide work). LADBS
+building permits ([2020 to present](https://data.lacity.org/d/pi9x-tg5x),
+[2010 to 2019](https://data.lacity.org/d/dyxf-7hc4)) were read by a language model,
+which labelled each permit's work. New buildings, revisions and other work were left out.
+Declared job values tend to run below final cost.
+
+| Key | Unit | Low / typical / high | Permits | How it was measured |
+|---|---|---|---|---|
+| units.kitchen | each | $6,000 / $10,000 / $17,000 | 231 | Apartment kitchen work, value per kitchen stated |
+| units.bathroom | each | $5,000 / $7,200 / $10,000 | 544 | Apartment bathroom work, value per bathroom stated |
+| units.fitout | sqft | $31.66 / $58.33 / $71.57 | 521 | Interior work in commercial space, value per stated sq ft |
+| sprinklers.install | sqft | $2.77 / $8.77 / $18.42 | 142 | Whole-building sprinkler jobs, value per sq ft of building |
+| seismic.strengthen | sqft | $3.19 / $5.37 / $7.76 | 594 | Whole-building seismic strengthening, value per sq ft of building |
+| highrise.emergency_power | lump | $30,000 / $55,000 / $100,000 | 21 | Generator jobs on buildings of at least 50,000 sq ft |
+| elevator.fire_service_access | each | $65,000 / $180,000 / $240,000 | 25 | New or modernised cars on large buildings, value per car |
+
+Building-wide permits rarely state the building's size, so each permit was joined by
+its parcel number to the [LA County assessor's building area](https://public.gis.lacounty.gov/public/rest/services/LACounty_Cache/LACounty_Parcel/MapServer/0).
+Fewer than 8 usable permits leaves a key out of the book: fire alarm (2), fire pump
+(1), smoke control (4) and fire command center (0) fell short. LADBS fire sprinkler
+and electrical permits were also checked; their values are those of the whole
+project or are empty, so they were not used.
+
+**sprinklers.verify_coverage** (confirm and adapt an existing system). It is now
+measured in sq ft over the area to be converted, not as one study. No source prices
+adapting a system alone, so the LA install rate above is used as an upper estimate.
+Cross-check: LAFD estimated $6,000 per home to add sprinklers to existing residential
+high-rises (2017 recommendation, reported by Gov1 in 2020; the link is kept in `la_permit_prices.json` under `published`),
+about $9 per sq ft at 625 gross sq ft per home. That is close to the permit median.
+
+**Elevators** (rules, not prices). [CBC 403.6.1](https://gocodebook.com/library/us/ca/ca-building-code/chapter-4-special-detailed-requirements-based-on-occupancy-and-use/section-403-high-rise-buildings-and-group-i-2-occupancies-having-occupied-floors)
+(2025 edition): with an occupied floor more than 120 ft up, not fewer than two fire
+service access elevators, or all elevators if fewer, each at least 3,500 lb and
+meeting CBC 3002.4 (stretcher size). The change list therefore counts two fire
+service access cars and no separate gurney-sized car. Below 120 ft, buildings of more
+than four stories get one gurney-sized car (CBC 3002.4.1a).
+
+**Published figures** (in `assumptions.json`, confidence "estimated"):
+
+| Key | Unit | Low / typical / high | Source and reading |
+|---|---|---|---|
+| seismic.evaluate | lump | $15,000 / $40,000 / $100,000 | [MMCG Invest guide](https://www.mmcginvest.com/post/seismic-risk-in-commercial-real-estate-the-definitive-guide-for-lender-developers-and-investors), 2026-04-08: ASCE 41 Tier 2 $15,000-$40,000, Tier 3 $30,000-$100,000+. One industry guide; tall concrete buildings may cost more; coring and material testing are excluded |
+| highrise.fire_pump_water_supply | lump | $90,000 / $350,000 / $675,000 | [San Francisco Budget and Legislative Analyst](https://media.api.sf.gov/documents/BLA.High_Rise_Sprinkler_Retrofit_Costs.080326.pdf), 2026-08-03, built from C-16 contractor interviews for a 50-unit residential high-rise. Low: pump only. Typical: pump $150,000 plus pump room $200,000. High: pump upgrade, pump room and fire service line |
+| fire_alarm.install | sqft | $0.32 / $0.64 / $16.64 | Same report: alarm to NFPA 72 $200-$400 per home, electrical upgrades up to $10,000 per home, divided by 625 gross sq ft per home |
+| highrise.fire_command_center | lump | $150,000 / $200,000 / $300,000 | Same report, a proxy: a dedicated 100-200 sq ft pump room. A command center is a dedicated room of at least 200 sq ft; its panels are excluded |
+
+San Francisco figures are used without a location adjustment.
+
+**Least to open one home.** Converting one home brings the whole building under
+the rules. The screen therefore shows called-for building-wide work in full plus one
+home's average share of the per-home work (fit-out, kitchen, bathroom, and coverage
+adaptation over the converted area). Possible building-wide work is shown beside
+it, as an amount that may be added, never inside the minimum.
+
+### Keys still unpriced
+
+| Key | Missing price basis |
 |---|---|
-| sprinklers.verify_coverage | Survey scope and access; fixed study quote needed |
-| fire_alarm.install | Isolated retrofit system rate per sqft not established |
-| seismic.evaluate | Investigation/testing scope; fixed engineer quote needed |
-| seismic.strengthen | Structural design; no defensible per-sqft rate yet |
+| highrise.smoke_control | Too few LA permits; not in the San Francisco report |
+| highrise.smokeproof_stairs | No LA permit key; not in the San Francisco report |
 | planning.conditional_use_permit | Site-specific planning application and consultant scope |
-| highrise.smokeproof_stairs | Per-stair enclosure and ventilation design |
-| highrise.fire_pump_water_supply | Pump, tank and supply capacity; sprinkler overlap unresolved |
-| highrise.emergency_power | Emergency generator and distribution design |
-| highrise.fire_command_center | Room, equipment and system integration scope |
-| highrise.smoke_control | Smoke-control engineering and equipment scope |
-| egress.add_stair | Per-story structural/enclosure design and dimensions |
+| egress.add_stair | Per-story structural and enclosure design |
 | escape.add_openings | Per-opening size, wall construction and support |
-| elevator.gurney_car | Per-car equipment, shaft and modernization scope |
-| elevator.fire_service_access | Per-car protected access and controls scope |
-| historic.review | Fixed consultant scope/hours |
-| units.fitout | Residual interior scope after separately priced systems |
-| units.kitchen | New kitchenette scope, not a household remodel proxy |
-| units.plumbing_run | Main/riser routing and capacity; bathroom-local runs already counted |
+| historic.review | Fixed consultant scope and hours |
+| units.plumbing_run | Main and riser routing; bathroom-local runs already counted |
 
 Overlap checks: the AECOM construction benchmarks include MEP, interior work,
 soft costs and contingency; they cannot be assigned to `units.fitout` and added
@@ -235,5 +286,5 @@ Its `units` and `vacant` arguments are explicit caller assumptions.
 - **Screen verification:** 144 automated tests and live local HTTP recalculation
   passed. Browser visual checks were blocked by unavailable browser access and
   unsupported URL-policy enforcement in the available Windows Firefox window.
-- **Pricing:** obtain separated contractor quotes for the 18 unpriced keys and
+- **Pricing:** obtain separated contractor quotes for the 7 keys still unpriced and
   replace the two provisional soft-cost allocations and the duration proxy.

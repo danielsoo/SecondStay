@@ -91,11 +91,17 @@ def test_tall_building_brings_high_rise_and_elevator_changes():
     by_key, _ = changes(year_built=1975, zone="C4", stories=20, height_ft=280.0, passenger_elevators=8,
                         building_sqft=400000.0)
     for key in ("highrise.smokeproof_stairs", "highrise.fire_pump_water_supply", "highrise.emergency_power",
-                "highrise.fire_command_center", "highrise.smoke_control", "elevator.fire_service_access",
-                "elevator.gurney_car"):
+                "highrise.fire_command_center", "highrise.smoke_control", "elevator.fire_service_access"):
         assert by_key[key].certainty == POSSIBLE, key
     assert by_key["highrise.smokeproof_stairs"].quantity is None
-    assert "8 passenger elevators" in by_key["elevator.gurney_car"].reason
+    # CBC 403.6.1: two fire service access cars, which also meet the stretcher rule, so no separate gurney car
+    assert by_key["elevator.fire_service_access"].quantity == 2
+    assert "8 passenger elevators" in by_key["elevator.fire_service_access"].reason
+    assert "elevator.gurney_car" not in by_key
+    one_car, _ = changes(year_built=1975, zone="C4", stories=20, height_ft=280.0, passenger_elevators=1)
+    assert one_car["elevator.fire_service_access"].quantity == 1  # all elevators, when fewer than two
+    mid, _ = changes(year_built=1975, zone="C4", stories=8, height_ft=100.0, passenger_elevators=3)
+    assert "elevator.fire_service_access" not in mid and mid["elevator.gurney_car"].quantity == 1
     assert by_key["units.fitout"].scope == "building"  # no scan, so sized on the whole building
 
 

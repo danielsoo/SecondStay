@@ -16,7 +16,7 @@ def reading(**seen):
 
 def test_visible_heads_turn_an_unknown_install_into_confirming_coverage():
     out, considered = cost_reading.apply([change("sprinklers.install", UNKNOWN)], reading(sprinkler_heads="seen"))
-    assert [(c.key, c.certainty, c.unit) for c in out] == [("sprinklers.verify_coverage", POSSIBLE, "lump")]
+    assert [(c.key, c.certainty, c.unit) for c in out] == [("sprinklers.verify_coverage", POSSIBLE, "sqft")]
     assert "read from images" in out[0].reason
     assert {c["key"] for c in considered} == set(cost_reading.FIELDS)
 

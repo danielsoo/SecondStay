@@ -35,7 +35,7 @@ CATALOG = {
     "historic.review": "lump",
     # Fire protection
     "sprinklers.install": "sqft",
-    "sprinklers.verify_coverage": "lump",
+    "sprinklers.verify_coverage": "sqft",  # over the area to be converted
     "fire_alarm.install": "sqft",
     # High-rise provisions (highest occupied level more than 75 ft up)
     "highrise.smokeproof_stairs": "each",
@@ -131,6 +131,11 @@ def changes_for(facts: SpaceFacts, rows: list, current_year: int) -> list:
 
     whole = facts.building_sqft
     whole_basis = "Rentable building area on record" if whole else "Building area not on record"
+    # The area to be converted: the scan, else the selected space, else the whole building.
+    scanned = sum(a for a in facts.floor_areas_sqft if a)
+    area, scope, basis = (scanned, "space", "Floor area measured in the scan") if scanned else (
+        (facts.space_sqft, "space", f"{facts.space_label or 'Selected space'} area on record")
+        if facts.space_label else (whole, "building", whole_basis))
 
     # Planning path: age and zone
     age = current_year - facts.year_built if facts.year_built is not None else None
@@ -148,14 +153,14 @@ def changes_for(facts: SpaceFacts, rows: list, current_year: int) -> list:
 
     # Sprinklers and fire alarm
     if row["sprinklers"].state == FOUND:
-        add("sprinklers.verify_coverage", "sprinklers", "Confirm and adapt sprinkler coverage", POSSIBLE, 1,
-            "One study", "building", row["sprinklers"].evidence)
+        add("sprinklers.verify_coverage", "sprinklers", "Confirm and adapt sprinkler coverage", POSSIBLE, area or None,
+            basis if area else "Not measured", scope, row["sprinklers"].evidence)
     elif facts.has_sprinklers is False:
         add("sprinklers.install", "sprinklers", "Install sprinkler coverage", CALLED_FOR, whole, whole_basis,
             "building", "The record shows no sprinkler system.")
     elif facts.has_sprinklers:
-        add("sprinklers.verify_coverage", "sprinklers", "Confirm and adapt sprinkler coverage", POSSIBLE, 1,
-            "One study", "building",
+        add("sprinklers.verify_coverage", "sprinklers", "Confirm and adapt sprinkler coverage", POSSIBLE, area or None,
+            basis if area else "Not measured", scope,
             "A sprinkler system is on record. Its coverage and whether it suits a residential layout are not recorded.")
     else:
         add("sprinklers.install", "sprinklers", "Install sprinkler coverage", UNKNOWN, whole, whole_basis,
@@ -189,13 +194,21 @@ def changes_for(facts: SpaceFacts, rows: list, current_year: int) -> list:
             "building", where)
         add("highrise.smoke_control", "height", "Smoke control system", certainty, 1, "One system",
             "building", where)
-        if top > FIRE_SERVICE_ELEVATOR_FT:
-            add("elevator.fire_service_access", "elevator", "Fire service access elevator", POSSIBLE, 1,
-                "At least one", "building",
-                f"The highest occupied level is at roughly {top:.0f} ft by our estimate, above 120 ft.")
+    # CBC 403.6.1: above 120 ft, not fewer than two fire service access elevators, or all elevators if fewer, each of
+    # at least 3,500 lb and meeting CBC 3002.4 (stretcher size). Those cars then also serve as the gurney-sized car.
+    fire_service = top is not None and top >= NEAR_HIGH_RISE_FT and top > FIRE_SERVICE_ELEVATOR_FT
+    if fire_service:
+        cars = min(2, facts.passenger_elevators) if facts.passenger_elevators else 2
+        on_record = (f"{facts.passenger_elevators} passenger elevators are on record"
+                     if facts.passenger_elevators else "No passenger elevator count is on record")
+        add("elevator.fire_service_access", "elevator", "Fire service access elevators", POSSIBLE, cars,
+            "Not fewer than two, or all elevators if fewer (CBC 403.6.1)", "building",
+            f"The highest occupied level is at roughly {top:.0f} ft by our estimate, above 120 ft. {on_record}; "
+            "whether existing cars can be upgraded (3,500 lb, protected lobbies, stretcher size) is not recorded. "
+            "These cars also meet the gurney-sized car rule, so it is not counted again.")
 
-    # Gurney-sized elevator
-    if facts.stories is not None and facts.stories > 4:
+    # Gurney-sized elevator, needed on its own only where no fire service access elevator is
+    if facts.stories is not None and facts.stories > 4 and not fire_service:
         cars = (f"{facts.passenger_elevators} passenger elevators are on record; cab size is not."
                 if facts.passenger_elevators else "No passenger elevator is on record.")
         add("elevator.gurney_car", "elevator", "Gurney-sized elevator car", POSSIBLE, 1, "At least one",
@@ -228,10 +241,6 @@ def changes_for(facts: SpaceFacts, rows: list, current_year: int) -> list:
             "space", escape.evidence)
 
     # Building the homes
-    scanned = sum(a for a in facts.floor_areas_sqft if a)
-    area, scope, basis = (scanned, "space", "Floor area measured in the scan") if scanned else (
-        (facts.space_sqft, "space", f"{facts.space_label or 'Selected space'} area on record")
-        if facts.space_label else (whole, "building", whole_basis))
     if area:
         units = int(area * USABLE_SHARE / facts.planning_unit_sqft)
         sized = (f"{units} units at our planning assumption of {facts.planning_unit_sqft:.0f} sq ft each "

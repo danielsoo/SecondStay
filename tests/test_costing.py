@@ -295,3 +295,22 @@ def test_json_wording_and_real_price_book(changes, prices, income):
         assert all(field in data[key] for field in ("published", "accessed", "source", "notes", "excludes"))
     assert_wording(data)
     assert not BANNED.search(Path("docs/cost-sources.md").read_text(encoding="utf-8").replace(NOTICE, ""))
+
+
+def test_building_wide_prices_use_the_parcel_area_and_large_buildings_only():
+    from secondstay import la_costs
+
+    def permit(n, value, apn, kind, covers="whole_building", cars=None):
+        row = {"permit_nbr": str(n), "issue_date": "2022-01-01T00:00:00", "valuation": str(value), "apn": apn,
+               "dataset": "pi9x-tg5x", "work_desc": "x"}
+        lab = {"kind": kind, "covers": covers, "elevator_cars": cars, "new_building": False, "revision": False, "scope": "s"}
+        return row, lab
+
+    pairs = [permit(i, 200_000 + i * 1000, "1", "sprinkler_system") for i in range(8)]  # 100,000 sq ft: about $2 per sq ft
+    pairs += [permit(100, 50_000, "1", "sprinkler_system", covers="part")]  # one floor: left out
+    pairs += [permit(200 + i, 300_000, "2", "emergency_generator") for i in range(8)]  # small building: left out
+    rows = [r for r, _ in pairs]
+    labels = {r["permit_nbr"]: l for r, l in pairs}
+    prices, counts = la_costs.build_building(rows, labels, {"1": 100_000, "2": 20_000})
+    assert prices["sprinklers.install"]["unit"] == "sqft" and 2.0 <= prices["sprinklers.install"]["rate"]["typical"] <= 2.1
+    assert counts["sprinklers.install"] == 8 and "highrise.emergency_power" not in prices

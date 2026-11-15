@@ -122,8 +122,12 @@ def apply(changes: list, reading: dict) -> tuple:
     for c in changes:
         if c.key == "sprinklers.install" and seen["sprinkler_heads"] == "seen":
             if c.certainty == UNKNOWN:
+                fitout = next((f for f in changes if f.key == "units.fitout" and f.quantity), None)
                 out.append(replace(c, key="sprinklers.verify_coverage", title="Confirm and adapt sprinkler coverage",
-                                   certainty=POSSIBLE, quantity=1, unit="lump", quantity_basis="One study",
+                                   certainty=POSSIBLE, unit="sqft",
+                                   quantity=fitout.quantity if fitout else c.quantity,
+                                   quantity_basis=fitout.quantity_basis if fitout else c.quantity_basis,
+                                   scope=fitout.scope if fitout else c.scope,
                                    reason="Sprinkler heads are visible in the tour photos (read from images). "
                                           "Whole-building coverage still needs confirmation."))
                 notes["sprinkler_heads"] = ("The record is silent and heads are visible, so a full new system "

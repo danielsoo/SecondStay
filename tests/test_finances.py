@@ -138,3 +138,58 @@ def test_http_cost_routes_validate_and_serve_assets(context, monkeypatch):
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+def test_one_home_carries_the_whole_building_work_and_one_home_share():
+    from secondstay.finances import one_home
+
+    def line(key, certainty, status="priced", low=0.0, typical=0.0, scope="building", title=None):
+        allowances = {"low": low, "typical": typical} if status == "priced" else None
+        return {"key": key, "certainty": certainty, "status": status, "scope": scope, "title": title or key,
+                "cost_with_allowances": allowances}
+
+    base = {"lines": [
+        line("sprinklers.install", "called_for", low=500_000, typical=800_000, title="Install sprinklers"),
+        line("seismic.evaluate", "called_for", status="not priced", title="Seismic analysis"),
+        line("highrise.emergency_power", "possible", status="not priced", title="Emergency generator"),
+        line("units.fitout", "called_for", low=1_000_000, typical=2_000_000),
+        line("units.bathroom", "called_for", low=500_000, typical=600_000),
+    ]}
+    result = one_home(base, 100)
+    assert result["building"]["low"] == 500_000 and result["per_home"]["low"] == 15_000
+    assert result["total"]["low"] == 515_000 and result["total"]["typical"] == 826_000
+    assert result["building_to_quote"] == ["Seismic analysis"] and result["building_possible"] == ["Emergency generator"]
+    assert one_home(base, None) is None
+
+
+def test_one_home_reports_possible_building_work_beside_the_minimum():
+    from secondstay.finances import one_home
+
+    def line(key, certainty, status, low=0.0, scope="building"):
+        return {"key": key, "certainty": certainty, "status": status, "scope": scope, "title": key,
+                "cost_with_allowances": {"low": low, "typical": low * 2} if status == "priced" else None}
+
+    base = {"lines": [line("units.fitout", "called_for", "priced", 1_000_000)]}
+    wider = {"lines": [line("units.fitout", "called_for", "priced", 1_000_000),
+                       line("highrise.emergency_power", "possible", "priced", 400_000),
+                       line("highrise.smoke_control", "possible", "not priced")]}
+    result = one_home(base, 10, wider)
+    assert result["total"]["low"] == 100_000  # the possible generator is not inside the minimum
+    assert result["building_if_needed"]["low"] == 400_000
+    assert result["building_possible_unpriced"] == ["highrise.smoke_control"]
+
+
+def test_one_home_shares_coverage_adaptation_between_the_homes():
+    from secondstay.finances import one_home
+
+    def line(key, certainty, low):
+        return {"key": key, "certainty": certainty, "status": "priced", "scope": "space", "title": key,
+                "cost_with_allowances": {"low": low, "typical": low * 2}}
+
+    base = {"lines": [line("units.fitout", "called_for", 1_000_000)]}
+    wider = {"lines": base["lines"] + [line("sprinklers.verify_coverage", "possible", 300_000)]}
+    result = one_home(base, 10, wider)
+    # measured over the converted area, so one home carries a tenth of it, not all of it
+    assert result["building_if_needed"]["low"] == 30_000
+    assert result["building_if_needed_items"] == [{"title": "sprinklers.verify_coverage", "low": 30_000, "per_home": True}]
+    assert result["building_possible_unpriced"] == []

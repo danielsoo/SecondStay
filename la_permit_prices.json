@@ -219,6 +219,420 @@
      "scope": "Non-structural demolition and office improvement"
     }
    ]
+  },
+  "sprinklers.install": {
+   "unit": "sqft",
+   "fixed": {
+    "low": 0,
+    "typical": 0,
+    "high": 0
+   },
+   "rate": {
+    "low": 2.77,
+    "typical": 8.77,
+    "high": 18.42
+   },
+   "source": "https://data.lacity.org/d/pi9x-tg5x",
+   "measures": "LADBS building permits, declared job value (sprinkler installation in existing buildings, per sq ft of building)",
+   "published": "2026-11-15",
+   "accessed": "2026-11-15",
+   "confidence": "LA permit records; declared values tend to run below final cost",
+   "notes": "LADBS building permits, declared job value (sprinkler installation in existing buildings, per sq ft of building). 25th percentile / median / 75th percentile of 142 LA permits issued 2015-04-06 to 2026-11-03, each value divided by its stated quantity (implausible per-unit values from misread quantities dropped). Permits were read and labelled by a language model; new buildings, revisions and other work were left out. Building-wide work: each permit joined by its parcel to the LA County assessor's building area.",
+   "excludes": "Declared job values; design fees, permits and tenant disruption are not included. Rates are per sq ft of the whole building (LA County assessor area).",
+   "permits": 142,
+   "period": [
+    "2015-04-06",
+    "2026-11-03"
+   ],
+   "examples": [
+    {
+     "permit": "18016-20000-37290",
+     "issued": "2019-05-21",
+     "value": 55000.0,
+     "per_unit": 8.8,
+     "scope": "NFPA 13 fire sprinklers throughout for remodel"
+    },
+    {
+     "permit": "18016-20000-14389",
+     "issued": "2018-09-26",
+     "value": 370000.0,
+     "per_unit": 8.74,
+     "scope": "Change of use with fire sprinklers throughout"
+    },
+    {
+     "permit": "19016-20000-11306",
+     "issued": "2019-10-11",
+     "value": 50000.0,
+     "per_unit": 8.67,
+     "scope": "Interior remodel with NFPA 13D sprinklers required"
+    },
+    {
+     "permit": "22016-10000-16706",
+     "issued": "2022-08-19",
+     "value": 50000.0,
+     "per_unit": 8.93,
+     "scope": "Fire sprinklers for emergency homeless shelter"
+    },
+    {
+     "permit": "26014-20000-01374",
+     "issued": "2026-11-03",
+     "value": 60000.0,
+     "per_unit": 8.51,
+     "scope": "convert restaurant to duplex with laundry room and sprinklers"
+    },
+    {
+     "permit": "24014-20000-05476",
+     "issued": "2025-07-10",
+     "value": 200000.0,
+     "per_unit": 9.07,
+     "scope": "Change of use and addition, sprinklers throughout"
+    }
+   ]
+  },
+  "seismic.strengthen": {
+   "unit": "sqft",
+   "fixed": {
+    "low": 0,
+    "typical": 0,
+    "high": 0
+   },
+   "rate": {
+    "low": 3.19,
+    "typical": 5.37,
+    "high": 7.76
+   },
+   "source": "https://data.lacity.org/d/dyxf-7hc4",
+   "measures": "LADBS building permits, declared job value (seismic strengthening of existing buildings, per sq ft of building)",
+   "published": "2026-11-15",
+   "accessed": "2026-11-15",
+   "confidence": "LA permit records; declared values tend to run below final cost",
+   "notes": "LADBS building permits, declared job value (seismic strengthening of existing buildings, per sq ft of building). 25th percentile / median / 75th percentile of 594 LA permits issued 2015-03-05 to 2026-11-03, each value divided by its stated quantity (implausible per-unit values from misread quantities dropped). Permits were read and labelled by a language model; new buildings, revisions and other work were left out. Building-wide work: each permit joined by its parcel to the LA County assessor's building area.",
+   "excludes": "Declared job values; design fees, permits and tenant disruption are not included. Rates are per sq ft of the whole building (LA County assessor area).",
+   "permits": 594,
+   "period": [
+    "2015-03-05",
+    "2026-11-03"
+   ],
+   "examples": [
+    {
+     "permit": "24016-10000-20556",
+     "issued": "2024-09-16",
+     "value": 30000.0,
+     "per_unit": 5.37,
+     "scope": "soft-story retrofit at open front parking garage"
+    },
+    {
+     "permit": "18016-10000-22934",
+     "issued": "2024-07-18",
+     "value": 60000.0,
+     "per_unit": 5.37,
+     "scope": "Soft-story retrofit with two new steel moment frames"
+    },
+    {
+     "permit": "19016-10000-03107",
+     "issued": "2019-10-11",
+     "value": 60000.0,
+     "per_unit": 5.37,
+     "scope": "Soft-story retrofit with four new SCCS"
+    },
+    {
+     "permit": "18016-10000-28938",
+     "issued": "2019-10-30",
+     "value": 90000.0,
+     "per_unit": 5.38,
+     "scope": "soft-story retrofit with moment frame and two SCCs"
+    },
+    {
+     "permit": "18016-10000-07185",
+     "issued": "2019-10-21",
+     "value": 30000.0,
+     "per_unit": 5.39,
+     "scope": "Soft-story seismic retrofit with new wood shear wall"
+    },
+    {
+     "permit": "19016-10000-25307",
+     "issued": "2019-11-14",
+     "value": 60000.0,
+     "per_unit": 5.35,
+     "scope": "soft-story retrofit with three SCCS and grade beams"
+    }
+   ]
+  },
+  "highrise.emergency_power": {
+   "unit": "lump",
+   "fixed": {
+    "low": 0,
+    "typical": 0,
+    "high": 0
+   },
+   "rate": {
+    "low": 30000.0,
+    "typical": 55000.0,
+    "high": 100000.0
+   },
+   "source": "https://data.lacity.org/d/dyxf-7hc4",
+   "measures": "LADBS building permits, declared job value (emergency generator in an existing large building, per building)",
+   "published": "2026-11-15",
+   "accessed": "2026-11-15",
+   "confidence": "LA permit records; declared values tend to run below final cost",
+   "notes": "LADBS building permits, declared job value (emergency generator in an existing large building, per building). 25th percentile / median / 75th percentile of 21 LA permits issued 2015-11-02 to 2026-10-15, each value divided by its stated quantity (implausible per-unit values from misread quantities dropped). Permits were read and labelled by a language model; new buildings, revisions and other work were left out. Building-wide work: each permit joined by its parcel to the LA County assessor's building area.",
+   "excludes": "Declared job values; design fees, permits and tenant disruption are not included. Large buildings only (at least 50,000 sq ft on the assessor roll).",
+   "permits": 21,
+   "period": [
+    "2015-11-02",
+    "2026-10-15"
+   ],
+   "examples": [
+    {
+     "permit": "23016-20000-02230",
+     "issued": "2023-07-26",
+     "value": 55000.0,
+     "per_unit": 55000.0,
+     "scope": "New rooftop wireless installation with fuel tank generator"
+    },
+    {
+     "permit": "24016-10000-32420",
+     "issued": "2026-04-14",
+     "value": 60000.0,
+     "per_unit": 60000.0,
+     "scope": "Provide steel enclosure for building generator equipment"
+    },
+    {
+     "permit": "16020-10000-02154",
+     "issued": "2016-09-07",
+     "value": 50000.0,
+     "per_unit": 50000.0,
+     "scope": "Add backup generator at existing building"
+    },
+    {
+     "permit": "21020-10000-01368",
+     "issued": "2021-10-06",
+     "value": 61000.0,
+     "per_unit": 61000.0,
+     "scope": "Install outdoor standby diesel generator package"
+    },
+    {
+     "permit": "15016-10000-03756",
+     "issued": "2015-11-02",
+     "value": 45000.0,
+     "per_unit": 45000.0,
+     "scope": "Rooftop antennas with generator and equipment enclosures"
+    },
+    {
+     "permit": "17020-10000-02189",
+     "issued": "2017-10-04",
+     "value": 32000.0,
+     "per_unit": 32000.0,
+     "scope": "Concrete pad for outdoor generator"
+    }
+   ]
+  },
+  "elevator.gurney_car": {
+   "unit": "each",
+   "fixed": {
+    "low": 0,
+    "typical": 0,
+    "high": 0
+   },
+   "rate": {
+    "low": 65000.0,
+    "typical": 180000.0,
+    "high": 240000.0
+   },
+   "source": "https://data.lacity.org/d/pi9x-tg5x",
+   "measures": "LADBS building permits, declared job value (new or modernised elevator car in an existing building, per car)",
+   "published": "2026-11-15",
+   "accessed": "2026-11-15",
+   "confidence": "LA permit records; declared values tend to run below final cost",
+   "notes": "LADBS building permits, declared job value (new or modernised elevator car in an existing building, per car). 25th percentile / median / 75th percentile of 25 LA permits issued 2016-02-02 to 2026-08-04, each value divided by its stated quantity (implausible per-unit values from misread quantities dropped). Permits were read and labelled by a language model; new buildings, revisions and other work were left out. Building-wide work: each permit joined by its parcel to the LA County assessor's building area.",
+   "excludes": "Declared job values; design fees, permits and tenant disruption are not included. Per elevator car, on buildings of at least 50,000 sq ft.",
+   "permits": 25,
+   "period": [
+    "2016-02-02",
+    "2026-08-04"
+   ],
+   "examples": [
+    {
+     "permit": "24016-10000-38842",
+     "issued": "2025-04-07",
+     "value": 180000.0,
+     "per_unit": 180000.0,
+     "scope": "accessibility alterations including elevators and common areas"
+    },
+    {
+     "permit": "22016-10000-35488",
+     "issued": "2023-03-22",
+     "value": 199999.0,
+     "per_unit": 199999.0,
+     "scope": "Second floor corridor and elevator lobby renovation"
+    },
+    {
+     "permit": "21016-10000-47543",
+     "issued": "2022-03-16",
+     "value": 200000.0,
+     "per_unit": 200000.0,
+     "scope": "New elevator shaft and machine room"
+    },
+    {
+     "permit": "17014-10000-03693",
+     "issued": "2018-06-08",
+     "value": 200000.0,
+     "per_unit": 200000.0,
+     "scope": "New elevator tower for school building"
+    },
+    {
+     "permit": "24016-10000-25789",
+     "issued": "2024-10-28",
+     "value": 140000.0,
+     "per_unit": 140000.0,
+     "scope": "Suite expansion with new elevator lobby doors"
+    },
+    {
+     "permit": "25016-10000-18460",
+     "issued": "2025-12-23",
+     "value": 221000.0,
+     "per_unit": 221000.0,
+     "scope": "New elevator enclosure and accessible platform lift"
+    }
+   ]
+  },
+  "elevator.fire_service_access": {
+   "unit": "each",
+   "fixed": {
+    "low": 0,
+    "typical": 0,
+    "high": 0
+   },
+   "rate": {
+    "low": 65000.0,
+    "typical": 180000.0,
+    "high": 240000.0
+   },
+   "source": "https://data.lacity.org/d/pi9x-tg5x",
+   "measures": "LADBS building permits, declared job value (new or modernised elevator car in an existing building, per car) (used for fire service access cars)",
+   "published": "2026-11-15",
+   "accessed": "2026-11-15",
+   "confidence": "LA permit records; declared values tend to run below final cost",
+   "notes": "LADBS building permits, declared job value (new or modernised elevator car in an existing building, per car). 25th percentile / median / 75th percentile of 25 LA permits issued 2016-02-02 to 2026-08-04, each value divided by its stated quantity (implausible per-unit values from misread quantities dropped). Permits were read and labelled by a language model; new buildings, revisions and other work were left out. Building-wide work: each permit joined by its parcel to the LA County assessor's building area.",
+   "excludes": "Declared job values; design fees, permits and tenant disruption are not included. Per elevator car, on buildings of at least 50,000 sq ft.",
+   "permits": 25,
+   "period": [
+    "2016-02-02",
+    "2026-08-04"
+   ],
+   "examples": [
+    {
+     "permit": "24016-10000-38842",
+     "issued": "2025-04-07",
+     "value": 180000.0,
+     "per_unit": 180000.0,
+     "scope": "accessibility alterations including elevators and common areas"
+    },
+    {
+     "permit": "22016-10000-35488",
+     "issued": "2023-03-22",
+     "value": 199999.0,
+     "per_unit": 199999.0,
+     "scope": "Second floor corridor and elevator lobby renovation"
+    },
+    {
+     "permit": "21016-10000-47543",
+     "issued": "2022-03-16",
+     "value": 200000.0,
+     "per_unit": 200000.0,
+     "scope": "New elevator shaft and machine room"
+    },
+    {
+     "permit": "17014-10000-03693",
+     "issued": "2018-06-08",
+     "value": 200000.0,
+     "per_unit": 200000.0,
+     "scope": "New elevator tower for school building"
+    },
+    {
+     "permit": "24016-10000-25789",
+     "issued": "2024-10-28",
+     "value": 140000.0,
+     "per_unit": 140000.0,
+     "scope": "Suite expansion with new elevator lobby doors"
+    },
+    {
+     "permit": "25016-10000-18460",
+     "issued": "2025-12-23",
+     "value": 221000.0,
+     "per_unit": 221000.0,
+     "scope": "New elevator enclosure and accessible platform lift"
+    }
+   ]
+  },
+  "sprinklers.verify_coverage": {
+   "unit": "sqft",
+   "fixed": {
+    "low": 0,
+    "typical": 0,
+    "high": 0
+   },
+   "rate": {
+    "low": 2.77,
+    "typical": 8.77,
+    "high": 18.42
+   },
+   "source": "https://data.lacity.org/d/pi9x-tg5x",
+   "measures": "sprinkler installation per sq ft, applied to the area to be converted as an upper estimate for adapting an existing system",
+   "published": "2026-11-15",
+   "accessed": "2026-11-15",
+   "confidence": "estimated",
+   "notes": "LADBS building permits, declared job value (sprinkler installation in existing buildings, per sq ft of building). 25th percentile / median / 75th percentile of 142 LA permits issued 2015-04-06 to 2026-11-03, each value divided by its stated quantity (implausible per-unit values from misread quantities dropped). Permits were read and labelled by a language model; new buildings, revisions and other work were left out. Building-wide work: each permit joined by its parcel to the LA County assessor's building area. Used for adapting existing coverage over the converted area: a new system there is the closest priced job, so this reads high. Cross-check: LAFD estimated $6,000 per home to add sprinklers to existing residential high-rises (2017), about $9 per sq ft at 650 gross sq ft per home.",
+   "excludes": "Declared job values; design fees, permits and tenant disruption are not included. Rates are per sq ft of the whole building (LA County assessor area). Coverage survey and hydraulic calculation fees are not separated.",
+   "permits": 142,
+   "period": [
+    "2015-04-06",
+    "2026-11-03"
+   ],
+   "examples": [
+    {
+     "permit": "18016-20000-37290",
+     "issued": "2019-05-21",
+     "value": 55000.0,
+     "per_unit": 8.8,
+     "scope": "NFPA 13 fire sprinklers throughout for remodel"
+    },
+    {
+     "permit": "18016-20000-14389",
+     "issued": "2018-09-26",
+     "value": 370000.0,
+     "per_unit": 8.74,
+     "scope": "Change of use with fire sprinklers throughout"
+    },
+    {
+     "permit": "19016-20000-11306",
+     "issued": "2019-10-11",
+     "value": 50000.0,
+     "per_unit": 8.67,
+     "scope": "Interior remodel with NFPA 13D sprinklers required"
+    },
+    {
+     "permit": "22016-10000-16706",
+     "issued": "2022-08-19",
+     "value": 50000.0,
+     "per_unit": 8.93,
+     "scope": "Fire sprinklers for emergency homeless shelter"
+    },
+    {
+     "permit": "26014-20000-01374",
+     "issued": "2026-11-03",
+     "value": 60000.0,
+     "per_unit": 8.51,
+     "scope": "convert restaurant to duplex with laundry room and sprinklers"
+    },
+    {
+     "permit": "24014-20000-05476",
+     "issued": "2025-07-10",
+     "value": 200000.0,
+     "per_unit": 9.07,
+     "scope": "Change of use and addition, sprinklers throughout"
+    }
+   ]
   }
  },
  "benchmarks": {
@@ -389,5 +803,20 @@
    "source": "https://propmodo.com/affordable-housing-incentives-drive-major-developer-commitments-in-los-angeles/",
    "note": "A portfolio target, not one building's cost. The Sky Castle building permit declared about $60 million for 512 homes, about $117,000 each: declared permit values run well below project cost."
   }
- ]
+ ],
+ "building_wide": {
+  "built": "2026-11-15",
+  "permits_read": 4824,
+  "permits_labelled": 4824,
+  "kept_by_key": {
+   "sprinklers.install": 142,
+   "fire_alarm.install": 2,
+   "seismic.strengthen": 594,
+   "highrise.emergency_power": 21,
+   "highrise.fire_pump_water_supply": 1,
+   "highrise.smoke_control": 4,
+   "highrise.fire_command_center": 0,
+   "elevator.gurney_car": 25
+  }
+ }
 }

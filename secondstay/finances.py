@@ -5,7 +5,7 @@ from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
 
-from . import costar, cost_reading, costing, la_costs, rents
+from . import costar, cost_reading, costing, income_research, la_costs, rents
 from .changes import from_dicts
 from .economics import LEVELS, entry_issue, number, range_issue, spread
 
@@ -48,8 +48,8 @@ def checked_range(value, label, *, nullable=False, maximum=None):
 
 
 def calculate(context, options):
-    object_fields(options, ("scenario", "selected_keys", "income", "prices", "globals", "quantities", "read_photos"),
-                  "Request")
+    object_fields(options, ("scenario", "selected_keys", "income", "prices", "globals", "quantities", "read_photos",
+                            "read_income"), "Request")
     scenario = options.get("scenario", "base")
     if not isinstance(scenario, str) or scenario not in costing.SCENARIOS:
         raise ValueError("Unknown scenario")
@@ -63,7 +63,10 @@ def calculate(context, options):
         raise ValueError("Select only changes in this space's change list")
     book = costing.load_prices(PRICE_PATH)
     la_book = with_la_prices(book)
-    rent = rent_seed(context["building"])
+    research = income_research.reading(context["building"], (context.get("outside") or {}).get("height_ft"),
+                                       options.get("read_income") is True)
+    researched = research.get("read") and (research.get("rent") or {}).get("monthly_rent_per_unit")
+    rent = dict(research["rent"]) if researched else rent_seed(context["building"])
     kitchen = next((c for c in changes if c.key == "units.kitchen"), None)
     income = {"units": kitchen.quantity if kitchen else None,
               "monthly_rent_per_unit": rent["monthly_rent_per_unit"], "current_monthly_income": spread(0),
@@ -118,7 +121,8 @@ def calculate(context, options):
                    sensitivity=costing.sensitivity(changes, book, income, scenario, selected_keys=selected))
     results["scope"] = ((kitchen.scope + ": " + kitchen.quantity_basis) if kitchen else "Residential unit count unknown")
     results["photos"] = photos
-    results["minimum"] = minimum(results["scenarios"]["base"])
+    results["income_research"] = research
+    results["minimum"] = minimum(results["scenarios"]["base"], income.get("units"), results["scenarios"].get("with_possible"))
     results["la_prices"] = la_book
     return results
 
@@ -138,12 +142,54 @@ def with_la_prices(book):
             "prices": la["prices"], "benchmarks": la["benchmarks"], "published": la.get("published", [])}
 
 
-def minimum(base):
+# Work measured over the converted area is shared between its homes; everything else is building-wide.
+PER_HOME_KEYS = ("sprinklers.verify_coverage",)
+
+
+def per_home_line(line):
+    return line["key"].startswith("units.") or line["key"] in PER_HOME_KEYS
+
+
+def one_home(base, homes, wider=None):
+    """The least to open a single home. Converting even one home brings the whole building under the rules, so this is
+    the building-wide called-for work in full plus one home's average share of the per-home work (fit-out, kitchen,
+    bathroom). Soft costs and contingency are included through each line's cost with allowances."""
+    lines = base["lines"]
+    called = [l for l in lines if l["certainty"] == "called_for"]
+    priced = [l for l in called if l["status"] == "priced" and l.get("cost_with_allowances")]
+    per_home_lines = [l for l in priced if per_home_line(l)]
+    building_lines = [l for l in priced if not per_home_line(l)]
+    if not homes or not per_home_lines:
+        return None
+    building = {k: sum(l["cost_with_allowances"][k] for l in building_lines) for k in ("low", "typical")}
+    per_home = {k: sum(l["cost_with_allowances"][k] for l in per_home_lines) / homes for k in ("low", "typical")}
+    # Work the evidence leaves open (e.g. systems on record whose coverage needs confirming): priced from the scenario
+    # that includes possible work, and reported as an amount that may be added, never inside the minimum. Building-wide
+    # items count in full; items measured over the converted area count as one home's share.
+    wider_lines = (wider or {}).get("lines") or []
+    possible = [l for l in wider_lines if l["certainty"] == "possible"]
+    possible_priced = [l for l in possible if l["status"] == "priced" and l.get("cost_with_allowances")]
+    share = lambda l, k: l["cost_with_allowances"][k] / (homes if per_home_line(l) else 1)
+    if_needed = {k: sum(share(l, k) for l in possible_priced) for k in ("low", "typical")}
+    return {"homes": homes, "building": building, "per_home": per_home,
+            "total": {k: building[k] + per_home[k] for k in ("low", "typical")},
+            "building_priced": [l["title"] for l in building_lines],
+            "per_home_items": [l["title"] for l in per_home_lines],
+            "building_to_quote": [l["title"] for l in called if l["status"] != "priced" and not per_home_line(l)],
+            "building_possible": [l["title"] for l in lines if l["certainty"] == "possible" and l["scope"] == "building"],
+            "building_if_needed": if_needed if possible_priced else None,
+            "building_if_needed_items": [{"title": l["title"], "low": share(l, "low"), "per_home": per_home_line(l)}
+                                         for l in possible_priced],
+            "building_possible_unpriced": [l["title"] for l in possible if l not in possible_priced
+                                           and not per_home_line(l)]}
+
+
+def minimum(base, homes=None, wider=None):
     """The least the published rules call for: called-for work only, at the low end of each price."""
     called = [line for line in base["lines"] if line["certainty"] == "called_for"]
     priced = [line for line in called if line["status"] == "priced"]
     total = base.get("total") or {}
-    return {"low": total.get("low"), "typical": total.get("typical"),
+    return {"low": total.get("low"), "typical": total.get("typical"), "one_home": one_home(base, homes, wider),
             "included": [{"key": l["key"], "title": l["title"], "quantity": l["quantity"], "unit": l["unit"],
                           "low": l["cost"]["low"], "typical": l["cost"]["typical"], "basis": l["quantity_basis"],
                           "source": l["source"], "rate": l["rate"]} for l in priced],
