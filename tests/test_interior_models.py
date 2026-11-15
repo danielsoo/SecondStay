@@ -70,6 +70,7 @@ def test_registered_floor_assembles_multiple_sources_without_recentering(tmp_pat
         'models':[model(10,1),model(11,10)]}))
     result=fg.geometry_for(b,2,'10')
     assert result['registered']
+    assert result['floor_scope']=='partial'
     assert len(result['assembly'])==3
     assert result['assembly'][0]['walls'][0]==pytest.approx([1,0,5,0])
     assert result['assembly'][1]['walls'][0]==pytest.approx([10,0,14,0])

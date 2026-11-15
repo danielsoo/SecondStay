@@ -30,3 +30,13 @@ export function chooseFloorAsset(catalog, floor, key, preferredSpace) {
   const ranked = preferred.length ? preferred : assets;
   return assets.find(a=>a.key===key) || ranked.find(a=>a.geometry_available) || ranked.find(a=>a.plan_url) || ranked[0] || null;
 }
+
+export function floorCoverage(catalog, spaces, floor, shownIds) {
+  const shown = new Set(shownIds.map(String));
+  const assets = floorAssets(catalog,floor);
+  const otherModels = assets.filter(a=>a.geometry_available && a.space_id && !shown.has(String(a.space_id)))
+    .filter((a,i,all)=>all.findIndex(b=>b.space_id===a.space_id)===i);
+  const withoutGeometry = spaces.filter(s=>s.floor===floor && !shown.has(String(s.id))
+    && !assets.some(a=>String(a.space_id)===String(s.id) && a.geometry_available));
+  return {otherModels,withoutGeometry};
+}

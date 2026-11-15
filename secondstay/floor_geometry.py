@@ -250,7 +250,7 @@ def geometry_for(b, floor: int, space_id: str = "", scan_id: str = "") -> dict:
             recorded = full.get('sqft') or 0
             # A small room cannot define the whole-floor perimeter.
             if recorded and ring_area(outline)*10.7639 > recorded*.65:
-                return {**result,'registered':True,'floor_outline':outline,
+                return {**result,'registered':True,'floor_outline':outline,'floor_scope':'whole_floor',
                         'floor_frame':{'basis':'Full-floor scan coordinate frame; geographic orientation is not registered.'},
                         'note':'Full-floor listing and its own Matterport boundary. All rooms retain their original relative coordinates and metre scale. Internal shafts are retained as holes. Geographic orientation is not registered.'}
         return {**result, 'registered': False}
@@ -274,6 +274,8 @@ def geometry_for(b, floor: int, space_id: str = "", scan_id: str = "") -> dict:
     if not value: return result
     outline = private['floors'].get(str(floor))
     if value['registered'] and outline:
+        selected_space = next(s for s in b.spaces if str(s['id']) == str(selected['space_id']))
+        value['floor_scope'] = 'whole_floor' if selected_space.get('full_floor') else 'partial'
         value['floor_outline'] = outline['outline']
         value['floor_frame'] = outline
         value['assembly'] = [g for m in models if m.get('registration') for g in [model_geometry(m)] if g]

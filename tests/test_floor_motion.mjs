@@ -63,3 +63,17 @@ test('floor navigation selects its own sources and retains explicit plan or scan
   assert.equal(sameScope({floor:2,space_id:'21',scan_id:'b'},{floor:2,space_id:'21',scan_id:'c'}),false);
   assert.equal(sameScope({floor:2,asset_key:'plan1'},{floor:2,asset_key:'plan2'}),false);
 });
+
+test('partial floor coverage exposes unplaced models and listings without geometry', async () => {
+  const { floorCoverage } = await import('../secondstay/static/floor_motion.mjs');
+  const catalog = { floors: [{floor:2,assets:[
+    {key:'a',space_id:'10',geometry_available:true},
+    {key:'b',space_id:'11',geometry_available:true},
+    {key:'c',space_id:'11',geometry_available:true},
+    {key:'d',space_id:'12',geometry_available:false,plan_url:'https://example.com/plan.png'}
+  ]}]};
+  const spaces=[{id:10,floor:2},{id:11,floor:2},{id:12,floor:2},{id:13,floor:2},{id:14,floor:3}];
+  const result=floorCoverage(catalog,spaces,2,[10]);
+  assert.deepEqual(result.otherModels.map(a=>a.key),['b']);
+  assert.deepEqual(result.withoutGeometry.map(s=>s.id),[12,13]);
+});

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
-import { floorPose, validFloor, sameScope, chooseFloorAsset } from "./floor_motion.mjs";
+import { floorPose, validFloor, sameScope, chooseFloorAsset, floorCoverage } from "./floor_motion.mjs";
 import { wallSections } from "./opening_layout.mjs";
 import { traceCandidates } from "./plan_trace.mjs";
 
@@ -52,6 +52,12 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
   const legend = document.createElement("div");
   legend.style.cssText = "display:flex;flex-wrap:wrap;gap:16px;margin:12px 0;color:#c5d8df;font-size:13px";
   document.getElementById("floor-source").before(legend);
+  const coverage = document.createElement("section");
+  coverage.className = "panel";
+  coverage.style.cssText = "padding:12px 16px;margin:0 0 12px;border-color:#4a6470";
+  coverage.setAttribute("aria-label","Interior model coverage");
+  coverage.hidden = true;
+  host.before(coverage);
   const geometryCache = new Map(), scopeKey = s => `${s.floor}:${s.asset_key || ""}`;
   let asset = null;
   const planView = document.getElementById("floor-plan-view");
@@ -102,12 +108,42 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
   };
   function showGeometry(value) {
     geometry = value; clearVectors(); geometrySpan = span; legend.replaceChildren();
+    coverage.replaceChildren(); coverage.hidden = true;
     for(const child of [...planSlab.children]) { child.geometry?.dispose(); child.material?.dispose(); planSlab.remove(child); }
     if (!value?.available) return;
     if(value.registered && value.floor_outline) {
-      const shape = new THREE.Shape(value.floor_outline.map(([x,y])=>new THREE.Vector2(x,y)));
-      const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.22,bevelEnabled:false}).rotateX(-Math.PI/2),new THREE.MeshStandardMaterial({color:0xb2bec1,transparent:true,opacity:.26,side:THREE.DoubleSide}));
-      planSlab.add(mesh);
+      if(value.floor_scope === "whole_floor") {
+        const shape = new THREE.Shape(value.floor_outline.map(([x,y])=>new THREE.Vector2(x,y)));
+        const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:.22,bevelEnabled:false}).rotateX(-Math.PI/2),new THREE.MeshStandardMaterial({color:0xb2bec1,transparent:true,opacity:.26,side:THREE.DoubleSide}));
+        planSlab.add(mesh);
+      } else {
+        // A source perimeter is context, not evidence of an empty floor surface.
+        const outline = new THREE.BufferGeometry().setFromPoints(value.floor_outline.map(([x,y])=>new THREE.Vector3(x,.25,-y)));
+        const boundary = new THREE.LineLoop(outline,new THREE.LineDashedMaterial({color:0x8fb7c7,dashSize:1,gapSize:.6,transparent:true,opacity:.65}));
+        boundary.computeLineDistances(); planSlab.add(boundary);
+        coverage.hidden = false;
+        const models = value.assembly || [value];
+        const heading = document.createElement("strong");
+        heading.textContent = `Partial floor model · shown: ${models.map(m=>m.space_id ? `Suite ${m.suite || "on record"}` : m.suite || "Linked geometry").join(" + ")}`;
+        const explanation = document.createElement("p"); explanation.style.margin="6px 0";
+        explanation.textContent = "The dashed boundary marks the source floor perimeter. Remaining interiors are not represented; their occupancy is not inferred.";
+        coverage.append(heading,explanation);
+        const missing = floorCoverage(data.floor_sources,b.spaces,selected,models.map(m=>m.space_id).filter(Boolean));
+        if(missing.otherModels.length) {
+          const line = document.createElement("div"); line.style.cssText="display:flex;align-items:center;flex-wrap:wrap;gap:8px";
+          const caption = document.createElement("span"); caption.textContent="Other suite models, not placed in this floor frame:"; line.append(caption);
+          for(const item of missing.otherModels) {
+            const button=document.createElement("button"); button.className="btn"; button.textContent=`Open ${item.label}`;
+            button.onclick=()=>{ data.interiorAsset=item.key; selectFloor(selected,"isolated"); }; line.append(button);
+          }
+          coverage.append(line);
+        }
+        if(missing.withoutGeometry.length) {
+          const line=document.createElement("p"); line.className="sub"; line.style.margin="8px 0 0";
+          line.textContent="Listed spaces without a linked interior model: "+missing.withoutGeometry.map(s=>s.suite ? `Suite ${s.suite}` : "Listed space").join(", ");
+          coverage.append(line);
+        }
+      }
     }
     for(const model of value.assembly || [value]) renderGeometry(model);
     if(value.floor_outline) {
@@ -311,5 +347,5 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
     note.textContent = value.note;
   };
   return { selectFloor, setMode() {}, get floor() { return selected; },
-    dispose() { planView.hidden=true; planView.replaceChildren(); host.classList.remove("plan-only"); legend.remove(); alive = false; request++; clearVectors(); bitmap?.close(); file.onchange = null; apply.onclick = null; preview.onpointerdown = preview.onpointerup = null; preview.hidden = true; apply.disabled = true; host.classList.remove("floor-mode"); stage.dispose(); } };
+    dispose() { planView.hidden=true; planView.replaceChildren(); host.classList.remove("plan-only"); legend.remove(); coverage.remove(); alive = false; request++; clearVectors(); bitmap?.close(); file.onchange = null; apply.onclick = null; preview.onpointerdown = preview.onpointerup = null; preview.hidden = true; apply.disabled = true; host.classList.remove("floor-mode"); stage.dispose(); } };
 }
