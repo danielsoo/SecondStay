@@ -77,3 +77,12 @@ test('partial floor coverage exposes unplaced models and listings without geomet
   assert.deepEqual(result.otherModels.map(a=>a.key),['b']);
   assert.deepEqual(result.withoutGeometry.map(s=>s.id),[12,13]);
 });
+
+test('a model placed in the floor frame opens before one that is not placed', () => {
+  const loose = { key: 'loose', space_id: '30', geometry_available: true, registered: false };
+  const placed = { key: 'placed', space_id: '31', geometry_available: true, registered: true };
+  const catalog = { floors: [{ floor: 18, assets: [loose, placed] }] };
+  assert.equal(chooseFloorAsset(catalog, 18, '', ''), placed);
+  assert.equal(chooseFloorAsset(catalog, 18, 'loose', ''), loose); // an explicit choice is kept
+  assert.equal(chooseFloorAsset(catalog, 18, '', '30'), loose); // so is the selected listing's own model
+});

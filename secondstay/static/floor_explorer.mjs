@@ -184,7 +184,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
     foot.textContent = a.note + ` Where a space has no plan, the floor shows a ${GRID_FT} ft reference grid, not invented rooms.`;
     ledger.append(head, bar, list, foot);
     const lines = a.parts.filter(p => p.kind !== "unrecorded").slice(0, 5).map(p =>
-      `<div><b>${p.label}</b> · ${SQFT(p.sqft)} <span class="why">· ${({drawn:"drawn", listed_unplaced:"model not placed", listed_plan:"plan image only",
+      `<div><b>${p.label}</b> · ${SQFT(p.sqft)} <span class="why">· ${p.placed ? "placed model, not shown" : ({drawn:"drawn", listed_unplaced:"model not placed", listed_plan:"plan image only",
         listed_tour:"tour only", listed_none:"no plan or scan", leased:"tenant plans not public"})[p.kind] || ""}</span></div>`);
     cardEl.innerHTML = `<div><b>Floor ${selected}</b> · ${a.floorSqft ? SQFT(a.floorSqft) : "size not recorded"}</div>` +
       (lines.join("") || '<div class="why">No space on the market on this floor.</div>');

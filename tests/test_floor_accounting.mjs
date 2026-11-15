@@ -51,3 +51,18 @@ test("grid lines stay inside the outline", () => {
   const across = gridSegments([ell], 6).find(([, y1, , y2]) => y1 === 6 && y2 === 6);
   assert.deepEqual(across, [0, 6, 4, 6]); // stops at the inside corner of the L
 });
+
+test("a placed model that is not on screen is not called unplaced", () => {
+  const building = { floors: [{ floor: 18, sqft: 18000 }], spaces: [
+    { id: 1, suite: "1800", floor: 18, sqft: 18000 }, { id: 2, suite: "", floor: 18, sqft: 17000 }] };
+  const catalog = { floors: [{ floor: 18, assets: [
+    { key: "a", space_id: "1", geometry_available: true, registered: true },
+    { key: "b", space_id: "2", geometry_available: true, registered: false }] }] };
+  const shown = [{ space_id: "2", suite: "", units: "plan_relative", rooms: [] }];
+  const parts = floorAccounting({ building, catalog, floor: 18, shownModels: shown }).parts;
+  assert.equal(parts[0].label, "Listed space");
+  const suite = parts.find((p) => p.label === "Suite 1800");
+  assert.equal(suite.kind, "listed_unplaced");
+  assert.match(suite.reason, /placed on this floor/);
+  assert.equal(suite.placed, true);
+});

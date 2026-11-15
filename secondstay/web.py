@@ -153,6 +153,22 @@ def read_image(b: costar.Building, context: bool = False) -> bytes:
     return image
 
 
+def read_surface(b: costar.Building) -> dict:
+    """The Vexcel surface grid over the building's image, for laying the photo on in 3D. Cached under data/raw/."""
+    cached = OUTSIDE_CACHE / f"{b.property_id}.surface-v1.json"
+    if cached.exists():
+        return json.loads(cached.read_text())
+    if os.environ.get("SECONDSTAY_OFFLINE"):
+        raise FileNotFoundError("No cached surface is available.")
+    outside = read_outside(b)
+    if not outside.bbox:
+        raise FileNotFoundError("No imagery bounds are available.")
+    surface = vexcel.fetch_surface(outside.bbox, outside.ground_m)
+    OUTSIDE_CACHE.mkdir(parents=True, exist_ok=True)
+    cached.write_text(json.dumps(surface, separators=(",", ":")))
+    return surface
+
+
 def outside_fields(o: vexcel.Outside) -> dict:
     feet = lambda v: f"about {v:,.0f} ft" if v is not None else None
     area = f"about {o.footprint_sqft:,.0f} sq ft" if o.footprint_sqft else None
@@ -404,6 +420,7 @@ def list_payload(buildings: list) -> dict:
     for b in buildings:
         card = building_card(b)
         card["scans"] = len(b.scans)
+        card["tours"] = sum(1 for sp in b.spaces if sp["scans"])  # listed spaces with their own Matterport tour
         for key in ("aerial_urls", "parcel_numbers"):
             card.pop(key)
         card["floor_plan_count"] = len(b.floor_plans)
@@ -426,6 +443,88 @@ def list_payload(buildings: list) -> dict:
 
 
 _list_cache = {"at": 0.0, "data": None}
+
+
+REGION_ZOOM = 14  # about 7 m per pixel: the whole set of buildings on one Vexcel image
+REGION_PAD = 0.012  # degrees of margin around the buildings
+_city_cache = {"data": None}
+
+
+def region_box(buildings: list) -> list:
+    lats = [b.latitude for b in buildings if b.latitude is not None]
+    lons = [b.longitude for b in buildings if b.longitude is not None]
+    return [round(min(lons) - REGION_PAD, 6), round(min(lats) - REGION_PAD, 6),
+            round(max(lons) + REGION_PAD, 6), round(max(lats) + REGION_PAD, 6)]
+
+
+def region_image(buildings: list) -> bytes:
+    """One Vexcel image under every building on the landing view. Cached under data/raw/ (git-ignored)."""
+    box = region_box(buildings)
+    cached = OUTSIDE_CACHE / f"region.{'_'.join(map(str, box))}.z{REGION_ZOOM}.jpg"
+    if not cached.exists():
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        cached.write_bytes(vexcel.fetch_image(box, zoom=REGION_ZOOM))
+    return cached.read_bytes()
+
+
+def market_minimum(b: costar.Building, book) -> dict:
+    """The least the published rules call for, for the space this building has on the market.
+
+    Same checklist and price book as the review screen, without reading scans or calling a model.
+    """
+    from . import costing
+    year = datetime.date.today().year
+    facts = costar.to_facts(b)
+    facts.plan_reading = plan_reading(b)
+    outside = read_outside(b, fetch=False)
+    if outside.loaded:
+        vexcel.to_facts(outside, facts)
+    add_street_facts(facts, read_streets(b, outside, fetch=False), (STREET_CACHE / f"{b.property_id}.json").exists())
+    facts.space_sqft, facts.space_label = b.available_sqft or None, "Space on the market"
+    permit_summary, public, plan_summary = evidence.load(b)
+    rows = evidence.apply(build_checklist(facts, year), facts, permit_summary, public, None, plan_summary)
+    changes = changes_for(facts, rows, year)
+    estimate = costing.estimate(changes, book, scenario="base")
+    homes = next((c.quantity for c in changes if c.key == "units.kitchen"), None)
+    low = (estimate.get("total") or {}).get("low")
+    return {"minimum": low, "homes": homes, "per_home": low / homes if low and homes else None,
+            "to_quote": len(estimate["left_out"]), "to_confirm": sum(1 for c in changes if c.certainty == "possible"),
+            "issues": sum(1 for r in rows if r.state == "Possible issue")}
+
+
+_city_costs = {"data": None, "lock": threading.Lock()}
+
+
+def city_costs(buildings: list) -> dict:
+    """Minimum cost and open items per building, keyed by property id. Takes most of a minute; cached."""
+    with _city_costs["lock"]:
+        if _city_costs["data"] is None:
+            from . import costing
+            book = costing.load_prices(finances.PRICE_PATH)
+            finances.with_la_prices(book)
+            _city_costs["data"] = {str(b.property_id): market_minimum(b, book) for b in buildings}
+    return _city_costs["data"]
+
+
+def city_payload(buildings: list) -> dict:
+    """Every building on the market with its measured footprint and height, for the landing view."""
+    if _city_cache["data"] is None:
+        rows = []
+        for b in buildings:
+            outside = read_outside(b, fetch=False)
+            rows.append({
+                "property_id": b.property_id, "name": b.name, "address": b.address,
+                "latitude": b.latitude, "longitude": b.longitude, "stories": b.stories,
+                "height_ft": outside.height_ft if outside.loaded else None,
+                "footprint": [vexcel.simplify_ring(r) for r in outside.footprint] if outside.loaded else [],
+                "available_sqft": b.available_sqft, "spaces": len(b.spaces),
+                "tours": sum(1 for s in b.spaces if s["scans"]), "plans": sum(1 for s in b.spaces if s["plan_url"]),
+                # Bounds of /api/spaces/<id>/aerial.jpg?context=1, laid in sharp when the camera comes close.
+                "photo_bbox": context_bbox(outside.bbox) if outside.loaded else [],
+            })
+        _city_cache["data"] = {"bbox": region_box(buildings), "image": "/api/city/aerial.jpg", "buildings": rows,
+                               "image_source": "Vexcel aerial imagery"}
+    return _city_cache["data"]
 
 
 def cached_list(buildings: list, keep_seconds: float = 300.0) -> dict:
@@ -551,6 +650,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(result)
             except ValueError as error:
                 return self._json({"error": str(error)}, 400)
+        if url.path == "/api/city":
+            return self._json(city_payload(list(self.buildings.values())))
+        if url.path == "/api/city/costs":
+            return self._json(city_costs(list(self.buildings.values())))
+        if url.path == "/api/city/aerial.jpg":
+            try:
+                return self._send(200, region_image(list(self.buildings.values())), "image/jpeg")
+            except Exception as error:  # no key or provider failure: the landing view falls back to a plain ground
+                return self._json({"error": f"Regional imagery unavailable ({type(error).__name__})."}, 503)
         if url.path == "/api/spaces":
             return self._json(cached_list(list(self.buildings.values())))
         if url.path == "/api/agent":
@@ -598,10 +706,15 @@ class Handler(BaseHTTPRequestHandler):
             if not path.exists():
                 return self._json({"error": "Not found"}, 404)
             return self._send(200, path.read_bytes(), "image/jpeg")
-        match = re.fullmatch(r"/api/spaces/(\d+)(/next-steps\.md|/aerial\.jpg)?", url.path)
+        match = re.fullmatch(r"/api/spaces/(\d+)(/next-steps\.md|/aerial\.jpg|/surface\.json)?", url.path)
         building = self.buildings.get(int(match.group(1))) if match else None
         if building is None:
             return self._json({"error": "Not found"}, 404)
+        if match.group(2) == "/surface.json":
+            try:
+                return self._json(read_surface(building))
+            except Exception:
+                return self._json({"error": "The surface could not be read"}, 502)
         if match.group(2) == "/aerial.jpg":
             try:
                 return self._send(200, read_image(building, context=query.get("context") == ["1"]), "image/jpeg")
@@ -637,6 +750,8 @@ def main(port: int = 8000) -> None:
     # The list endpoint fills its cache on demand; a floor deep link need not wait for all buildings.
     print(f"SecondStay: {len(buildings)} Los Angeles office buildings · http://127.0.0.1:{port}")
     threading.Thread(target=_warm_agent, daemon=True).start()
+    # Warm the slow landing data in the background: the building table first, then the per-building costs.
+    threading.Thread(target=lambda: (cached_list(buildings), city_costs(buildings)), daemon=True).start()
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 
 

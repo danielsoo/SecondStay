@@ -65,3 +65,33 @@ def test_closest_pair_gives_the_measured_gap_and_its_end_points():
     assert abs(feet - 10 * 3.28084) < 0.5
     assert abs((here[0] - LON) / M_LON - 20) < 0.2 and abs((there[0] - LON) / M_LON - 30) < 0.2
     assert closest_pair(a, []) is None
+
+
+def test_read_surface_turns_a_big_endian_dsm_into_heights_above_ground():
+    import io
+    import math
+    from array import array
+
+    from PIL import Image
+    from PIL.TiffImagePlugin import ImageFileDirectory_v2
+
+    from secondstay.vexcel import read_surface
+
+    # A 40 x 40 tile of 1 m pixels in Web Mercator: ground at 100 m, one 30 m block in the middle.
+    size, r = 40, 6378137.0
+    west, north = -118.0, 34.0
+    x0, y0 = math.radians(west) * r, math.log(math.tan(math.pi / 4 + math.radians(north) / 2)) * r
+    heights = array("f", (130.0 if 15 <= i % size < 25 and 15 <= i // size < 25 else 100.0 for i in range(size * size)))
+    heights.byteswap()  # Vexcel writes big-endian floats
+    image = Image.frombytes("F", (size, size), heights.tobytes())
+    tags = ImageFileDirectory_v2()
+    tags[33550] = (1.0, 1.0, 0.0)
+    tags[33922] = (0.0, 0.0, 0.0, x0, y0, 0.0)
+    buffer = io.BytesIO()
+    image.save(buffer, format="TIFF", tiffinfo=tags)
+    east = west + math.degrees(size / r)
+    south = math.degrees(2 * math.atan(math.exp((y0 - size) / r)) - math.pi / 2)
+    surface = read_surface(buffer.getvalue(), [west, south, east, north], ground_m=100.0, size=8)
+    assert surface["size"] == 8 and len(surface["heights"]) == 64
+    assert max(surface["heights"]) > 25 and min(surface["heights"]) == 0
+    assert surface["heights"][0] == 0 and surface["heights"][4 * 8 + 4] > 25

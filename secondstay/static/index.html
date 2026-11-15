@@ -98,6 +98,28 @@
   .metric .k { font: 10px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
   .metric .v { font: 600 18px var(--mono); color: var(--ink); }
   .metric .v small { font-size: 11px; color: var(--muted); font-weight: 400; }
+  /* On the building view the figures sit in one thin strip along the bottom edge, so the model stays in view. */
+  #stage .hud.bl { gap: 0; flex-wrap: nowrap; overflow-x: auto; bottom: 10px; left: 10px; right: auto; max-width: calc(100% - 20px);
+    background: rgba(8, 13, 22, 0.72); backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: 10px; pointer-events: auto; scrollbar-width: none; }
+  #stage .hud.bl .metric { background: none; border: 0; border-radius: 0; backdrop-filter: none; padding: 5px 11px; min-width: 0; white-space: nowrap; }
+  #stage .hud.bl .metric + .metric { border-left: 1px solid var(--line); }
+  #stage .hud.bl .metric .k { font-size: 9px; } #stage .hud.bl .metric .v { font-size: 14px; }
+  #stage .hud.br { bottom: 58px; right: 96px; padding: 5px 9px; border-radius: 8px; background: rgba(8, 13, 22, 0.8); border: 1px solid #2a3a52; color: var(--ink); }
+  #stage .hud.bl { max-width: calc(100% - 20px); }
+  #stage .hud.bl .metric { flex-shrink: 0; }
+  #stage .hud.tl .spacechip { font-size: 12px; padding: 4px 9px; }
+  #stage .hud.tl .sub { font-size: 12.5px; } #stage .hud h1 { font-size: 22px; }
+  #stage .hud.tr .badge { font-size: 12px; }
+  .tour-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+  .tour-filter button { font: 600 12px var(--mono); padding: 5px 10px; border-radius: 999px; cursor: pointer;
+    background: var(--panel2); color: var(--muted); border: 1px solid var(--line); }
+  .tour-filter button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); background: #10263a; }
+  .tour-yes { color: var(--accent); font-weight: 600; }
+  .hud-toggle { position: absolute; z-index: 4; right: 12px; bottom: 58px; font: 600 11px var(--mono); padding: 5px 9px; border-radius: 8px;
+    background: rgba(8, 13, 22, 0.8); color: var(--ink); border: 1px solid #2a3a52; cursor: pointer; }
+  .hud-toggle:hover { border-color: var(--accent); }
+  #stage.clean .hud, #stage.clean .labels { display: none; }
+  #stage.clean .hud-toggle { background: rgba(8, 13, 22, 0.55); }
   .metric.hot .v { color: var(--amber); }
   .spacechip { display: inline-block; margin-top: 8px; padding: 5px 10px; border-radius: 8px; font-size: 13px; pointer-events: auto;
     background: rgba(8, 13, 22, 0.78); border: 1px solid #2a3a52; backdrop-filter: blur(8px); }
@@ -106,6 +128,20 @@
   .market { max-height: 262px; overflow: auto; }
   .market thead th { position: sticky; top: 0; background: var(--panel); }
   .yes { color: var(--found); font-weight: 600; font-size: 12.5px; }
+  .stage.city { height: min(78vh, 780px); }
+  .stage.city .hud.tl { max-width: 460px; padding: 14px 16px; border-radius: 12px; background: rgba(6, 10, 17, 0.8);
+    backdrop-filter: blur(6px); border: 1px solid rgba(143, 211, 232, 0.18); }
+  .stage.city .eyebrow { font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+  .stage.city h1 { font-size: 26px; margin: 0 0 6px; }
+  .stage.city .legend { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; }
+  .stage.city .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+  .city-card { font: 12px var(--mono); line-height: 1.5; padding: 8px 11px; border-radius: 8px; background: rgba(6, 10, 17, 0.9);
+    border: 1px solid #2f6f62; color: var(--ink); white-space: nowrap; pointer-events: none; }
+  .city-card b { color: var(--accent); font-size: 13px; } .city-card .why { color: var(--muted); }
+  .city-card .cost-line { color: #5fe0a0; font-weight: 600; }
+  .stage.city .tour-switch { pointer-events: auto; margin-bottom: 6px; }
+  .stage.city .tour-switch[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #06121b; border-color: var(--accent); font-weight: 600; }
   .floor-ledger { padding: 12px 16px; margin: 0 0 12px; }
   #tour-view { position: absolute; inset: 0; z-index: 4; background: #000; display: flex; flex-direction: column;
     opacity: 0; transform: scale(0.94); transition: opacity 0.6s ease, transform 0.6s ease; }
@@ -435,6 +471,39 @@ function introPhotoHeight(width, depth, centerX, centerY, aspect, fov, preferred
   return Math.min(preferred, 0.98 * Math.min(halfWidth / aspect, halfDepth) / tangent);
 }
 
+// Vexcel's surface heights as a colourless, see-through shell: whatever stands above the ground (neighbouring
+// buildings, trees, cars) keeps its shape without the stretched photo. Ground-level cells draw nothing, and cells
+// inside `flatten` rings (this building, in the same metre grid) are left out so the drawn model stands alone.
+// The grid's centre is the image centre; its cells run west to east, then north to south.
+const SURFACE_MIN_M = 1.2;
+function surfaceShell(surface, width, depth, flatten = [], material = null) {
+  const n = surface.size, geometry = new THREE.PlaneGeometry(width, depth, n - 1, n - 1).rotateX(-Math.PI / 2);
+  const position = geometry.attributes.position;
+  const inside = (x, y, ring) => { let hit = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit; } return hit; };
+  const pad = 1.5; // metres: the footprint edge in the surface is a little soft
+  const grown = flatten.map((ring) => { const mx = ring.reduce((a, p) => a + p[0], 0) / ring.length, my = ring.reduce((a, p) => a + p[1], 0) / ring.length;
+    return ring.map(([px, py]) => { const d = Math.hypot(px - mx, py - my) || 1; return [px + ((px - mx) / d) * pad, py + ((py - my) / d) * pad]; }); });
+  const raised = new Uint8Array(position.count);
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i), y = -position.getZ(i);
+    const h = grown.some((ring) => inside(x, y, ring)) ? 0 : Math.max(0, surface.heights[i]);
+    position.setY(i, h); raised[i] = h >= SURFACE_MIN_M ? 1 : 0;
+  }
+  // Keep only triangles that touch something standing; the photo underneath shows the ground itself.
+  const index = geometry.index.array, kept = [];
+  for (let t = 0; t < index.length; t += 3) {
+    if (raised[index[t]] || raised[index[t + 1]] || raised[index[t + 2]]) kept.push(index[t], index[t + 1], index[t + 2]);
+  }
+  geometry.setIndex(kept);
+  position.needsUpdate = true; geometry.computeVertexNormals();
+  const mesh = new THREE.Mesh(geometry, material || new THREE.MeshStandardMaterial({
+    color: 0xd7dee2, transparent: true, opacity: 0.32, roughness: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+  mesh.renderOrder = 1;
+  return mesh;
+}
+
 function buildingScene(host, data) {
   const o = data.outside, b = data.building;
   const stage = makeStage(host);
@@ -485,6 +554,35 @@ function buildingScene(host, data) {
   }
   const grid = new THREE.GridHelper(Math.max(gw, gh) * 3, 60, 0x1c3148, 0x101b2a);
   grid.position.y = -0.3; scene.add(grid);
+  // Lay the photo over Vexcel's surface heights, so the trees, cars, lamps and neighbouring buildings in it stand up
+  // as captured. This building's own cells are pressed flat: its drawn model stands there instead.
+  let draped = false;
+  let surfaceMesh = null;
+  fetch(`/api/spaces/${b.property_id}/surface.json`).then((r) => (r.ok ? r.json() : null)).then((surface) => {
+    if (!surface?.heights || !host.isConnected) return;
+    const n = surface.size;
+    surfaceMesh = surfaceShell(surface, gw, gh, subject);
+    surfaceMesh.position.copy(ground.position); scene.add(surfaceMesh);
+    draped = true;
+    // Standing neighbours can now block the view, so look from the side where the surface is lowest.
+    const heightAt = (x, y) => {
+      const c = Math.round(((x + gw / 2) / gw) * (n - 1)), r = Math.round(((gh / 2 - y) / gh) * (n - 1));
+      return c < 0 || r < 0 || c >= n || r >= n ? 0 : Math.max(0, surface.heights[r * n + c]);
+    };
+    const near = span * 0.6, far = Math.min(Math.max(gw, gh) / 2, reach), base = Math.PI / 4;
+    let best = { score: Infinity, phi: base };
+    for (let k = 0; k < 16; k++) {
+      const phi = base + (k * Math.PI) / 8;
+      let score = 0;
+      for (let spread = -0.25; spread <= 0.25; spread += 0.125) {
+        const dx = Math.cos(phi + spread), dz = Math.sin(phi + spread); // world x east, z south
+        for (let d = near; d <= far; d += 3) score = Math.max(score, heightAt(cx + dx * d, cy - dz * d));
+      }
+      if (score < best.score - 2) best = { score, phi };
+    }
+    turn = -(best.phi - base);
+    if (!intro) setMode(lastKey);
+  }).catch(() => {});
 
   const shapeOf = (ring) => new THREE.Shape(ring.map(([x, y]) => new THREE.Vector2(x - cx, y - cy)));
   const extrude = (ring, height) => new THREE.ExtrudeGeometry(shapeOf(ring), { depth: height, bevelEnabled: false }).rotateX(-Math.PI / 2);
@@ -623,10 +721,13 @@ function buildingScene(host, data) {
   const want = { ...now };
   let fly = null;
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  // Shots that look at the building from a fixed side are turned to the clearest side once the surface is known.
+  const aim = (key, shot) => (turn && !["separation", "access"].includes(key)
+    ? { ...shot, pos: shot.pos.clone().sub(shot.look).applyAxisAngle(v(0, 1, 0), turn).add(shot.look) } : shot);
   const setMode = (key) => {
     lastKey = key;
     if (intro) return; // the intro ends by coming to this view
-    const shot = shots[key] || shots[""];
+    const shot = aim(key, shots[key] || shots[""]);
     Object.assign(want, { explode: 0, lift: 0, flat: 1, ghost: 0.42, near: 0.42, shell: 0.2, limit: 0.08, street: 0.55 }, shot);
     want.near = shot.near ?? want.ghost;
     fly = { t0: performance.now(), ms: 1300, fromPos: camera.position.clone(), fromLook: controls.target.clone(), toPos: shot.pos, toLook: shot.look, from: { ...now } };
@@ -663,8 +764,11 @@ function buildingScene(host, data) {
     if (planImage) planImage.element.style.opacity = planImage.userData.ready ? String(0.92 * now.lift) : "0";
     shell.visible = now.explode < 0.98; shellFill.opacity = now.shell * (1 - now.explode); shellEdge.opacity = 1 - now.explode;
     ghosts.scale.y = nearest.scale.y = Math.max(now.flat * grow, 0.001);
-    ghostFill.opacity = now.ghost; ghostEdge.opacity = now.ghost * 0.3;
-    nearFill.opacity = now.near; nearEdge.opacity = Math.min(1, now.near + 0.15);
+    if (surfaceMesh) surfaceMesh.scale.y = Math.max(grow, 0.001);
+    // With the surface shell in place the neighbours already stand in it; their drawn blocks fade to outlines.
+    const ghostShare = draped ? 0.12 : 1;
+    ghostFill.opacity = now.ghost * ghostShare; ghostEdge.opacity = now.ghost * (draped ? 0.6 : 0.3);
+    nearFill.opacity = now.near * (draped ? 0.35 : 1); nearEdge.opacity = Math.min(1, now.near + 0.15);
     limitMat.opacity = now.limit; limitLine.opacity = Math.min(0.9, now.limit * 6); limit.visible = now.limit > 0.005;
     streetMat.opacity = now.street; laneMat.opacity = now.street * 0.5;
     sweep.position.y = ((t * 0.16) % 1) * H;
@@ -685,7 +789,7 @@ function buildingScene(host, data) {
   const photoHeight = () => introPhotoHeight(gw, gh, cx, cy, camera.aspect, camera.fov, Math.max(span * 2.4, 170));
   const above = v(0, photoHeight(), 0.0001);
   const clamp = (x) => Math.max(0, Math.min(1, x));
-  let intro = null, grow = 1, lastKey = "";
+  let intro = null, grow = 1, lastKey = "", turn = 0;
   const playIntro = () => {
     above.y = photoHeight();
     intro = { t0: performance.now(), ms: 6200 };
@@ -708,7 +812,7 @@ function buildingScene(host, data) {
     groundMat.color.lerpColors(new THREE.Color(0xffffff), new THREE.Color(0xe3e5e1), clamp((k - 0.42) / 0.3));
     trace.children.forEach((line) => { line.material.opacity = 1 - clamp((k - 0.7) / 0.25); });
     // 4. the camera comes down from overhead to the working view
-    const swing = ease(clamp((k - 0.5) / 0.5)), shot = shots[lastKey] || shots[""];
+    const swing = ease(clamp((k - 0.5) / 0.5)), shot = aim(lastKey, shots[lastKey] || shots[""]);
     camera.position.lerpVectors(above, shot.pos, swing); controls.target.lerpVectors(v(0, 0, 0), shot.look, swing);
     say(k < 0.18 ? `Vexcel aerial image${o.captured ? " · captured " + o.captured : ""}`
       : k < 0.45 ? `Tracing ${others.length + 1} building footprints`
@@ -749,97 +853,302 @@ function buildingScene(host, data) {
   return { dispose: stage.dispose, setMode };
 }
 
-/* ---------- every building at once ---------- */
-
-function skylineScene(host, spaces, onPick) {
-  const stage = makeStage(host);
-  const { scene, camera, controls, renderer } = stage;
-  const placed = spaces.filter((s) => s.latitude && s.longitude);
-  const lat0 = placed.reduce((t, s) => t + s.latitude, 0) / placed.length;
-  const lon0 = placed.reduce((t, s) => t + s.longitude, 0) / placed.length;
-  const kx = 111.32 * Math.cos((lat0 * Math.PI) / 180), ky = 110.54; // km
-  const pos = placed.map((s) => [(s.longitude - lon0) * kx, (s.latitude - lat0) * ky]);
-  // scale to where most buildings are, so a few far-off ones do not shrink the cluster
-  const reachKm = pos.map(([x, y]) => Math.max(Math.abs(x), Math.abs(y))).sort((a, c) => a - c);
-  const scale = 120 / Math.max(reachKm[Math.floor(reachKm.length * 0.8)], 1);
-
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(260, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x08101b }));
-  ground.position.y = -0.2; scene.add(ground);
-  scene.add(new THREE.GridHelper(520, 104, 0x1b3350, 0x0e1826));
-  scene.fog.density = 0.0022;
-
-  const meshes = [];
-  placed.forEach((s, i) => {
-    const feet = s.height_ft || (s.stories ? s.stories * 13 : 30);
-    const top = s.stories ? (feet * (s.stories - 1)) / s.stories : feet;
-    const color = top >= HIGH_RISE_FT ? AMBER : CYAN;
-    const side = Math.max(2.2, Math.min(7, Math.sqrt(s.footprint_sqft || 8000) / 28));
-    const h = Math.max(1.2, feet / 9);
-    const geo = new THREE.BoxGeometry(side, h, side); geo.translate(0, h / 2, 0);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.28, roughness: 0.4, depthWrite: false }));
-    mesh.position.set(pos[i][0] * scale, 0, -pos[i][1] * scale);
-    mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), lineMat(color, 0.95)));
-    mesh.userData = s; scene.add(mesh); meshes.push(mesh);
-  });
-
-  camera.position.set(130, 95, 170); controls.target.set(0, 10, 0); controls.autoRotateSpeed = 0.35;
-  controls.minDistance = 40; controls.maxDistance = 520; controls.update();
-
-  const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
-  let hot = null;
-  const light = (mesh, on) => { if (mesh) { mesh.material.opacity = on ? 0.85 : 0.28; mesh.scale.setScalar(on ? 1.12 : 1); } };
-  const pick = (event) => {
-    const box = renderer.domElement.getBoundingClientRect();
-    mouse.set(((event.clientX - box.left) / box.width) * 2 - 1, -((event.clientY - box.top) / box.height) * 2 + 1);
-    ray.setFromCamera(mouse, camera);
-    return ray.intersectObjects(meshes, false)[0]?.object ?? null;
-  };
-  const highlight = (mesh) => { if (mesh !== hot) { light(hot, false); hot = mesh; light(hot, true); } };
-  renderer.domElement.addEventListener("pointermove", (event) => {
-    const mesh = pick(event); highlight(mesh);
-    renderer.domElement.style.cursor = mesh ? "pointer" : "grab";
-    if (!mesh) { tip.style.display = "none"; return; }
-    const s = mesh.userData;
-    tip.innerHTML = `<b>${esc(s.name || s.address)}</b><span>${s.stories ?? "–"} stories · ${s.height_ft ? Math.round(s.height_ft) + " ft" : "height not read"} · built ${s.year_built ?? "–"}</span>`;
-    tip.style.display = "block"; tip.style.left = `${event.clientX + 14}px`; tip.style.top = `${event.clientY + 14}px`;
-  });
-  renderer.domElement.addEventListener("pointerleave", () => { highlight(null); tip.style.display = "none"; });
-  let downAt = null;
-  renderer.domElement.addEventListener("pointerdown", (event) => { downAt = [event.clientX, event.clientY]; });
-  renderer.domElement.addEventListener("pointerup", (event) => {
-    if (downAt && Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) < 5) { const mesh = pick(event); if (mesh) onPick(mesh.userData); }
-  });
-  return { dispose: stage.dispose, highlight: (id) => highlight(meshes.find((m) => m.userData.property_id === id) ?? null) };
-}
-
 /* ---------- screens ---------- */
 
+/* Every building on the market, standing on one Vexcel image of the area they cover. */
+// The auto tour (fly from building to building) can make some people dizzy; the choice is kept per browser.
+function autoTour() { try { return localStorage.getItem("secondstay.autoTour") !== "off"; } catch { return true; } }
+function setAutoTourPreference(on) { try { localStorage.setItem("secondstay.autoTour", on ? "on" : "off"); } catch {} }
+const CITY_EXAGGERATION = 3; // buildings are 60 m wide on a 25 km map, so heights are drawn three times taller
+
+function cityScene(host, city, onPick) {
+  const stage = makeStage(host);
+  const { scene, camera, controls, ticks } = stage;
+  scene.fog = null; camera.far = 80000; camera.updateProjectionMatrix();
+  const [west, south, east, north] = city.bbox;
+  const lat0 = (south + north) / 2, lon0 = (west + east) / 2;
+  const kx = 111320 * Math.cos((lat0 * Math.PI) / 180), ky = 110540;
+  const toM = ([lon, lat]) => [(lon - lon0) * kx, (lat - lat0) * ky];
+  const W = (east - west) * kx, D = (north - south) * ky;
+
+  const groundMat = new THREE.MeshBasicMaterial({ color: 0x1a2230 });
+  new THREE.TextureLoader().load(city.image, (texture) => {
+    texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 8;
+    groundMat.map = texture; groundMat.color.set(0xb8bcc0); groundMat.needsUpdate = true;
+  });
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateX(-Math.PI / 2), groundMat));
+
+  // Buildings rise one after another, west to east.
+  const items = city.buildings.filter((b) => b.latitude != null)
+    .sort((p, q) => p.longitude - q.longitude);
+  const picks = [], risers = [];
+  items.forEach((b, n) => {
+    const [x, y] = toM([b.longitude, b.latitude]);
+    const heightM = (b.height_ft || (b.stories || 3) * 12) * FT * CITY_EXAGGERATION;
+    const color = b.tours ? CYAN : AMBER;
+    const group = new THREE.Group(); group.position.set(x, 0, -y); scene.add(group);
+    let body;
+    const ring = b.footprint?.[0];
+    if (ring && ring.length > 3) {
+      const shape = new THREE.Shape(ring.map((p) => { const [mx, my] = toM(p); return new THREE.Vector2(mx - x, my - y); }));
+      body = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: heightM, bevelEnabled: false }).rotateX(-Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, roughness: 0.5, transparent: true, opacity: 0.92 }));
+    } else {
+      body = new THREE.Mesh(new THREE.BoxGeometry(70, heightM, 70).translate(0, heightM / 2, 0),
+        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, transparent: true, opacity: 0.92 }));
+    }
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(40, 40, 900, 12, 1, true).translate(0, heightM + 450, 0),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    group.add(body, beam);
+    group.scale.y = 0.001;
+    body.userData.building = beam.userData.building = b;
+    picks.push(body, beam);
+    risers.push({ group, beam, delay: 1.2 + n * 0.05, heightM, building: b });
+  });
+
+  // The label renderer sets each element's display from its object, so visibility goes through `card.visible`.
+  const cardEl = document.createElement("div"); cardEl.className = "city-card";
+  const card = new CSS2DObject(cardEl); card.visible = false; scene.add(card);
+  const sqft = (n) => n ? Math.round(n).toLocaleString("en-US") + " sq ft" : "–";
+
+  // Arrive from straight above, then tip into a three-quarter view.
+  // Frame the buildings, not the whole image: they sit in a few districts across it.
+  const xs = risers.map((r) => r.group.position.x), zs = risers.map((r) => r.group.position.z);
+  const center = new THREE.Vector3((Math.min(...xs) + Math.max(...xs)) / 2, 0, (Math.min(...zs) + Math.max(...zs)) / 2);
+  const reach = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 4000);
+  const overhead = center.clone().add(new THREE.Vector3(0, reach * 1.25, 1));
+  const oblique = center.clone().add(new THREE.Vector3(reach * 0.05, reach * 0.5, reach * 0.72));
+  camera.position.copy(overhead); controls.target.copy(center); controls.autoRotate = false;
+  controls.minDistance = 300; controls.maxDistance = Math.max(W, D) * 1.6;
+  let flight = { at: performance.now() + 600, from: overhead.clone(), to: oblique, look: center.clone(), target: center.clone(), ms: 2600 };
+  const ease = (t) => t * t * (3 - 2 * t);
+  let start = null, stretch = 1;
+  ticks.push((t) => {
+    if (start === null) start = t;
+    // Far out, heights are exaggerated and beams mark each building; close in, buildings return to their measured
+    // height over the aerial photo and the beams go, so nothing floats above the real roofs.
+    const far = Math.min(1, Math.max(0, (camera.position.distanceTo(controls.target) - 1500) / 4500));
+    stretch = (1 + (CITY_EXAGGERATION - 1) * far) / CITY_EXAGGERATION;
+    for (const r of risers) {
+      const k = Math.min(1, Math.max(0, (t - start - r.delay) / 0.8));
+      r.group.scale.y = Math.max(0.001, ease(k)) * stretch;
+      const active = hovered || focused;
+      r.beam.material.opacity = 0.32 * ease(k) * far * (active && active !== r.building ? 0.35 : 1);
+      r.beam.visible = far > 0.02;
+    }
+    if (flight) {
+      const k = Math.min(1, Math.max(0, (performance.now() - flight.at) / flight.ms)), e = ease(k);
+      camera.position.lerpVectors(flight.from, flight.to, e); controls.target.lerpVectors(flight.look, flight.target, e);
+      if (flight.hop) camera.position.y += flight.hop * Math.sin(Math.PI * e); // rise over the city between buildings
+      if (k >= 1) { const then = flight.then; flight = null; if (then) then(); else controls.autoRotate = true; }
+    }
+    showcaseTick();
+  });
+  controls.autoRotateSpeed = 0.25;
+
+  const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), canvas = stage.renderer.domElement;
+  let hovered = null, focused = null, downAt = null;
+  const pick = (event) => {
+    const box = canvas.getBoundingClientRect();
+    mouse.set(((event.clientX - box.left) / box.width) * 2 - 1, -((event.clientY - box.top) / box.height) * 2 + 1);
+    ray.setFromCamera(mouse, camera);
+    return ray.intersectObjects(picks.filter((o) => o.visible), false)[0]?.object.userData.building || null;
+  };
+  const riserOf = (b) => risers.find((r) => r.building === b);
+  const dimAllBut = (b) => risers.forEach((r) => r.group.children[0].material.opacity = !b || r.building === b ? 0.92 : 0.35);
+  const money0 = (n) => "$" + Math.round(n).toLocaleString("en-US");
+  const costLine = (b) => {
+    const c = b.cost;
+    if (!c) return '<div class="why">Minimum cost: reading…</div>';
+    if (!c.per_home) return '<div class="why">Minimum cost: not enough area on record</div>';
+    return `<div class="cost-line">From ${money0(c.per_home)} per home · ${Math.round(c.homes)} home${c.homes === 1 ? "" : "s"}</div>
+      <div class="why">${c.to_quote} called-for item${c.to_quote === 1 ? "" : "s"} still to quote · ${c.to_confirm} to confirm</div>`;
+  };
+  function showCard(b, lead = "") {
+    if (!b) { card.visible = false; return; }
+    const r = riserOf(b);
+    cardEl.innerHTML = `${lead ? `<div class="why">${esc(lead)}</div>` : ""}<b>${esc(b.name || b.address)}</b><div>${esc(b.address)}</div>
+      <div>${b.spaces} space${b.spaces === 1 ? "" : "s"} on the market · ${sqft(b.available_sqft)}</div>
+      <div>${b.tours} with a 3D tour · ${b.plans} with a plan</div>
+      ${costLine(b)}
+      <div class="why">${b.height_ft ? Math.round(b.height_ft) + " ft roof" : "height not measured"} · click to open</div>`;
+    card.visible = true;
+    card.position.set(r.group.position.x, r.heightM * stretch + (focused === b ? 70 : 950), r.group.position.z); // close up: just above the roof
+  }
+
+  // The building's own sharper aerial photo, laid over the area image when the camera comes close.
+  const patches = new Map();
+  function sharpPhoto(b) {
+    if (patches.has(b.property_id) || (b.photo_bbox || []).length !== 4) return;
+    const [pw, ps, pe, pn] = b.photo_bbox, [x0, y0] = toM([pw, ps]), [x1, y1] = toM([pe, pn]);
+    const mat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, y1 - y0).rotateX(-Math.PI / 2), mat);
+    plane.position.set((x0 + x1) / 2, 0.8, -(y0 + y1) / 2); plane.renderOrder = 1;
+    patches.set(b.property_id, { plane, ready: false });
+    new THREE.TextureLoader().load(`/api/spaces/${b.property_id}/aerial.jpg?context=1`, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 8; mat.map = texture; mat.needsUpdate = true;
+      scene.add(plane); patches.get(b.property_id).ready = true;
+    }, undefined, () => patches.delete(b.property_id));
+  }
+
+  // Showcase: the area for a few seconds, then one building after another, close up and turning slowly.
+  // Any drag, scroll or pointing pauses it; it picks up again after a quiet spell.
+  const OVERVIEW_MS = 6000, FOCUS_MS = 7000, IDLE_MS = 15000, EVERY = 5;
+  const showcase = { on: autoTour(), next: performance.now() + 600 + 2600 + OVERVIEW_MS, shown: 0, lastInput: 0, last: null };
+  function pickNext() {
+    const pool = risers.filter((r) => r.building !== showcase.last && r.building.footprint?.length);
+    const toured = pool.filter((r) => r.building.tours);
+    const from = toured.length && Math.random() < 0.7 ? toured : pool;
+    return from[Math.floor(Math.random() * from.length)];
+  }
+  function visit(r) {
+    const trueH = r.heightM / CITY_EXAGGERATION; // close up, buildings stand at their measured height
+    const b = r.building, top = new THREE.Vector3(r.group.position.x, trueH * 0.5, r.group.position.z);
+    const d = Math.max(450, trueH * 4.5), turn = Math.random() * Math.PI * 2;
+    focused = b; showcase.last = b; sharpPhoto(b); dimAllBut(b); showCard(b, "Now showing");
+    controls.autoRotate = false;
+    const to = top.clone().add(new THREE.Vector3(Math.cos(turn) * d, d * 0.6, Math.sin(turn) * d));
+    flight = { at: performance.now(), from: camera.position.clone(), to, look: controls.target.clone(), target: top, ms: 3600,
+      hop: Math.min(5000, camera.position.distanceTo(to) * 0.4), then: () => { controls.autoRotateSpeed = 0.9; controls.autoRotate = true; } };
+  }
+  function backOut() {
+    focused = null; dimAllBut(null); card.visible = false; controls.autoRotate = false;
+    flight = { at: performance.now(), from: camera.position.clone(), to: oblique.clone(), look: controls.target.clone(),
+      target: center.clone(), ms: 3000, then: () => { controls.autoRotateSpeed = 0.25; controls.autoRotate = true; } };
+  }
+  function showcaseTick() {
+    const now = performance.now();
+    if (!showcase.on) {
+      if (autoTour() && !hovered && !downAt && now - showcase.lastInput > IDLE_MS) { showcase.on = true; showcase.next = now; }
+      return;
+    }
+    if (flight || now < showcase.next) return;
+    showcase.shown += 1;
+    if (showcase.shown % (EVERY + 1) === 0) { backOut(); showcase.next = now + 3000 + OVERVIEW_MS; return; }
+    const r = pickNext();
+    if (r) { visit(r); showcase.next = now + 3600 + FOCUS_MS; }
+  }
+  function pause() {
+    showcase.on = false; showcase.lastInput = performance.now();
+    if (focused) { focused = null; dimAllBut(hovered); if (!hovered) card.visible = false; }
+  }
+  // Fade each sharp photo in as the camera nears it.
+  ticks.push(() => {
+    for (const [id, p] of patches) {
+      if (!p.ready) continue;
+      const near = camera.position.distanceTo(p.plane.position) < 6000;
+      p.plane.material.opacity += ((near ? 1 : 0) - p.plane.material.opacity) * 0.06;
+    }
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    if (downAt) return;
+    const b = pick(event);
+    if (b === hovered) return;
+    hovered = b; canvas.style.cursor = b ? "pointer" : "";
+    if (b) { pause(); controls.autoRotate = false; } // hold still while a building is pointed at
+    dimAllBut(b || focused); showCard(b || focused, b ? "" : "Now showing");
+    if (b) sharpPhoto(b);
+  });
+  canvas.addEventListener("pointerdown", (event) => { downAt = [event.clientX, event.clientY]; flight = null; controls.autoRotate = false; pause(); });
+  canvas.addEventListener("wheel", pause, { passive: true });
+  canvas.addEventListener("pointerup", (event) => {
+    const moved = downAt && Math.hypot(event.clientX - downAt[0], event.clientY - downAt[1]) > 5; downAt = null;
+    showcase.lastInput = performance.now();
+    if (moved) return;
+    const b = pick(event);
+    if (!b) return;
+    // Fly down to the building, then open its review.
+    const r = riserOf(b), target = new THREE.Vector3(r.group.position.x, r.heightM * 0.4 / CITY_EXAGGERATION, r.group.position.z);
+    card.visible = false;
+    flight = { at: performance.now(), from: camera.position.clone(), to: target.clone().add(new THREE.Vector3(420, 520, 700)),
+      look: controls.target.clone(), target, ms: 1300, then: () => onPick(b) };
+  });
+  return { dispose: stage.dispose, highlight(id) {
+    const r = risers.find((x) => x.building.property_id === id);
+    if (r) pause();
+    dimAllBut(r?.building || null);
+  }, setAutoTour(on) {
+    if (on) { showcase.on = true; showcase.next = performance.now() + 800; return; }
+    showcase.on = false; flight = null; focused = null; dimAllBut(hovered); if (!hovered) card.visible = false;
+    controls.autoRotateSpeed = 0.25; controls.autoRotate = true;
+  }, setCosts(costs) {
+    for (const r of risers) r.building.cost = costs[String(r.building.property_id)] || null;
+    const shown = hovered || focused;
+    if (shown) showCard(shown, focused === shown && !hovered ? "Now showing" : "");
+  } };
+}
+
+// Show all rows, only those with a Matterport tour, or only those without. The choice is remembered per table.
+function tourFilter(id, total, withTour, noun) {
+  return `<div class="tour-filter" role="group" aria-label="Filter ${noun} by Matterport 3D tour" data-filter="${id}">
+    <span class="sub">Matterport 3D tour</span>
+    <button type="button" data-show="all">All ${noun} · ${total}</button>
+    <button type="button" data-show="yes">With a tour · ${withTour}</button>
+    <button type="button" data-show="no">Without a tour · ${total - withTour}</button></div>`;
+}
+function wireTourFilter(root, id) {
+  const bar = root.querySelector(`[data-filter="${id}"]`);
+  if (!bar) return;
+  const table = bar.parentElement.querySelector("table.spaces");
+  const apply = (show) => {
+    bar.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.show === show)));
+    table?.querySelectorAll("tbody tr[data-tour]").forEach((tr) => { tr.hidden = show !== "all" && tr.dataset.tour !== show; });
+    try { localStorage.setItem(`secondstay-${id}`, show); } catch {}
+  };
+  let saved = "all"; try { saved = localStorage.getItem(`secondstay-${id}`) || "all"; } catch {}
+  apply(saved);
+  bar.querySelectorAll("button").forEach((b) => (b.onclick = (event) => { event.stopPropagation(); apply(b.dataset.show); }));
+}
+
 async function showList() {
-  const data = await api("/api/spaces");
-  document.getElementById("notice").textContent = data.notice;
-  const tall = data.spaces.filter((s) => s.height_ft && s.stories && (s.height_ft * (s.stories - 1)) / s.stories >= HIGH_RISE_FT).length;
-  const read = data.spaces.filter((s) => s.height_ft).length;
-  const marketed = data.spaces.reduce((t, s) => t + s.available_sqft, 0) / 1e6;
+  // The map draws from the quick city data; the table below fills in when the slower building list arrives.
+  const city = await api("/api/city");
+  const bs = city.buildings;
+  const tall = bs.filter((s) => s.height_ft && s.stories && (s.height_ft * (s.stories - 1)) / s.stories >= HIGH_RISE_FT).length;
+  const marketed = bs.reduce((t, s) => t + (s.available_sqft || 0), 0) / 1e6;
+  const tours = bs.reduce((t, s) => t + s.tours, 0);
   app.innerHTML = `
-    <div class="stage small" id="stage"><div class="gl"></div><div class="labels"></div>
-      <div class="hud tl"><h1>${data.spaces.length} office buildings, read from three data layers</h1>
-        <div class="sub">CoStar records · Matterport 3D scans · Vexcel aerial imagery. Each bar is one Los Angeles office building at its measured height. Select one to open its evidence review.</div></div>
+    <div class="stage city" id="stage"><div class="gl"></div><div class="labels"></div>
+      <div class="hud tl"><div class="eyebrow">Office to housing · Los Angeles</div>
+        <h1>${bs.length} office buildings with space on the market</h1>
+        <div class="sub">CoStar records · Matterport 3D tours · Vexcel aerial imagery. Each building stands at its place on one Vexcel image, at its measured footprint and roof height (drawn ${CITY_EXAGGERATION}× taller from afar, true height up close). Select one to open its evidence review.</div>
+        <div class="legend"><span><i style="background:#5ad1ff"></i>has a 3D tour</span><span><i style="background:#ffc24a"></i>plan only</span></div></div>
       <div class="hud bl">
-        <div class="metric"><div class="k">Buildings</div><div class="v">${data.spaces.length}</div></div>
-        <div class="metric"><div class="k">Height measured</div><div class="v">${read}</div></div>
-        <div class="metric hot"><div class="k">Top level ≥ 75 ft</div><div class="v">${tall}</div></div>
+        <div class="metric"><div class="k">Buildings</div><div class="v">${bs.length}</div></div>
         <div class="metric"><div class="k">Space on the market</div><div class="v">${marketed.toFixed(1)}<small> M sq ft</small></div></div>
+        <div class="metric"><div class="k">Spaces with a 3D tour</div><div class="v">${tours}</div></div>
+        <div class="metric hot"><div class="k">Top level ≥ 75 ft</div><div class="v">${tall}</div></div>
       </div>
-      <div class="hud br">drag to orbit · scroll to zoom<br>amber: highest occupied level estimated at 75 ft or more</div>
+      <div class="hud br"><button class="btn tour-switch" id="tour-switch" aria-pressed="${autoTour()}">Auto tour: ${autoTour() ? "on" : "off"}</button>
+        <div>drag to orbit · scroll to zoom · hover a building</div></div>
     </div>
     <h2>Buildings, most available space first</h2>
+    <div id="building-table"><p class="loading">Reading every building's evidence…</p></div>`;
+  live = cityScene(document.getElementById("stage"), city, (b) => (location.hash = `#/space/${b.property_id}`));
+  api("/api/city/costs").then((costs) => live?.setCosts?.(costs)).catch(() => {});
+  const tourSwitch = document.getElementById("tour-switch");
+  tourSwitch.onclick = () => {
+    const on = !autoTour(); setAutoTourPreference(on);
+    tourSwitch.textContent = `Auto tour: ${on ? "on" : "off"}`; tourSwitch.setAttribute("aria-pressed", String(on));
+    live?.setAutoTour?.(on);
+  };
+  const data = await api("/api/spaces");
+  const host = document.getElementById("building-table");
+  if (!host) return; // the visitor has moved on
+  document.getElementById("notice").textContent = data.notice;
+  const read = data.spaces.filter((s) => s.height_ft).length;
+  const withTour = data.spaces.filter((s) => s.tours > 0).length;
+  host.innerHTML = `
+    <p class="sub">${read} heights measured from Vexcel imagery.</p>
+    ${tourFilter("building-tours", data.spaces.length, withTour, "buildings")}
     <p class="counts" style="margin:0 0 12px">${data.states.map((s) => badge(s)).join(" ")}</p>
     <div class="panel"><table class="spaces">
       <thead><tr><th>Building</th><th class="num">Built</th><th class="num">Stories</th><th class="num">Height ft</th><th>Zone</th>
         <th class="num">Available sq ft</th><th class="num">Asking $/sq ft/yr</th>
-        <th class="num">No tenancy on record</th><th class="num">Scans</th><th>Requirements by evidence state</th></tr></thead>
+        <th class="num">No tenancy on record</th><th class="num">Suites with a 3D tour</th><th>Requirements by evidence state</th></tr></thead>
       <tbody>${data.spaces.map((s) => `
-        <tr data-id="${s.property_id}">
+        <tr data-id="${s.property_id}" data-tour="${s.tours > 0 ? "yes" : "no"}">
           <td><div class="name">${esc(s.name || s.address)}</div><div class="sub">${esc(s.name ? s.address : "")}</div></td>
           <td class="num">${s.year_built ?? "–"}</td>
           <td class="num">${s.stories ?? "–"}</td>
@@ -848,15 +1157,15 @@ async function showList() {
           <td class="num">${num(s.available_sqft)}</td>
           <td class="num">${s.asking_rent_per_sqft_year ? s.asking_rent_per_sqft_year.toFixed(0) : "–"}</td>
           <td class="num">${s.unaccounted_share == null ? "–" : Math.round(s.unaccounted_share * 100) + "%"}</td>
-          <td class="num">${s.scans}</td>
+          <td class="num">${s.tours ? `<span class="tour-yes">${s.tours}</span>` : '<span class="sub">none</span>'}</td>
           <td>${shortCounts(s.counts)}</td>
         </tr>`).join("")}</tbody>
     </table></div>
     <p class="note">Available space is space being marketed, which can still be occupied. "No tenancy on record" is the share of
       rentable area without a current tenancy in the data; it is an indication of vacancy, and some tenancies have no area recorded.
       Asking rents mix service types. Heights are the highest roof point seen in imagery.</p>`;
-  live = skylineScene(document.getElementById("stage"), data.spaces, (s) => (location.hash = `#/space/${s.property_id}`));
-  app.querySelectorAll("tr[data-id]").forEach((tr) => {
+  wireTourFilter(host, "building-tours");
+  host.querySelectorAll("tr[data-id]").forEach((tr) => {
     tr.onclick = () => (location.hash = `#/space/${tr.dataset.id}`);
     tr.onmouseenter = () => live?.highlight?.(Number(tr.dataset.id));
   });
@@ -1057,11 +1366,13 @@ function mountEvidence3D(host, data, key) {
       base.position.y = 0.01; scene.add(base);
     });
   }
+  let detailed = null;
   for (const [box, suffix, elevation] of layers) {
     if (!box?.length) continue;
     const groundMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const ground = new THREE.Mesh(new THREE.PlaneGeometry((box[2] - box[0]) * kx, (box[3] - box[1]) * ky).rotateX(-Math.PI / 2), groundMat);
     ground.position.copy(world([(box[0] + box[2]) / 2, (box[1] + box[3]) / 2], elevation)); ground.visible = false; scene.add(ground);
+    if (box === o.bbox) detailed = { ground, box };
     new THREE.TextureLoader().load(`/api/spaces/${b.property_id}/aerial.jpg${suffix}`, (texture) => {
       if (!host.isConnected) { texture.dispose(); return; }
       texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 8; groundMat.map = texture; groundMat.needsUpdate = true; ground.visible = true;
@@ -1076,18 +1387,19 @@ function mountEvidence3D(host, data, key) {
     if (onTop) l.renderOrder = 10;
     scene.add(l); return l;
   };
-  const massing = (shape, heightM, color, opacity, edge) => {
+  const massing = (shape, heightM, color, opacity, edge, group = scene) => {
     const g = new THREE.ExtrudeGeometry(shape, { depth: Math.max(heightM, 0.3), bevelEnabled: false }).rotateX(-Math.PI / 2);
-    scene.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, transparent: true, opacity, roughness: 0.8, side: THREE.DoubleSide, depthWrite: false })));
-    scene.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: edge, transparent: true, opacity: 0.7 })));
+    group.add(new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, transparent: true, opacity, roughness: 0.8, side: THREE.DoubleSide, depthWrite: false })));
+    group.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: edge, transparent: true, opacity: 0.7 })));
   };
+  const neighbourGroup = new THREE.Group(); scene.add(neighbourGroup);
   // This building.
   shapes.forEach((shape) => massing(shape, roofM, plainGround ? 0xb8c4cc : 0x5ad1ff, plainGround ? (topicKey ? 0.16 : 0.35) : 0.42, 0x5ad1ff));
   // Neighbours at their measured heights; ones without a reading stay as outlines on the ground.
   if (!plainGround) o.neighbors.forEach((ring, i) => {
     const ft = (o.neighbor_heights_ft || [])[i];
-    if (ft != null) massing(shapeOf(ring), ft * FT, 0xe8eef8, 0.22, 0xffffff);
-    else line(ring.map((p) => world(p, 0.2)), 0xffffff);
+    if (ft != null) massing(shapeOf(ring), ft * FT, 0xe8eef8, 0.22, 0xffffff, neighbourGroup);
+    else neighbourGroup.add(line(ring.map((p) => world(p, 0.2)), 0xffffff));
   });
 
   if (key === "height") {
@@ -1196,6 +1508,18 @@ function mountEvidence3D(host, data, key) {
     camera.position.set(size * 0.35, size * 0.95, size * 0.75);
     controls.target.set(0, 0, 0); controls.maxPolarAngle = Math.PI * 0.49; controls.update();
   }
+  // Separation and access: lay the aerial photo over Vexcel's surface heights, so the trees, cars, lamps and
+  // neighbouring buildings in the photo stand up as captured. The drawn neighbour blocks then step aside.
+  if ((key === "separation" || key === "access") && detailed) {
+    fetch(`/api/spaces/${b.property_id}/surface.json`).then((r) => (r.ok ? r.json() : null)).then((surface) => {
+      if (!surface?.heights || !host.isConnected || sceneStage !== stage) return;
+      const { ground, box } = detailed;
+      const shell = surfaceShell(surface, (box[2] - box[0]) * kx, (box[3] - box[1]) * ky, o.footprint.map((ring) => ring.map(local)));
+      shell.position.copy(ground.position); scene.add(shell);
+      neighbourGroup.visible = false;
+      host.classList.add("draped");
+    }).catch(() => {});
+  }
   ticks.push(() => { if (!host.isConnected && sceneStage === stage) { stage.dispose(); sceneStage = null; } });
 }
 
@@ -1252,10 +1576,11 @@ function aerialView(row, data) {
     const dim = dimensionLine(line, o.bbox);
     const streetsSvg = row.key === "access" ? streetLines(data.streets, o.bbox) : "";
     const legend = row.key === "access"
-      ? "3D view: this building raised to its roof height on the aerial image; yellow bands are public streets from OpenStreetMap; the white line is the measured gap to the closest public street."
-      : "3D view: this building (blue) and the structures around it, each raised to the roof height measured from imagery; outlines on the ground had no height reading. The white line is the measured gap to the closest structure.";
+      ? "3D view: this building (blue) on its block; yellow bands are public streets from OpenStreetMap; the white line is the measured gap to the closest public street."
+      : "3D view: this building (blue) among the structures around it; the white line is the measured gap to the closest structure, taken between footprint outlines.";
+    const surfaceNote = " Everything standing around it (neighbouring buildings, trees, cars) is drawn as a see-through shell from Vexcel's surface heights (DSM); the shapes are approximate and shown for context only. Where the surface is not available, neighbours are drawn as blocks at their measured roof heights.";
     visual = `<div class="stage scene3d" data-scene3d><div class="gl"></div><div class="labels"></div></div>
-      <p class="legend">${legend}${line ? ` ${esc(line.label)}: about ${Math.round(line.feet)} ft.` : ""} Drag to turn the view.</p>
+      <p class="legend">${legend}${line ? ` ${esc(line.label)}: about ${Math.round(line.feet)} ft.` : ""}${surfaceNote} Drag to turn the view.</p>
       <details class="flat-view"><summary>Flat aerial view</summary>
       <div class="aerial"><img src="/api/spaces/${b.property_id}/aerial.jpg" alt="Vexcel aerial image" loading="lazy">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none">${streetsSvg}${outline(o.neighbors, o.bbox, "other")}${outline(o.footprint, o.bbox, "me")}${dim.svg}</svg>${dim.tag}</div></details>${photoBlock}`;
@@ -1495,7 +1820,9 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
         <div class="spacechip" id="flash" style="display:none"></div></div>
       <div class="hud tr">${counts(data.counts)}${scanPicker}</div>
       <div class="hud mid" id="introcap"></div>
-      <div class="hud br">drag to orbit · scroll to zoom<br>select a requirement to bring its evidence forward<br>on a floor, click a suite's room to walk inside its 3D tour<br><a href="#" id="replay" style="pointer-events:auto">replay: aerial photo to model</a></div>
+      <div class="hud br"><span title="Drag to orbit, scroll to zoom. Select a requirement to bring its evidence forward. On a floor, click a suite's room to walk inside its 3D tour.">drag · scroll · ⓘ</span>
+        · <a href="#" id="replay" style="pointer-events:auto">replay intro</a></div>
+      <button class="hud-toggle" id="hud-toggle" aria-pressed="false" title="Hide the text over the 3D view">Hide text</button>
       <div class="hud bl">
         ${metric("Roof height", o.height_ft ? Math.round(o.height_ft) : "–", " ft")}
         ${metric("Highest occupied level", top != null ? "≈ " + Math.round(top) : "–", " ft", top != null && top >= HIGH_RISE_FT)}
@@ -1521,14 +1848,18 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     <aside class="panel agent-panel" id="agent-panel" aria-label="Evidence agent"></aside></div>
     <section class="panel costs" id="costs" aria-label="Conversion cost and housing income"></section>
     ${b.spaces.length ? `<h2>Spaces on the market · ${b.spaces.length}</h2>
+    ${tourFilter("suite-tours", b.spaces.length, b.spaces.filter((x) => x.scans.length).length, "spaces")}
     <div class="panel market"><table class="spaces">
-      <thead><tr><th>Floor</th><th>Suite</th><th class="num">sq ft</th><th>Use</th><th class="num">Asking $/sq ft/yr</th><th>Available</th><th>Floor plan</th><th>3D scan</th></tr></thead>
-      <tbody>${b.spaces.map((x) => `<tr data-space="${x.id}" class="${sp && sp.id === x.id ? "on" : ""}">
+      <thead><tr><th>Floor</th><th>Suite</th><th class="num">sq ft</th><th>Use</th><th class="num">Asking $/sq ft/yr</th><th>Available</th><th>Floor plan</th><th>Matterport 3D tour</th></tr></thead>
+      <tbody>${b.spaces.map((x) => `<tr data-space="${x.id}" data-tour="${x.scans.length ? "yes" : "no"}" class="${sp && sp.id === x.id ? "on" : ""}">
         <td>${esc(x.floor_label)}</td><td class="name">${esc(x.suite || "–")}</td><td class="num">${num(x.sqft)}</td><td>${esc(x.use || "–")}</td>
         <td class="num">${x.rent_per_sqft_year ? x.rent_per_sqft_year.toFixed(0) : "–"}</td><td>${esc(x.available_on || "–")}</td>
         <td>${x.plan_url ? '<span class="yes">on record</span>' : '<span class="sub">none</span>'}</td>
-        <td>${x.scans.length ? '<span class="yes">' + x.scans.length + " scan" + (x.scans.length > 1 ? "s" : "") + "</span>" : '<span class="sub">none</span>'}</td></tr>`).join("")}</tbody>
-    </table></div>` : ""}
+        <td>${x.scans.length ? '<span class="tour-yes">' + x.scans.length + " tour" + (x.scans.length > 1 ? "s" : "") + "</span>" : '<span class="sub">none · interior cost not measurable</span>'}</td></tr>`).join("")}</tbody>
+    </table></div>
+    <p class="note">A space without a Matterport tour is still reviewed like any other space on the market. Without the tour,
+      the items read from its photos (sprinkler heads, alarm devices, exit signs, existing water lines, windows) cannot be
+      measured, so their effect on the conversion cost is not estimated.</p>` : ""}
     <div class="cols">
       <div class="panel rows" id="rows">${data.rows.map((r) => `
         <button class="row" data-key="${r.key}">
@@ -1661,6 +1992,15 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
   document.getElementById("floor-picker").onchange = event => showScene("isolated", event.target.value);
   showScene(["exploded", "isolated", "building", "tour"].includes(requestedView) ? requestedView
     : sp && data.floor ? "isolated" : "building");
+  const hudToggle = document.getElementById("hud-toggle");
+  if (hudToggle) {
+    const stageEl = document.getElementById("stage");
+    const apply = (hidden) => { stageEl.classList.toggle("clean", hidden); hudToggle.setAttribute("aria-pressed", String(hidden));
+      hudToggle.textContent = hidden ? "Show text" : "Hide text"; };
+    let hidden = false; try { hidden = localStorage.getItem("secondstay-clean") === "1"; } catch {}
+    apply(hidden);
+    hudToggle.onclick = () => { hidden = !hidden; apply(hidden); try { localStorage.setItem("secondstay-clean", hidden ? "1" : "0"); } catch {} };
+  }
   const showScanViewer = mountScanViewer(document.getElementById("scan-viewer"), data);
   const select = (key) => {
     current = data.rows.find((r) => r.key === key);
@@ -1675,6 +2015,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
   app.querySelectorAll(".row").forEach((el) => (el.onclick = () => select(el.dataset.key)));
   const picker = document.getElementById("scan");
   if (picker) picker.onchange = () => reopen(spaceId, picker.value);
+  wireTourFilter(app, "suite-tours");
   app.querySelectorAll("tr[data-space]").forEach((tr) => (tr.onclick = () => reopen(tr.dataset.space)));
   const clear = document.getElementById("clearspace");
   if (clear) clear.onclick = (event) => { event.preventDefault(); reopen(""); };

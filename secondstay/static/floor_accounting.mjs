@@ -42,14 +42,18 @@ export function floorAccounting({ building, catalog, floor, shownModels = [], fo
   const parts = [];
   const drawn = drawnSqft(shownModels);
   if (shownModels.length) {
-    parts.push({ kind: "drawn", label: shownModels.map(m => m.space_id && m.suite ? `Suite ${m.suite}` : (m.suite || m.label || "Linked geometry")).join(" + "),
+    parts.push({ kind: "drawn", label: shownModels.map(m => m.space_id ? (m.suite ? `Suite ${m.suite}` : "Listed space") : (m.suite || m.label || "Linked geometry")).join(" + "),
       sqft: drawn, reason: "Rooms drawn from scan walls or a traced plan." });
   }
   for (const s of (building.spaces || []).filter(x => x.floor === floor)) {
     if (shownIds.has(String(s.id))) continue;
     const mine = assets.filter(a => String(a.space_id) === String(s.id));
     const base = { label: suiteName(s), sqft: s.sqft || null, space_id: String(s.id) };
-    if (mine.some(a => a.geometry_available)) {
+    const placed = mine.find(a => a.geometry_available && a.registered);
+    if (placed) {
+      parts.push({ ...base, kind: "listed_unplaced", placed: true, reason: "A 3D model placed on this floor exists; choose it under Interior source to draw it here.",
+        asset: placed.key });
+    } else if (mine.some(a => a.geometry_available)) {
       parts.push({ ...base, kind: "listed_unplaced", reason: "A 3D model exists, but its position on this floor is not linked yet.",
         asset: mine.find(a => a.geometry_available).key });
     } else if (s.plan_url) {

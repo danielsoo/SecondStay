@@ -28,7 +28,9 @@ export function chooseFloorAsset(catalog, floor, key, preferredSpace) {
   const assets = floorAssets(catalog, floor);
   const preferred = assets.filter(a=>preferredSpace && a.space_id===String(preferredSpace));
   const ranked = preferred.length ? preferred : assets;
-  return assets.find(a=>a.key===key) || ranked.find(a=>a.geometry_available) || ranked.find(a=>a.plan_url) || ranked[0] || null;
+  // A model placed in the floor frame opens first; one that is not placed is shown apart from the floor.
+  return assets.find(a=>a.key===key) || ranked.find(a=>a.geometry_available && a.registered)
+    || ranked.find(a=>a.geometry_available) || ranked.find(a=>a.plan_url) || ranked[0] || null;
 }
 
 export function floorCoverage(catalog, spaces, floor, shownIds) {

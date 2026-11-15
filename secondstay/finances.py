@@ -153,12 +153,17 @@ def minimum(base):
             "unknown": sum(1 for l in base["lines"] if l["certainty"] == "unknown")}
 
 
+NO_TOUR = ("No Matterport 3D tour is on record for this space. That says nothing about whether the space could become "
+           "housing; it only means the items read from tour photos (sprinkler heads, alarm devices, exit signs, existing "
+           "water lines, windows) cannot be measured here, so their effect on the cost cannot be estimated.")
+
+
 def photo_reading(context, read_now=False):
     """The scan's requirement-related photo reading; sent to a model only when asked."""
     scan = (context.get("scan") or {}).get("model_id") or ""
     if not scan:
         return {"available": False, "read": False,
-                "reason": "No 3D tour is on record for this space, so there are no photos to read."}
+                "reason": NO_TOUR}
     reading = cost_reading.cached(scan)
     if reading is None and read_now:
         try:

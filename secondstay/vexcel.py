@@ -315,6 +315,65 @@ def fetch_image(box: list, zoom: int = IMAGE_ZOOM) -> bytes:
     )
 
 
+SURFACE_SIZE = 256  # cells per side of the surface grid sent to the page (about 0.7 m each near one building)
+
+
+def _mercator(lon: float, lat: float) -> tuple:
+    r = 6378137.0
+    return (math.radians(lon) * r, math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * r)
+
+
+def read_surface(tiff: bytes, box: list, ground_m: Optional[float] = None, size: int = SURFACE_SIZE) -> dict:
+    """Heights above the ground on a size x size grid over box, from a /dsm/extract GeoTIFF.
+
+    The DSM is the top of whatever was there when the imagery was captured: roofs, trees, cars, lamps.
+    It is used to lay the aerial photo over a surface for display only; nothing is measured from this grid.
+    """
+    import io
+    from array import array
+
+    from PIL import Image
+
+    image = Image.open(io.BytesIO(tiff))
+    image.info.pop("xmp", None)  # Pillow cannot parse Vexcel's XMP block; it carries nothing needed here
+    image.load()
+    tie, scale = image.tag_v2[33922], image.tag_v2[33550]
+    nodata = float(str(image.tag_v2.get(42113, "-9999")).strip("\x00") or -9999)
+    values = array("f")
+    values.frombytes(image.tobytes())
+    # Vexcel writes big-endian floats and Pillow may hand them over unswapped: keep the byte order
+    # under which more samples look like elevations in metres.
+    plausible = lambda vs: sum(1 for v in vs[:: max(1, len(vs) // 4000)] if -500.0 < v < 9000.0 and abs(v) > 1e-3)
+    swapped = array("f", values)
+    swapped.byteswap()
+    if plausible(swapped) > plausible(values):
+        values = swapped
+    real = lambda v: v > nodata + 1 and -500.0 < v < 9000.0  # metres above sea level anywhere on land
+    usable = sorted(v for v in values[:: max(1, len(values) // 4000)] if real(v))
+    if not usable:
+        raise ValueError("The surface image has no readable heights.")
+    floor = usable[len(usable) // 20]  # 5th percentile: open ground in the tile
+    values = array("f", (v if real(v) else floor for v in values))
+    surface = Image.frombytes("F", image.size, values.tobytes())
+    # Crop the raster to the requested box (Web Mercator pixels), then average down to the grid.
+    x0, y1 = _mercator(box[0], box[3])
+    x1, y0 = _mercator(box[2], box[1])
+    col = lambda x: tie[0] + (x - tie[3]) / scale[0]  # the tie point is a raster position, not always (0, 0)
+    row = lambda y: tie[1] + (tie[4] - y) / scale[1]
+    window = (max(0, round(col(x0))), max(0, round(row(y1))), min(image.size[0], round(col(x1))), min(image.size[1], round(row(y0))))
+    if window[2] - window[0] < 2 or window[3] - window[1] < 2:
+        raise ValueError("The surface image does not cover this area.")
+    grid = surface.crop(window).resize((size, size), Image.BOX)
+    base = ground_m if ground_m is not None else floor
+    heights = [round(max(-2.0, v - base), 2) for v in (grid.get_flattened_data() if hasattr(grid, "get_flattened_data") else grid.getdata())]
+    return {"size": size, "box": box, "ground_m": round(base, 2), "heights": heights}
+
+
+def fetch_surface(box: list, ground_m: Optional[float] = None) -> dict:
+    """The /dsm/extract surface over box, reduced to a display grid."""
+    return read_surface(_get("/dsm/extract", wkt=_box_wkt(box)), box, ground_m)
+
+
 def to_facts(outside: Outside, facts: Optional[SpaceFacts] = None) -> SpaceFacts:
     """Fill the Vexcel part of SpaceFacts. Street frontage stays empty for now."""
     facts = facts or SpaceFacts()
