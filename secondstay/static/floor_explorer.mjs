@@ -55,6 +55,8 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
     scene.add(group); levels.push({ group, material, edgeMaterial, number: n });
   }
   let scope = {}, geometry = null, geometrySpan = span, flight = null;
+  // While a floor's sources are being read, show nothing in their place: no reference plan, grid or "not placed" list.
+  let loading = false;
   const legend = document.createElement("div");
   legend.style.cssText = "display:flex;flex-wrap:wrap;gap:16px;margin:12px 0;color:#c5d8df;font-size:13px";
   document.getElementById("floor-source").before(legend);
@@ -205,7 +207,15 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
     card.position.set(Math.min(...ox) - 1, lift + 2.5, -Math.max(...oy)); // the far left corner, off the drawing
     gridRoot.add(gridLabel);
   }
+  function showPending() {
+    loading = true;
+    ledger.replaceChildren();
+    const head = document.createElement("strong"); head.textContent = `Floor ${selected} · reading interior sources…`;
+    ledger.append(head);
+    cardEl.innerHTML = `<div><b>Floor ${selected}</b> · <span class="why">reading…</span></div>`;
+  }
   function showGeometry(value) {
+    loading = false;
     showLedger(value?.available ? (value.assembly || [value]) : []);
     showGrid(value);
     geometry = value; clearVectors(); geometrySpan = span; legend.replaceChildren();
@@ -343,7 +353,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
     const changed = !sameScope(scope,nextScope) || !geometry;
     selected = checked; mode = nextMode; asset = nextAsset; scope = nextScope;
     data.interiorAsset = asset?.key || "";
-    if (changed) { showGeometry(null); note.textContent = "Reading interior sources for this floor…"; }
+    if (changed) { showGeometry(null); showPending(); note.textContent = "Reading interior sources for this floor…"; }
     arrange(); onFloor?.(selected, mode, asset?.key);
     if (!changed) return;
     const mine = ++request, requested = { ...scope };
@@ -411,11 +421,11 @@ export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = 
       card.visible = mode === "isolated";
       if (refImage) {
         // Shown only on a floor with nothing drawn: a repeated core sits in a different, plan-based frame.
-        refImage.visible = mode === "isolated" && !geometry?.available && !!refImage.userData.ready;
+        refImage.visible = mode === "isolated" && !loading && !geometry?.available && !!refImage.userData.ready;
         refImage.element.style.opacity = refImage.visible ? "0.82" : "0";
       }
-      gridRoot.visible = mode === "isolated";
-      gridTag.style.display = mode === "isolated" ? "" : "none";
+      gridRoot.visible = mode === "isolated" && !loading;
+      gridTag.style.display = mode === "isolated" && !loading ? "" : "none";
       level.group.visible = level.material.opacity > 0.005;
       vectorRoot.visible = !!showingInterior;
       planSlab.visible = !!geometry?.registered && !!showingInterior;
