@@ -1,143 +1,141 @@
-"""What a conversion costs and whether it pays back.
+"""Range arithmetic for income and simple payback, without a recommendation."""
 
-Every number that drives the result is an input in `Assumptions`. There are no
-built-in prices: unit costs and rents must come from a source (the CoStar data
-for rents, a contractor or published cost guide for construction) and the UI
-shows them as editable assumptions next to the result.
+import math
 
-The output is a preliminary screen, not a quote. Zoning, permits, structural
-work and hidden plumbing capacity are not covered.
-"""
-
-from dataclasses import dataclass
-from typing import Optional
+LEVELS = ("low", "typical", "high")
+NOTICE = ("This is a preliminary evidence review, not a legal or code determination. "
+          "Final decisions are made by LADBS and licensed professionals.")
+NO_PAYBACK = "monthly income as housing is no more than the space earns today at these inputs"
 
 
-@dataclass
-class ConversionPlan:
-    """What would physically change, derived from the interior scan."""
-
-    area_sqft: float
-    units: int
-    bathrooms_to_add: int
-    # Total pipe run from the new bathrooms to the nearest existing wet wall
-    # (restroom or kitchen). The main reason one space is cheap and another is not.
-    plumbing_run_ft: float
-    kitchens_to_add: int = 0
+def number(value):
+    try:
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    except OverflowError:
+        return False
 
 
-@dataclass
-class Assumptions:
-    # Construction
-    fitout_cost_per_sqft: float
-    cost_per_bathroom: float
-    plumbing_cost_per_ft: float
-    cost_per_kitchen: float
-    months_to_convert: float
-    # Income as housing
-    monthly_rent_per_unit: float
-    occupancy: float  # 0.0 - 1.0
-    operating_cost_share: float  # share of rent spent on running the units
-    # What the owner earns if they leave it as is (0 when it sits empty)
-    current_monthly_income: float = 0.0
-    # Work the LADBS bulletin calls for. Zero means "not included", for example
-    # when the building already has sprinklers.
-    sprinkler_cost_per_sqft: float = 0.0
-    fire_alarm_cost_per_sqft: float = 0.0
-    seismic_cost_per_sqft: float = 0.0
-    permit_design_share: float = 0.0  # share of construction cost
+def spread(low, typical=None, high=None):
+    return dict(zip(LEVELS, (low, low if typical is None else typical, low if high is None else high)))
 
 
-@dataclass
-class Economics:
-    conversion_cost: float
-    cost_breakdown: dict
-    monthly_net_income: float
-    monthly_gain_vs_today: float
-    payback_years: Optional[float]  # None when it never pays back
-    gain_over_horizon: float
-    horizon_years: float
-    verdict: str
+def range_issue(values, *, maximum=None, negative="negative price"):
+    if not isinstance(values, dict) or any(values.get(k) is None for k in LEVELS):
+        return "price not filled in"
+    for key in LEVELS:
+        if not number(values[key]):
+            return f"{key} is not a finite number"
+    if any(values[k] < 0 for k in LEVELS):
+        return negative
+    if maximum is not None and any(values[k] > maximum for k in LEVELS):
+        return "share outside 0 to 1"
+    if not values["low"] <= values["typical"] <= values["high"]:
+        return "range out of order"
+    return None
 
 
-def load_assumptions(
-    path: str,
-    monthly_rent_per_unit: float,
-    current_monthly_income: float = 0.0,
-    level: str = "typical",
-) -> Assumptions:
-    """Read assumptions.json. `level` is "low", "typical" or "high".
+def entry_issue(entry, key):
+    if not isinstance(entry, dict):
+        return "price not filled in"
+    if entry.get("unpriced_reason"):
+        return entry["unpriced_reason"] if isinstance(entry["unpriced_reason"], str) else "unpriced reason must be text"
+    if not isinstance(entry.get("source"), str) or not entry["source"].strip():
+        return "no source recorded"
+    if key == "months_to_convert":
+        return range_issue(entry, negative="negative duration")
+    if key in ("soft_cost_share", "contingency", "occupancy", "operating_cost_share"):
+        return range_issue(entry, maximum=1, negative="share outside 0 to 1")
+    for field in ("fixed", "rate"):
+        issue = range_issue(entry.get(field))
+        if issue:
+            return f"{field}: {issue}"
+    return None
 
-    Rent and current income are not in the file: they come from the CoStar data.
-    Raises if any value is still empty, so a result is never built on a blank.
+
+def json_safe(value):
+    """Keep invalid input diagnostics serializable with strict JSON encoders."""
+    if isinstance(value, dict):
+        return {k: json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(v) for v in value]
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and not number(value):
+        return None
+    return value
+
+
+def input_record(value, metadata=None, label="caller-supplied input"):
+    metadata = metadata if isinstance(metadata, dict) else {}
+    return json_safe({"value": value, "source": metadata.get("source") or f"Team assumption: {label}",
+                      "confidence": metadata.get("confidence") or "estimated",
+                      "notes": metadata.get("notes", "")})
+
+
+def evaluate(cost, income, globals):
+    """Omitted current income means vacant; explicit null means unavailable.
+
+    Payback low is favorable; income and horizon gain low are adverse.
     """
-    import json
-
-    with open(path) as f:
-        data = json.load(f)
-    fields = {}
-    missing = []
-    for key, entry in data.items():
-        if key.startswith("_"):
-            continue
-        value = entry.get(level)
-        if value is None:
-            missing.append(key)
-        fields[key] = value
-    if missing:
-        raise ValueError(f"assumptions.json has no {level} value for: {', '.join(missing)}")
-    return Assumptions(
-        monthly_rent_per_unit=monthly_rent_per_unit,
-        current_monthly_income=current_monthly_income,
-        **fields,
-    )
-
-
-def evaluate(plan: ConversionPlan, a: Assumptions, horizon_years: float = 5.0) -> Economics:
-    """`horizon_years` is how long the owner expects the space to stay
-    available for housing. A short horizon is what kills most conversions."""
-    breakdown = {
-        "fit-out": plan.area_sqft * a.fitout_cost_per_sqft,
-        "bathrooms": plan.bathrooms_to_add * a.cost_per_bathroom,
-        "plumbing runs": plan.plumbing_run_ft * a.plumbing_cost_per_ft,
-        "kitchens": plan.kitchens_to_add * a.cost_per_kitchen,
-        "sprinklers": plan.area_sqft * a.sprinkler_cost_per_sqft,
-        "fire alarm": plan.area_sqft * a.fire_alarm_cost_per_sqft,
-        "seismic": plan.area_sqft * a.seismic_cost_per_sqft,
-    }
-    breakdown["design and permits"] = sum(breakdown.values()) * a.permit_design_share
-    cost = sum(breakdown.values())
-
-    monthly_net = (
-        plan.units * a.monthly_rent_per_unit * a.occupancy * (1.0 - a.operating_cost_share)
-    )
-    monthly_gain = monthly_net - a.current_monthly_income
-
-    # Nothing is earned while construction is under way.
-    lost_during_build = a.current_monthly_income * a.months_to_convert
-
-    payback_years = None
-    if monthly_gain > 0:
-        months = a.months_to_convert + (cost + lost_during_build) / monthly_gain
-        payback_years = months / 12.0
-
-    earning_months = max(0.0, horizon_years * 12.0 - a.months_to_convert)
-    gain = monthly_gain * earning_months - cost - lost_during_build
-
-    if monthly_gain <= 0:
-        verdict = "Do not convert: housing would earn no more than the space does today"
-    elif gain > 0:
-        verdict = "Convert: pays back within the time the space is available"
+    income = income or {}
+    horizon, units = income.get("horizon_years", 5), income.get("units")
+    rent, current = income.get("monthly_rent_per_unit"), income.get("current_monthly_income", spread(0))
+    metadata = income.get("sources") or {}
+    result = {"cost": cost, "monthly_net_income": None, "monthly_gain": None,
+              "payback_years": None, "gain_over_horizon": None, "horizon_years": horizon,
+              "reasons": {}, "inputs": {}, "notice": NOTICE}
+    for key, value in (("units", units), ("monthly_rent_per_unit", rent),
+                       ("current_monthly_income", current), ("horizon_years", horizon)):
+        label = "vacant: earns nothing today" if key == "current_monthly_income" and key not in income else key
+        if key == "horizon_years" and key not in income:
+            label = "5-year horizon proposed; team agreement pending"
+        result["inputs"][key] = input_record(value, metadata.get(key), label)
+    for key in ("occupancy", "operating_cost_share", "months_to_convert"):
+        entry = globals.get(key)
+        result["inputs"][key] = input_record(entry, entry, key)
+    reason = None
+    if not number(units) or units < 1 or int(units) != units:
+        reason = "unit count not available"
+    elif range_issue(rent):
+        reason = "rent per unit not available"
+    for key in ("occupancy", "operating_cost_share"):
+        if not reason and entry_issue(globals.get(key), key):
+            reason = f"{key}: {entry_issue(globals.get(key), key)}"
+    affected = ("monthly_net_income", "monthly_gain", "payback_years", "gain_over_horizon")
+    if reason:
+        result["reasons"] = {k: reason for k in affected}
+        return json_safe(result)
+    occupancy, operating = globals["occupancy"], globals["operating_cost_share"]
+    net = {level: units * rent[level] * occupancy[level] * (1 - operating[opposite])
+           for level, opposite in zip(LEVELS, reversed(LEVELS))}
+    if not all(number(v) for v in net.values()):
+        result["reasons"] = {k: "income exceeds numeric range" for k in affected}
+        return json_safe(result)
+    result["monthly_net_income"] = net
+    if range_issue(current):
+        result["reasons"] = {k: "current monthly income not available" for k in affected[1:]}
+        return json_safe(result)
+    result["monthly_gain"] = {k: net[k] - current[opposite] for k, opposite in zip(LEVELS, reversed(LEVELS))}
+    duration_issue = entry_issue(globals.get("months_to_convert"), "months_to_convert")
+    if range_issue(cost) or duration_issue:
+        reason = "cost total not available" if range_issue(cost) else f"months_to_convert: {duration_issue}"
+        result["reasons"].update(payback_years=reason, gain_over_horizon=reason)
+        return json_safe(result)
+    duration = globals["months_to_convert"]
+    payback, gains, empty = {}, {}, {}
+    for level, opposite in zip(LEVELS, reversed(LEVELS)):
+        gain = result["monthly_gain"][opposite]
+        lost = current[level] * duration[level]
+        value = (duration[level] + (cost[level] + lost) / gain) / 12 if gain > 0 else None
+        payback[level] = value if number(value) else None
+        if payback[level] is None:
+            empty[level] = NO_PAYBACK if gain <= 0 else "payback exceeds numeric range"
+        if number(horizon) and horizon > 0:
+            gains[opposite] = gain * max(0, horizon * 12 - duration[level]) - cost[level] - lost
+    result["payback_years"] = payback
+    if empty:
+        result["reasons"]["payback_years"] = empty
+    if gains and all(number(v) for v in gains.values()):
+        result["gain_over_horizon"] = gains
     else:
-        verdict = "Do not convert: does not pay back within the time the space is available"
-
-    return Economics(
-        conversion_cost=cost,
-        cost_breakdown=breakdown,
-        monthly_net_income=monthly_net,
-        monthly_gain_vs_today=monthly_gain,
-        payback_years=payback_years,
-        gain_over_horizon=gain,
-        horizon_years=horizon_years,
-        verdict=verdict,
-    )
+        result["reasons"]["gain_over_horizon"] = ("gain exceeds numeric range" if gains else
+                                                  "horizon must be a positive number of years")
+    return json_safe(result)
