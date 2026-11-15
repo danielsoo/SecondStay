@@ -88,6 +88,17 @@ def test_missing_model_settings_are_explicit(monkeypatch):
     assert 'SECONDSTAY_AGENT_MODEL' in agent.configuration()['message']
 
 
+def test_openai_needs_only_its_own_key(monkeypatch):
+    for prefix in ('SECONDSTAY_AGENT', 'SECONDSTAY_VISION'):
+        monkeypatch.setenv(prefix + '_PROVIDER', 'openai')
+        monkeypatch.setenv(prefix + '_MODEL', 'test-model')
+    monkeypatch.setenv('OPENAI_API_KEY', 'sk-test')
+    assert agent.model_settings() == ('openai', 'test-model', 'sk-test')
+    assert agent.model_settings(vision=True)[0] == 'openai'  # one key covers reasoning and images
+    model = agent.chat_model()
+    assert type(model).__name__ == 'ChatOpenAI' and 'openrouter' not in str(model.openai_api_base or '')
+
+
 def test_cache_replay_rejects_path_traversal_and_marks_stale_runs(review):
     with pytest.raises(ValueError):
         agent.load_run('../outside', review.directory)
@@ -180,3 +191,16 @@ def test_http_review_routes_validate_origin_scope_and_replay(review, monkeypatch
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_city_records_feed_the_agent_checklist(review, monkeypatch):
+    from secondstay import evidence
+    assert 'unavailable' in review.execute('read_city_records')  # nothing cached for a synthetic parcel
+    loaded = ({'topics': {'sprinklers': {'count': 3}}, 'stairs_named': 2}, {'zoning': [{'zone': 'C2-1'}]}, None)
+    seen = []
+    monkeypatch.setattr(evidence, 'load', lambda b: loaded)
+    monkeypatch.setattr(evidence, 'apply', lambda rows, facts, s, r, space=None, plans=None: seen.append((s, r)) or rows)
+    out = review.execute('read_city_records')
+    assert out['permits_by_topic'] == {'sprinklers': 3} and out['zoning_map'] == [{'zone': 'C2-1'}]
+    review.execute('inspect_gaps')
+    assert seen and seen[-1] == loaded[:2]  # the checklist the agent records includes the city evidence

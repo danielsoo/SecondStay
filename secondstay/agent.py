@@ -27,6 +27,7 @@ ACTIONS = {
     'read_plan': 'Inspect the selected Matterport plan for visible stairs and elevators.',
     'read_outside': 'Read Vexcel measurements for roof height and nearby structures.',
     'read_streets': 'Read OpenStreetMap roads to investigate access to a public street.',
+    'read_city_records': 'Read city permits, zoning map, county height, seismic and historic records for this parcel.',
     'cross_check': 'Compare sources and retain disagreements for professional confirmation.',
     'write_review': 'Record the evidence checklist and next steps for professionals.',
 }
@@ -41,9 +42,10 @@ def model_settings(vision=False):
     prefix = 'SECONDSTAY_VISION' if vision else 'SECONDSTAY_AGENT'
     provider = os.getenv(prefix + '_PROVIDER', 'gemini' if vision else 'groq')
     name = os.getenv(prefix + '_MODEL', '').strip()
-    key_name = {'groq': 'GROQ_API_KEY', 'openrouter': 'OPENROUTER_API_KEY', 'gemini': 'GOOGLE_API_KEY'}.get(provider)
+    key_name = {'openai': 'OPENAI_API_KEY', 'groq': 'GROQ_API_KEY', 'openrouter': 'OPENROUTER_API_KEY',
+                'gemini': 'GOOGLE_API_KEY'}.get(provider)
     if not key_name:
-        raise ConfigurationError(f'{prefix}_PROVIDER must be groq, openrouter or gemini.')
+        raise ConfigurationError(f'{prefix}_PROVIDER must be openai, groq, openrouter or gemini.')
     if not name or not os.getenv(key_name):
         raise ConfigurationError(f'Set {prefix}_MODEL and {key_name} in .env.')
     return provider, name, os.environ[key_name]
@@ -55,9 +57,10 @@ def chat_model(vision=False):
     if provider == 'groq':
         from langchain_groq import ChatGroq
         return ChatGroq(api_key=key, max_tokens=2048, **common)
-    if provider == 'openrouter':
+    if provider in ('openai', 'openrouter'):
         from langchain_openai import ChatOpenAI
-        return ChatOpenAI(api_key=key, base_url='https://openrouter.ai/api/v1', max_tokens=2048, **common)
+        base = {'base_url': 'https://openrouter.ai/api/v1'} if provider == 'openrouter' else {}
+        return ChatOpenAI(api_key=key, max_tokens=2048, **base, **common)
     from langchain_google_genai import ChatGoogleGenerativeAI
     return ChatGoogleGenerativeAI(api_key=key, max_output_tokens=2048, **common)
 
@@ -67,7 +70,9 @@ def configuration():
         return {'ready': False, 'message': 'Offline mode. Saved reviews are available for replay.'}
     try:
         model_settings()
-        import deepagents  # noqa: F401
+        import importlib.util  # check the install without importing it: the first import takes ~10 s
+        if importlib.util.find_spec('deepagents') is None:
+            raise ImportError('deepagents')
         return {'ready': True, 'message': 'Ready to gather evidence with the configured model.'}
     except ConfigurationError as error:
         return {'ready': False, 'message': str(error)}
@@ -148,6 +153,7 @@ class Review:
         self.outside = None
         self.calls = {}
         self.conflicts = []
+        self.city = None  # (permit summary, public records, plan readings) once read_city_records runs
         self.checked_at = -1
         self.revision = 0
         self.lock = threading.RLock()
@@ -172,6 +178,10 @@ class Review:
 
     def rows(self):
         rows = build_checklist(self.facts, dt.date.today().year)
+        if self.city:
+            from . import evidence
+            permit_summary, public, plan_summary = self.city
+            rows = evidence.apply(rows, self.facts, permit_summary, public, self.space, plan_summary)
         for row in rows:
             if row.key == 'height' and self.conflicts:
                 row.state = ISSUE
@@ -219,6 +229,22 @@ class Review:
                     'record_height_ft': self.facts.record_height_ft, 'zone': self.facts.zone,
                     'building_sqft': self.facts.building_sqft, 'space_sqft': self.facts.space_sqft,
                     'has_sprinklers': self.facts.has_sprinklers}
+        if action == 'read_city_records':
+            from . import evidence
+            permit_summary, public, plan_summary = evidence.load(self.building)  # not `summary`: that name is the checklist tally
+            if not permit_summary and not public and not plan_summary:
+                return {'unavailable': 'No city records are cached for this parcel. Keep those requirements open.'}
+            self.city = (permit_summary, public, plan_summary)
+            self.revision += 1
+            public = public or {}
+            return {'source': 'LADBS permits, City Planning, LA County and California Geological Survey',
+                    'permits_by_topic': {k: v.get('count') for k, v in (permit_summary or {}).get('topics', {}).items()},
+                    'stairs_named_in_permits': (permit_summary or {}).get('stairs_named'),
+                    'zoning_map': public.get('zoning'), 'historic_designations': public.get('historic'),
+                    'county_height': public.get('county_height'), 'liquefaction_zone': public.get('liquefaction'),
+                    'fault_zone': public.get('fault_zone'), 'on_non_ductile_concrete_list': public.get('ndc'),
+                    'plan_readings': plan_summary,
+                    'note': 'Permits record work that was filed, not what is installed today.'}
         if action == 'read_scan':
             if not self.scan_id:
                 return {'unavailable': 'No scan is linked to the selected scope.'}
@@ -321,7 +347,8 @@ def report_markdown(run):
 
 PROMPT = """You gather evidence for SecondStay, a preliminary building evidence review.
 First inspect_gaps. Choose tools to fill missing evidence: read_record, read_scan,
-read_outside, then read_streets. If windows or stairs lack evidence, try read_panoramas
+read_outside, read_streets, then read_city_records for permits, zoning, seismic and
+historic records. If windows or stairs lack evidence, try read_panoramas
 and read_plan. Image observations are read from images, not measured. CoStar images
 must only be viewed by a person in a browser; never request downloads or bypasses.
 Use cross_check after gathering; if sources disagree, re-read both sources once and
@@ -343,7 +370,7 @@ def make_agent(review, model=None):
     class Request(BaseModel):
         model_config = ConfigDict(extra='forbid', strict=True)
         action: Literal['inspect_gaps', 'read_record', 'read_scan', 'read_panoramas', 'read_plan',
-                        'read_outside', 'read_streets', 'cross_check', 'write_review']
+                        'read_outside', 'read_streets', 'read_city_records', 'cross_check', 'write_review']
 
     tool = StructuredTool.from_function(review.execute, name='evidence_step', args_schema=Request,
         description='Choose the next evidence action for the fixed building/suite scope. ' + json.dumps(ACTIONS),

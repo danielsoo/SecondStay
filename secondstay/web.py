@@ -10,6 +10,7 @@ import json
 import os
 import re
 import sys
+import threading
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -599,6 +600,15 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(payload)
 
 
+def _warm_agent() -> None:
+    """Import the agent libraries in the background; the first import takes tens of seconds."""
+    try:
+        import deepagents  # noqa: F401
+        import langchain_openai  # noqa: F401
+    except ImportError:
+        pass  # the agent panel reports missing dependencies itself
+
+
 def main(port: int = 8000) -> None:
     load_env()
     try:
@@ -608,6 +618,7 @@ def main(port: int = 8000) -> None:
     Handler.buildings = {b.property_id: b for b in buildings}
     # The list endpoint fills its cache on demand; a floor deep link need not wait for all buildings.
     print(f"SecondStay: {len(buildings)} Los Angeles office buildings · http://127.0.0.1:{port}")
+    threading.Thread(target=_warm_agent, daemon=True).start()
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 
 

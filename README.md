@@ -89,10 +89,10 @@ there is no default model and no assumption that calls are free.
 
 | Setting | Value |
 | --- | --- |
-| `SECONDSTAY_AGENT_PROVIDER` | `groq` or `openrouter` (also supports `gemini`) |
+| `SECONDSTAY_AGENT_PROVIDER` | `openai`, `groq` or `openrouter` (also supports `gemini`) |
 | `SECONDSTAY_AGENT_MODEL` | Your provider's tool-calling model name |
-| `GROQ_API_KEY` or `OPENROUTER_API_KEY` | Key for the selected reasoning provider |
-| `SECONDSTAY_VISION_PROVIDER` | `gemini` by default; `openrouter` also supported |
+| `OPENAI_API_KEY`, `GROQ_API_KEY` or `OPENROUTER_API_KEY` | Key for the selected reasoning provider |
+| `SECONDSTAY_VISION_PROVIDER` | `gemini` by default; `openai` and `openrouter` also supported |
 | `SECONDSTAY_VISION_MODEL` | Your provider's image-capable model name |
 | `GOOGLE_API_KEY` | Gemini key, when Gemini is selected |
 
