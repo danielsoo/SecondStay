@@ -221,14 +221,24 @@ export async function mountCosts(root, url, onData = () => {}) {
         paint(msg);
       }, 1000);
     };
-    const stopIncome = (ok) => {
+    const incomeDone = () => new Promise((resolve) => {
+      const began = Date.now();
+      const check = async () => {
+        let p = null;
+        try { p = await (await fetch(progressUrl)).json(); } catch {}
+        if ((p && !p.running) || Date.now() - began > 6 * 60000) return resolve(p || {});
+        setTimeout(check, 1500);
+      };
+      setTimeout(check, 1500);
+    });
+    const stopIncome = (ok, message) => {
       clearInterval(watch);
       const box = root.querySelector('[data-income-progress]');
       if (!box || box.hidden) return;
       box.classList.add('done');
       box.querySelector('.pct').textContent = ok ? '100%' : '–';
       box.querySelector('.bar span').style.width = ok ? '100%' : '0';
-      box.querySelector('.msg').textContent = ok ? 'Research finished' : 'The research stopped';
+      box.querySelector('.msg').textContent = ok ? 'Research finished' : (message || 'The research stopped');
     };
     let aiAllowed = true;
     fetch('/api/agent').then(r => r.json()).then(c => { aiAllowed = c.ai_allowed !== false; bindIncome(); }).catch(() => {});
@@ -262,16 +272,24 @@ export async function mountCosts(root, url, onData = () => {}) {
       controls.forEach(el => { el.disabled = true; });
       try {
         // The AI reads can take a while; give up waiting after a set time rather than spin without end.
-        const result = await request(url, options, readIncome ? 240000 : readPhotos ? 150000 : 60000);
+        let result, researched = null;
+        if (readIncome) {
+          // The research runs in the background on the server; follow it, then recalculate with its rent.
+          const started = await request(url, options, 30000);
+          if (!started.started) throw new Error(started.error || 'the research did not start');
+          researched = await incomeDone();
+          const again = {...options}; delete again.read_income;
+          result = await request(url, again, 60000);
+        } else result = await request(url, options, readPhotos ? 150000 : 60000);
         if (!root.isConnected) return;
         root.querySelector('[data-results]').innerHTML = resultsView(result);
         root.querySelector('[data-photos]').innerHTML = photosView(result); bindPhotos(); onData(result);
-        if (readIncome) stopIncome(Boolean(result.income_research?.read));
+        if (readIncome) stopIncome(researched?.message === 'Done', researched?.message);
         root.querySelector('[data-income]').innerHTML = incomeView(result); bindIncome();
         openPanels();
         if (readIncome) showSub('income'); else if (readPhotos) showSub('photos'); // show what was just read
         if (readIncome && result.income_research?.read) levels.forEach(k => { field(`rent.${k}`).value = result.income.monthly_rent_per_unit?.[k] ?? ''; });
-        status.textContent = readIncome ? (result.income_research?.read ? 'Income researched. The rent and payback now use the chosen comparables.' : 'The income research did not finish; the earlier rent is kept.')
+        status.textContent = readIncome ? (researched?.message === 'Done' ? 'Income researched. The rent and payback now use the chosen comparables.' : 'The income research did not finish; the earlier rent is kept.')
           : readPhotos ? 'Photos checked. The work list and minimum now reflect them.' : 'Results updated. Edited values are Team assumptions.';
       } catch (error) {
         status.textContent = `Could not recalculate: ${error.message}. Previous results remain below.`;

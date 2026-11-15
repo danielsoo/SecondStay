@@ -405,6 +405,23 @@ def _step(property_id, percent: int, message: str, running: bool = True) -> None
                                    "at": dt.datetime.now(dt.timezone.utc).isoformat()}
 
 
+def start(building: dict, height_ft: Optional[float] = None) -> dict:
+    """Run the research in a background thread; the screen follows progress(property_id)."""
+    pid = building["property_id"]
+    if _ONE_AT_A_TIME.locked():
+        return {"started": False, "error": "Another income research is running; try again in a minute."}
+    _step(pid, 2, "Starting the research")
+
+    def work():
+        try:
+            research(building, height_ft)
+        except Exception as error:  # reported through progress; credentials never appear in these messages
+            _step(pid, 100, f"The research stopped: {type(error).__name__}", running=False)
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"started": True}
+
+
 def research(building: dict, height_ft: Optional[float] = None, model=None) -> dict:
     """Gather, choose and estimate for one building, then cache the result. One research runs at a time."""
     if not _ONE_AT_A_TIME.acquire(blocking=False):
@@ -415,8 +432,8 @@ def research(building: dict, height_ft: Optional[float] = None, model=None) -> d
         result = _research(building, height_ft, model)
         _step(pid, 100, "Done", running=False)
         return result
-    except Exception:
-        _step(pid, 100, "Stopped", running=False)
+    except Exception as error:
+        _step(pid, 100, f"The research stopped: {type(error).__name__}", running=False)
         raise
     finally:
         _ONE_AT_A_TIME.release()

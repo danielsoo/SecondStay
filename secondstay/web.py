@@ -629,7 +629,13 @@ class Handler(BaseHTTPRequestHandler):
         if space and not any(str(s["id"]) == space for s in building.spaces):
             return self._json({"error": "Selected space not found"}, 404)
         try:
-            return self._json(finances.calculate(space_payload(building, scan, space), options))
+            context = space_payload(building, scan, space)
+            if isinstance(options, dict) and options.get("read_income") is True:
+                # Research takes one to three minutes, longer than a hosted request may stay open:
+                # start it in the background and let the screen follow /income-progress.
+                from . import income_research
+                return self._json(income_research.start(context["building"], (context.get("outside") or {}).get("height_ft")), 202)
+            return self._json(finances.calculate(context, options))
         except ValueError as error:
             return self._json({"error": str(error)}, 400)
 
@@ -637,8 +643,8 @@ class Handler(BaseHTTPRequestHandler):
         """Billable AI runs: always on this machine; on the public site only with the judges' link (JUDGE_KEY)."""
         import hmac
         host = self.headers.get("Host", "")
-        if urlparse("http://" + host).hostname in ("localhost", "127.0.0.1"):
-            return True
+        if urlparse("http://" + host).hostname in ("localhost", "127.0.0.1") or os.environ.get("SECONDSTAY_PUBLIC_AI"):
+            return True  # SECONDSTAY_PUBLIC_AI opens the runs to every visitor (one run of each kind at a time)
         key = os.environ.get("JUDGE_KEY", "")
         return bool(key) and hmac.compare_digest(self.headers.get("X-Judge-Key", ""), key)
 

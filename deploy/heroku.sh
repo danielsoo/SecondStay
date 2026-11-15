@@ -17,8 +17,8 @@ printf 'web: python -m secondstay.web\n' > Procfile
 printf 'pillow\ndeepagents==0.7.38\nlangchain-openai>=1.8,<2\n' > requirements.txt  # the AI check runs on the judges' link
 printf '3.12\n' > .python-version
 
-# Offline for maps and scans; AI runs open only to requests carrying JUDGE_KEY (set it with heroku config:set).
-heroku config:set -a "$app" COSTAR_KIT_DIR=/app/kit SECONDSTAY_OFFLINE=1 HOST=0.0.0.0 SECONDSTAY_ALLOW_AI=1 \
+# Offline for maps and scans; AI runs open to every visitor, one run of each kind at a time.
+heroku config:set -a "$app" COSTAR_KIT_DIR=/app/kit SECONDSTAY_OFFLINE=1 HOST=0.0.0.0 SECONDSTAY_ALLOW_AI=1 SECONDSTAY_PUBLIC_AI=1 \
   SECONDSTAY_AGENT_PROVIDER=openai SECONDSTAY_AGENT_MODEL=gpt-5.4-mini >/dev/null
 git init -q
 git add -A
