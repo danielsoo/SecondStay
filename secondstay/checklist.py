@@ -224,6 +224,10 @@ def top_occupied_ft(f: SpaceFacts) -> Optional[float]:
     return None
 
 
+HIGH_RISE_NOTE = (" At that height the high-rise provisions likely apply; that work is in the list of work the rules"
+                  " call for.")
+
+
 def _height(f: SpaceFacts) -> Row:
     rule = (
         "High-rise provisions (smokeproof stair enclosures, fire pumps, emergency power, fire command "
@@ -254,11 +258,11 @@ def _height(f: SpaceFacts) -> Row:
             )
         else:
             ev += f" That puts the highest occupied level at roughly {top:.0f} ft (our estimate)."
-            if top < HIGH_RISE_FT:
-                state = FOUND
-            else:
-                state = ISSUE
-                ev += " The high-rise provisions may apply."
+            # A measured height answers the question either way. Being a high-rise is not a shortfall:
+            # it adds work, which the change list carries. Disagreeing sources stay a Possible issue.
+            state = FOUND
+            if top >= HIGH_RISE_FT:
+                ev += HIGH_RISE_NOTE
     elif f.stories is not None and f.stories <= 4:
         state, ev = FOUND, f"Stories on record: {f.stories}. Height not yet measured from imagery."
     elif f.stories is not None and top >= HIGH_RISE_FT:

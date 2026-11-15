@@ -25,7 +25,7 @@ from typing import Optional
 from . import permits as permit_records
 from . import public_records
 from .checklist import (
-    FOUND, HIGH_RISE_FT, ISSUE, NO_DATA, REVIEW, SpaceFacts, _zone,
+    FOUND, HIGH_RISE_FT, HIGH_RISE_NOTE, ISSUE, NO_DATA, REVIEW, SpaceFacts, _zone,
 )
 from .costar import base_zone
 
@@ -150,19 +150,18 @@ def apply(rows: list, facts: SpaceFacts, summary: Optional[dict] = None, records
             _set(h, ISSUE, h.evidence + sentence + f" The two measurements differ by {abs(facts.height_ft - county['feet']):.0f} ft.")
         elif facts.height_ft is None:
             top = county["feet"] * (stories - 1) / stories if stories else county["feet"]
-            state = FOUND if top < HIGH_RISE_FT else ISSUE
             ev = (f"LA County's {county['year']} building survey measures the building at about {county['feet']:.0f} ft."
                   + (f" Stories on record: {stories}." if stories else "")
                   + f" That puts the highest occupied level at roughly {top:.0f} ft (our estimate).")
-            if state == ISSUE:
-                ev += " The high-rise provisions may apply."
-            _set(h, state, ev)
+            if top >= HIGH_RISE_FT:
+                ev += HIGH_RISE_NOTE
+            _set(h, FOUND, ev)
         else:
             _set(h, evidence=h.evidence + sentence + " The two measurements agree within 30 ft.")
         _add_layer(h, "LA County")
         systems = [f"{t['label'].lower()} ({t['count']})" for k in ("smoke_control", "fire_pump", "standpipe", "generator")
                    for t in [_topic(summary, k)] if t]
-        if systems and h.state == ISSUE:
+        if systems and "high-rise provisions" in h.evidence:
             h.evidence += f" City permit records show work on high-rise systems already: {', '.join(systems)}."
             _add_layer(h, PERMIT_LAYER)
 

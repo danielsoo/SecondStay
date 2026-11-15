@@ -73,7 +73,10 @@ def test_empty_facts_never_claim_evidence():
 
 def test_tall_building_notes_additional_systems():
     row = by_key(build_checklist(two_floor_office(stories=12, height_ft=150), 2026))["height"]
-    assert row.state == ISSUE and "may apply" in row.evidence
+    # A measured tall building is evidence, not a shortfall: the high-rise work goes to the change list.
+    assert row.state == FOUND and "high-rise provisions likely apply" in row.evidence
+    clash = by_key(build_checklist(two_floor_office(stories=2, height_ft=150), 2026))["height"]
+    assert clash.state == ISSUE and "do not fit together" in clash.evidence  # sources that disagree stay open
 
 
 def test_summary_counts_only_states_and_has_no_score():
