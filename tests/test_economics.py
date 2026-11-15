@@ -34,13 +34,13 @@ def test_cost_and_payback():
     # 6 months of construction, then 400,000 / 7,560 per month
     assert e.payback_years == pytest.approx((6 + 400_000 / 7_560) / 12)
     assert e.gain_over_horizon == pytest.approx(7_560 * 54 - 400_000)
-    assert e.verdict.startswith("Convert")
+    assert "verdict" not in vars(e)
 
 
 def test_short_availability_kills_the_conversion():
     e = evaluate(plan(), assumptions(), horizon_years=2)
     assert e.gain_over_horizon < 0
-    assert e.verdict.startswith("Do not convert")
+    assert e.payback_years > e.horizon_years
 
 
 def test_long_plumbing_runs_raise_cost():
@@ -53,7 +53,7 @@ def test_long_plumbing_runs_raise_cost():
 def test_space_already_earning_more_is_rejected():
     e = evaluate(plan(), assumptions(current_monthly_income=9_000))
     assert e.payback_years is None
-    assert "no more than the space does today" in e.verdict
+    assert e.monthly_gain_vs_today < 0
 
 
 def test_required_work_and_design_fees_are_added():

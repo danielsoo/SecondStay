@@ -57,7 +57,6 @@ class Economics:
     payback_years: Optional[float]  # None when it never pays back
     gain_over_horizon: float
     horizon_years: float
-    verdict: str
 
 
 def load_assumptions(
@@ -124,13 +123,6 @@ def evaluate(plan: ConversionPlan, a: Assumptions, horizon_years: float = 5.0) -
     earning_months = max(0.0, horizon_years * 12.0 - a.months_to_convert)
     gain = monthly_gain * earning_months - cost - lost_during_build
 
-    if monthly_gain <= 0:
-        verdict = "Do not convert: housing would earn no more than the space does today"
-    elif gain > 0:
-        verdict = "Convert: pays back within the time the space is available"
-    else:
-        verdict = "Do not convert: does not pay back within the time the space is available"
-
     return Economics(
         conversion_cost=cost,
         cost_breakdown=breakdown,
@@ -139,5 +131,4 @@ def evaluate(plan: ConversionPlan, a: Assumptions, horizon_years: float = 5.0) -
         payback_years=payback_years,
         gain_over_horizon=gain,
         horizon_years=horizon_years,
-        verdict=verdict,
     )

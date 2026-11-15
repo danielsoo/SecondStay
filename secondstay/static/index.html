@@ -50,6 +50,33 @@
   .stage { position: relative; height: 560px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
     background: radial-gradient(120% 90% at 50% 100%, #0d1a2b 0%, #060a11 70%); }
   .stage.small { height: 440px; }
+  .scene-column { min-width: 0; }
+  .scene-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .scene-toolbar label { margin-left: auto; color: var(--muted); }
+  .scene-toolbar [aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: #102736; }
+  .floor-mode .hud.bl, .floor-mode .hud.br, .floor-mode .hud.tr, .floor-mode .spacechip { display: none; }
+  .floor-mode .hud.tl { max-width: 90%; }
+  .floor-directory { display:flex; gap:6px; overflow:auto; padding:0 0 8px; margin-bottom:8px; }
+  .floor-directory .btn { white-space:nowrap; font-size:12px; }
+  .floor-directory [aria-pressed="true"] { border-color:var(--accent); color:var(--accent); background:#102736; }
+  .floor-resource-bar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:0 0 10px; font-size:13px; }
+  .floor-resource-bar select { max-width:min(560px,70vw); }
+  #floor-plan-view { position:absolute; inset:92px 16px 16px; z-index:4; background:#f2f3f0; color:#28333c; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; }
+  #floor-plan-view[hidden] { display:none; }
+  #floor-plan-view img { width:100%; height:calc(100% - 40px); min-height:0; object-fit:contain; }
+  #floor-plan-view p { margin:8px 12px; font-size:12px; }
+  #floor-plan-view a { color:#087a9e; }
+  .plan-only .gl, .plan-only .labels { visibility:hidden; }
+  #floor-source { display:flex; flex-wrap:wrap; gap:14px; margin:8px 0; }
+  #floor-unassigned { margin-top:12px; }
+  #floor-unassigned a { display:block; margin-top:6px; }
+  .floor-detail { padding: 16px; margin-top: 10px; font-size: 13px; }
+  .floor-detail h3 { margin: 0; color: var(--accent); }
+  .floor-detail p { margin: 8px 0; }
+  .floor-detail[hidden], .floor-detail [hidden] { display: none !important; }
+  .plan-import { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+  .plan-import summary { cursor: pointer; }
+  #plan-preview { display: block; max-width: 100%; max-height: 500px; background: white; margin: 10px 0; cursor: crosshair; touch-action: none; }
   .stage .gl, .stage .labels, .stage .flat { position: absolute; inset: 0; }
   .stage .labels, .stage .flat, .stage .flat * { pointer-events: none; }
   .stage .gl { z-index: 0; } .stage .flat { z-index: 1; overflow: hidden; } .stage .labels { z-index: 2; }
@@ -120,6 +147,7 @@
   .evidence h3 { margin: 0 0 2px; font-size: 17px; }
   .evidence .src { color: var(--muted); font: 11px var(--mono); margin-bottom: 12px; }
   .evidence iframe { width: 100%; height: 460px; border: 0; border-radius: 8px; background: #000; }
+  .evidence [hidden] { display: none !important; }
   .aerial { position: relative; line-height: 0; }
   .aerial svg { position: absolute; inset: 0; width: 100%; height: 100%; }
   .aerial .me { fill: rgba(90, 209, 255, 0.16); stroke: #5ad1ff; stroke-width: 0.6; }
@@ -170,6 +198,28 @@
   .btn:hover { border-color: var(--accent); }
   select { background: rgba(8, 13, 22, 0.8); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; max-width: 260px; }
   .loading { color: var(--muted); padding: 60px 0; text-align: center; font-family: var(--mono); font-size: 13px; }
+
+.review-layout { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:16px; align-items:start; }
+.agent-panel { padding:18px; max-height:620px; overflow:auto; }
+.agent-panel h2 { margin:0 0 8px; }
+.agent-actions { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+.agent-log { padding-left:20px; font-size:13px; line-height:1.6; }
+.agent-log li { margin-bottom:10px; }
+.agent-log small { display:block; color:var(--muted); }
+.agent-result summary { cursor:pointer; margin:14px 0; }
+.agent-result article { padding:10px 0; border-top:1px solid #26354b; }
+.agent-result p { font-size:13px; overflow-wrap:anywhere; }
+.agent-panel button:disabled { opacity:.45; cursor:default; }
+@media(max-width:1200px) {
+  .review-layout { grid-template-columns:1fr; }
+  .agent-panel { max-height:500px; }
+}
+@media(max-width:700px) {
+  .stage .hud.tl { max-width:calc(100% - 32px); }
+  .stage .hud.tr { top:auto; bottom:120px; left:16px; right:16px; }
+  .stage .hud.tr .counts { justify-content:flex-start; }
+  .stage h1 { font-size:22px; }
+}
 </style>
 </head>
 <body>
@@ -186,7 +236,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
-import { CSS3DRenderer, CSS3DObject } from "three/addons/renderers/CSS3DRenderer.js";
+import { floorExplorer } from "/static/floor_explorer.mjs";
+import { floorAssets, chooseFloorAsset } from "/static/floor_motion.mjs";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
@@ -225,15 +276,12 @@ let live = null; // the scene currently on screen
 const introSeen = new Set(); // buildings whose photo-to-model intro has already played
 function stopScene() { if (live) { live.dispose(); live = null; } tip.style.display = "none"; }
 
-function makeStage(host) {
+function makeStage(host, options = {}) {
   const gl = host.querySelector(".gl"), labelHost = host.querySelector(".labels");
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   gl.appendChild(renderer.domElement);
   const labels = new CSS2DRenderer({ element: labelHost });
-  // floor plan images are laid into the scene as page elements, since they cannot be read as textures
-  const flatHost = document.createElement("div"); flatHost.className = "flat"; host.insertBefore(flatHost, labelHost);
-  const flat = new CSS3DRenderer({ element: flatHost });
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x060a11, 0.0016);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 6000);
@@ -245,12 +293,12 @@ function makeStage(host) {
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.6, 0.72));
+  if (options.bloom !== false) composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.6, 0.72));
   composer.addPass(new OutputPass());
 
   const size = () => {
     const w = host.clientWidth, h = host.clientHeight;
-    renderer.setSize(w, h); composer.setSize(w, h); labels.setSize(w, h); flat.setSize(w, h);
+    renderer.setSize(w, h); composer.setSize(w, h); labels.setSize(w, h);
     camera.aspect = w / h; camera.updateProjectionMatrix();
   };
   const watcher = new ResizeObserver(size); watcher.observe(host); size();
@@ -264,13 +312,13 @@ function makeStage(host) {
     frame = requestAnimationFrame(loop);
     const t = clock.getElapsedTime();
     ticks.forEach((fn) => fn(t));
-    controls.update(); composer.render(); labels.render(scene, camera); flat.render(scene, camera);
+    controls.update(); composer.render(); labels.render(scene, camera);
   };
   loop();
   const dispose = () => {
     alive = false; cancelAnimationFrame(frame); watcher.disconnect(); controls.dispose();
     scene.traverse((o) => { o.geometry?.dispose(); if (o.material) [].concat(o.material).forEach((m) => { m.map?.dispose(); m.dispose(); }); });
-    renderer.dispose(); gl.replaceChildren(); labelHost.replaceChildren(); flatHost.remove();
+    composer.dispose(); renderer.dispose(); gl.replaceChildren(); labelHost.replaceChildren();
   };
   return { scene, camera, controls, renderer, ticks, dispose };
 }
@@ -305,6 +353,14 @@ function closestPair(ringsA, ringsB) {
   return best;
 }
 
+function introPhotoHeight(width, depth, centerX, centerY, aspect, fov, preferred) {
+  // Keep every viewport edge within the georeferenced photo, without stretching it.
+  const halfWidth = Math.max(0, width / 2 - Math.abs(centerX));
+  const halfDepth = Math.max(0, depth / 2 - Math.abs(centerY));
+  const tangent = Math.tan(fov * Math.PI / 360);
+  return Math.min(preferred, 0.98 * Math.min(halfWidth / aspect, halfDepth) / tangent);
+}
+
 function buildingScene(host, data) {
   const o = data.outside, b = data.building;
   const stage = makeStage(host);
@@ -331,12 +387,28 @@ function buildingScene(host, data) {
 
   // ground: the aerial image, toned down so the drawing reads on top of it
   const gw = (east - west) * kx, gh = (north - south) * ky;
-  const groundMat = new THREE.MeshBasicMaterial({ color: 0x5b6779 });
+  const groundMat = new THREE.MeshBasicMaterial({ color: 0xe3e5e1 });
   new THREE.TextureLoader().load(`/api/spaces/${b.property_id}/aerial.jpg`, (texture) => {
     texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 8; groundMat.map = texture; groundMat.needsUpdate = true;
   });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(gw, gh).rotateX(-Math.PI / 2), groundMat);
   ground.position.set(-cx, 0, cy); scene.add(ground);
+  // Wider, lower-resolution real imagery beneath the detailed central photo.
+  // Give it its own geographic bounds; stretching the central image would misplace buildings.
+  let contextMat = null;
+  if (o.context_bbox?.length === 4) {
+    const [cw, cs, ce, cn] = o.context_bbox;
+    const [mx, my] = toM([(cw + ce) / 2, (cs + cn) / 2]);
+    contextMat = new THREE.MeshBasicMaterial({ color: groundMat.color });
+    const contextGround = new THREE.Mesh(new THREE.PlaneGeometry((ce - cw) * kx, (cn - cs) * ky).rotateX(-Math.PI / 2), contextMat);
+    contextGround.position.set(mx - cx, -0.1, -(my - cy));
+    contextGround.visible = false; scene.add(contextGround);
+    new THREE.TextureLoader().load(`/api/spaces/${b.property_id}/aerial.jpg?context=1`, (texture) => {
+      if (!host.isConnected) { texture.dispose(); return; }
+      texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 8;
+      contextMat.map = texture; contextMat.needsUpdate = true; contextGround.visible = true;
+    }, undefined, () => { contextGround.visible = false; });
+  }
   const grid = new THREE.GridHelper(Math.max(gw, gh) * 3, 60, 0x1c3148, 0x101b2a);
   grid.position.y = -0.3; scene.add(grid);
 
@@ -350,9 +422,9 @@ function buildingScene(host, data) {
     Math.min(p[0], ring[k + 1][0]) - 0.5 <= pair.b[0] && pair.b[0] <= Math.max(p[0], ring[k + 1][0]) + 0.5 &&
     Math.min(p[1], ring[k + 1][1]) - 0.5 <= pair.b[1] && pair.b[1] <= Math.max(p[1], ring[k + 1][1]) + 0.5)) : -1;
   const ghosts = new THREE.Group(), nearest = new THREE.Group(); scene.add(ghosts, nearest);
-  const ghostFill = new THREE.MeshStandardMaterial({ color: 0x23344d, transparent: true, opacity: 0.42, roughness: 0.9, depthWrite: false });
-  const ghostEdge = lineMat(GHOST, 0.45);
-  const nearFill = new THREE.MeshStandardMaterial({ color: 0x35507a, transparent: true, opacity: 0.42, roughness: 0.9, depthWrite: false });
+  const ghostFill = new THREE.MeshStandardMaterial({ color: 0xaeb9b3, transparent: true, opacity: 0.42, roughness: 0.9, depthWrite: false });
+  const ghostEdge = lineMat(0xc6d2cf, 0.18);
+  const nearFill = new THREE.MeshStandardMaterial({ color: 0xb1bba9, transparent: true, opacity: 0.42, roughness: 0.9, depthWrite: false });
   const nearEdge = lineMat(0xffffff, 0.45);
   others.forEach((ring, k) => {
     const geo = extrude(ring, Math.max(3, (o.neighbor_heights_ft?.[k] ?? 20) * FT));
@@ -363,7 +435,7 @@ function buildingScene(host, data) {
 
   // the building: a translucent shell, and one slab per story that can be pulled apart
   const shell = new THREE.Group(); scene.add(shell);
-  const shellFill = new THREE.MeshStandardMaterial({ color: main, transparent: true, opacity: 0.2, roughness: 0.35, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false });
+  const shellFill = new THREE.MeshStandardMaterial({ color: 0xd5c7ad, transparent: true, opacity: 0.6, roughness: 0.65, metalness: 0.1, side: THREE.DoubleSide, depthWrite: false });
   const shellEdge = lineMat(main, 1);
   subject.forEach((ring) => {
     const geo = extrude(ring, H);
@@ -391,34 +463,10 @@ function buildingScene(host, data) {
   }
   const openLevel = levels[openAt];
 
-  // the plan of the open floor: walls, windows and doors from the scan when it has them, else an image
-  const planGroup = new THREE.Group(); planGroup.position.y = 0.25; openLevel.add(planGroup);
-  const wallMat = lineMat(0xffffff, 0.95), windowMat = lineMat(CYAN, 1), doorMat = lineMat(AMBER, 1);
-  const floorLines = Object.values(data.scan?.lines || {}).find((f) => f.walls.length);
-  let planImage = null, planSpan = span;
-  if (floorLines) {
-    const pts = floorLines.walls.flatMap(([x1, y1, x2, y2]) => [[x1, y1], [x2, y2]]);
-    const mx = (Math.min(...pts.map((q) => q[0])) + Math.max(...pts.map((q) => q[0]))) / 2;
-    const my = (Math.min(...pts.map((q) => q[1])) + Math.max(...pts.map((q) => q[1]))) / 2;
-    planSpan = Math.max(Math.max(...pts.map((q) => q[0])) - Math.min(...pts.map((q) => q[0])), Math.max(...pts.map((q) => q[1])) - Math.min(...pts.map((q) => q[1])), 12);
-    const seg = ([x1, y1, x2, y2], material, lift) => planGroup.add(polyline([v3(x1 - mx, lift, -(y1 - my)), v3(x2 - mx, lift, -(y2 - my))], material));
-    floorLines.walls.forEach((w) => seg(w, wallMat, 0));
-    floorLines.doors.forEach((w) => seg(w, doorMat, 0.15));
-    floorLines.windows.forEach((w) => { seg(w, windowMat, 0.15); seg(w, windowMat, 0.45); });
-  } else {
-    const src = data.space?.plan_url || (data.scan?.loaded ? `/api/scans/${encodeURIComponent(data.scan.model_id)}/plan.jpg` : (!data.space && data.plan?.image?.url) || "");
-    if (src) {
-      const img = document.createElement("img"); img.alt = "Floor plan"; img.style.opacity = "0";
-      img.onload = () => { // fitted inside the floor outline; it carries no position of its own
-        const fit = Math.min((maxX - minX) / img.naturalWidth, (maxY - minY) / img.naturalHeight) * 1.15;
-        planImage.scale.setScalar(fit); planImage.userData.ready = true;
-      };
-      img.onerror = () => { planImage.userData.ready = false; };
-      img.src = src;
-      planImage = new CSS3DObject(img); planImage.rotation.x = -Math.PI / 2; planImage.scale.setScalar(0.001);
-      planGroup.add(planImage);
-    }
-  }
+  // Detailed interiors live in the floor explorer; source images stay in the document view.
+  const planGroup = new THREE.Group(); openLevel.add(planGroup);
+  const wallMat = lineMat(0xffffff), windowMat = lineMat(CYAN), doorMat = lineMat(AMBER);
+  const floorLines = null, planImage = null, planSpan = span;
 
   // a scan line that keeps travelling up the building
   const sweep = new THREE.Group(); scene.add(sweep);
@@ -483,7 +531,7 @@ function buildingScene(host, data) {
   const frame = Math.max(planSpan * 1.25, span * 0.55); // how far back to stand to see the plan
   const openShot = { pos: v(frame * 0.8, openY + frame * 1.05, frame * 0.8), look: v(0, openY, 0), explode: 1, ghost: 0.05, limit: 0, lift: 1 };
   const shots = {
-    "": data.space || floorLines ? { ...openShot } : { ...hero },
+    "": { ...hero, shell: 0.6, ghost: 0.55 },
     height: { pos: v(reach * 1.05, H * 0.5, reach * 0.3), look: v(0, H * 0.5, 0), limit: 0.24, ghost: 0.16 },
     elevator: { pos: v(reach * 0.85, H * pulled * 0.62, reach * 0.85), look: v(0, H * pulled * 0.5, 0), explode: 1, ghost: 0.08, limit: 0.03 },
     units: { ...openShot },
@@ -509,7 +557,7 @@ function buildingScene(host, data) {
     want.near = shot.near ?? want.ghost;
     fly = { t0: performance.now(), ms: 1300, fromPos: camera.position.clone(), fromLook: controls.target.clone(), toPos: shot.pos, toLook: shot.look, from: { ...now } };
     controls.autoRotate = false;
-    groundMat.color.set(shot.bright ? 0xc4cedb : 0x5b6779);
+    groundMat.color.set(shot.bright ? 0xffffff : 0xe3e5e1);
     const closed = !shot.explode;
     dims.visible = closed && ["", "age", "zone", "stay", "height", "sprinklers", "alarm", "seismic", "historic"].includes(key);
     gap.visible = closed && ["", "age", "zone", "stay", "separation"].includes(key);
@@ -520,6 +568,7 @@ function buildingScene(host, data) {
   };
   ticks.push((t) => {
     if (intro) stepIntro();
+    if (contextMat) contextMat.color.copy(groundMat.color);
     if (fly) {
       const k = Math.min(1, (performance.now() - fly.t0) / fly.ms), e = ease(k);
       camera.position.lerpVectors(fly.fromPos, fly.toPos, e);
@@ -540,7 +589,7 @@ function buildingScene(host, data) {
     if (planImage) planImage.element.style.opacity = planImage.userData.ready ? String(0.92 * now.lift) : "0";
     shell.visible = now.explode < 0.98; shellFill.opacity = now.shell * (1 - now.explode); shellEdge.opacity = 1 - now.explode;
     ghosts.scale.y = nearest.scale.y = Math.max(now.flat * grow, 0.001);
-    ghostFill.opacity = now.ghost; ghostEdge.opacity = Math.min(1, now.ghost + 0.1);
+    ghostFill.opacity = now.ghost; ghostEdge.opacity = now.ghost * 0.3;
     nearFill.opacity = now.near; nearEdge.opacity = Math.min(1, now.near + 0.15);
     limitMat.opacity = now.limit; limitLine.opacity = Math.min(0.9, now.limit * 6); limit.visible = now.limit > 0.005;
     streetMat.opacity = now.street; laneMat.opacity = now.street * 0.5;
@@ -559,10 +608,12 @@ function buildingScene(host, data) {
   const scanBar = polyline([v(-gw / 2 - cx, 1.2, 0), v(gw / 2 - cx, 1.2, 0)], lineMat(0xffffff, 1)); scene.add(scanBar); scanBar.visible = false;
   const caption = host.querySelector("#introcap");
   const say = (text) => { if (caption) { caption.textContent = text; caption.style.display = text ? "block" : "none"; } };
-  const above = v(0.01, Math.max(span * 2.4, 170), 0.5);
+  const photoHeight = () => introPhotoHeight(gw, gh, cx, cy, camera.aspect, camera.fov, Math.max(span * 2.4, 170));
+  const above = v(0, photoHeight(), 0.0001);
   const clamp = (x) => Math.max(0, Math.min(1, x));
   let intro = null, grow = 1, lastKey = "";
   const playIntro = () => {
+    above.y = photoHeight();
     intro = { t0: performance.now(), ms: 6200 };
     fly = null; controls.autoRotate = false; controls.enabled = false;
     Object.assign(now, { explode: 0, lift: 0, flat: 1, ghost: 0.42, near: 0.42, shell: 0.2, limit: 0, street: 0 });
@@ -571,6 +622,7 @@ function buildingScene(host, data) {
     camera.position.copy(above); controls.target.set(0, 0, 0);
   };
   const stepIntro = () => {
+    above.y = photoHeight(); // Refit if the panel is resized during the intro.
     const k = clamp((performance.now() - intro.t0) / intro.ms);
     // 1. the photo as it is, swept once
     scanBar.visible = k < 0.26; scanBar.position.z = cy - gh / 2 + gh * clamp(k / 0.26);
@@ -579,7 +631,7 @@ function buildingScene(host, data) {
     traced.forEach((line) => line.geometry.setDrawRange(0, Math.ceil(line.userData.count * drawn)));
     // 3. the photo recedes and the buildings rise to their measured heights
     const rise = clamp((k - 0.45) / 0.33); grow = 1 - Math.pow(1 - rise, 3);
-    groundMat.color.lerpColors(new THREE.Color(0xffffff), new THREE.Color(0x5b6779), clamp((k - 0.42) / 0.3));
+    groundMat.color.lerpColors(new THREE.Color(0xffffff), new THREE.Color(0xe3e5e1), clamp((k - 0.42) / 0.3));
     trace.children.forEach((line) => { line.material.opacity = 1 - clamp((k - 0.7) / 0.25); });
     // 4. the camera comes down from overhead to the working view
     const swing = ease(clamp((k - 0.5) / 0.5)), shot = shots[lastKey] || shots[""];
@@ -593,7 +645,7 @@ function buildingScene(host, data) {
       setMode(lastKey);
     }
   };
-  host.querySelector("#replay")?.addEventListener("click", (event) => { event.preventDefault(); trace.visible = true; playIntro(); });
+  host.querySelector("#replay").onclick = (event) => { event.preventDefault(); trace.visible = true; playIntro(); };
 
   // taking hold of the view stops the flight, so the camera never fights the person
   stage.renderer.domElement.addEventListener("pointerdown", () => { if (fly) { fly.toPos = camera.position.clone(); fly.fromPos = fly.toPos; fly.toLook = controls.target.clone(); fly.fromLook = fly.toLook; } });
@@ -748,7 +800,6 @@ function recordView(row) {
 function scanView(row, data) {
   const scan = data.scan;
   if (!scan.model_id) return `<p class="statement">${esc(row.evidence)}</p><p class="note">This building has no 3D scan.</p>`;
-  const key = data.sdk_key ? `&applicationKey=${encodeURIComponent(data.sdk_key)}` : "";
   const measured = scan.loaded ? `
     <table class="kv">
       <tr><td>Floors in the scan</td><td>${scan.floors}</td></tr>
@@ -774,8 +825,40 @@ function scanView(row, data) {
   const where = [scan.suite ? `Suite ${scan.suite}` : "", scan.floor ? `floor ${scan.floor} (${scan.floor_basis})` : "floor not known"].filter(Boolean).join(" · ");
   return `<div class="src">SOURCE · Matterport 3D scan${scan.name ? " · " + esc(scan.name) : ""} · ${esc(where)}</div>
     <p class="statement">${esc(row.evidence)}</p>
-    <iframe src="https://my.matterport.com/show/?m=${encodeURIComponent(scan.model_id)}&qs=1&brand=0&help=0${key}" allow="xr-spatial-tracking; fullscreen" allowfullscreen></iframe>
     ${measured}${reading}`;
+}
+
+function mountScanViewer(host, data) {
+  const modelId = data.scan.model_id;
+  host.hidden = true;
+  if (!modelId) return () => {};
+  const key = data.sdk_key ? `&applicationKey=${encodeURIComponent(data.sdk_key)}` : "";
+  const url = `https://my.matterport.com/show/?m=${encodeURIComponent(modelId)}&qs=1&brand=0&help=0${key}`;
+  host.innerHTML = `<h3>Interactive scan</h3>
+    <p class="note">Saved evidence is shown above. Open the interactive scan when you need to explore the space.</p>
+    <div class="agent-actions"><button class="btn" data-open-scan>Open interactive scan</button>
+      <button class="btn" data-reload-scan hidden>Reload scan</button>
+      <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open in new tab</a></div>
+    <p class="note" data-scan-note hidden>Matterport loads over the internet and may take a while. If it stays on “Connecting”, try opening it in a new tab. You can keep reviewing the saved evidence.</p>
+    <div data-scan-frame></div>`;
+  const open = host.querySelector("[data-open-scan]");
+  const reload = host.querySelector("[data-reload-scan]");
+  let frame = null;
+  open.onclick = () => {
+    if (frame) return;
+    frame = document.createElement("iframe");
+    frame.title = "Matterport interactive scan";
+    frame.allow = "xr-spatial-tracking; fullscreen";
+    frame.allowFullscreen = true;
+    frame.src = url;
+    host.querySelector("[data-scan-frame]").appendChild(frame);
+    open.hidden = true;
+    reload.hidden = false;
+    host.querySelector("[data-scan-note]").hidden = false;
+  };
+  reload.onclick = () => { if (frame) frame.src = url; };
+  // Keep the same iframe attached when switching checklist rows.
+  return (visible) => { host.hidden = !visible; };
 }
 
 function outline(rings, box, cls) {
@@ -813,7 +896,7 @@ function planView(data) {
   return `<h3 style="margin-top:18px">Floor plan on record</h3>
     <div class="src">SOURCE · CoStar ${p.image.source === "building" ? "building record" : "space for lease"} · ${p.count} plans on record · <a href="#/plans">see all</a></div>
     <a href="${esc(p.image.url)}" target="_blank" rel="noopener"><img class="sheet" style="background:#fff" src="${esc(p.image.url)}" alt="Floor plan"></a>
-    ${p.reading_from ? `<p class="legend">The reading below is from a whole-floor plan of this building, not from this suite's plan.</p>` : ""}
+    ${p.reading_from ? `<p class="legend">The reading below is from another plan attached to this building. Check its stated coverage before using it for this suite.</p>` : ""}
     ${r ? `<table class="kv">
       <tr><td>Stairwells drawn</td><td>${shown(r.stairs)}</td></tr>
       <tr><td>Elevator cars drawn</td><td>${shown(r.elevators)}</td></tr>
@@ -852,7 +935,7 @@ function changesView(data) {
   <p class="note">Each item carries the quantity it would be priced on. The cost model is not connected yet, so no figures are shown.</p>`;
 }
 
-async function showSpace(id, scanId, selected, spaceId) {
+async function showSpace(id, scanId, selected, spaceId, requestedFloor, requestedView, requestedAsset) {
   const params = new URLSearchParams();
   if (scanId) params.set("scan", scanId);
   if (spaceId) params.set("space", spaceId);
@@ -860,10 +943,16 @@ async function showSpace(id, scanId, selected, spaceId) {
   const data = await api(`/api/spaces/${id}${query}`);
   const b = data.building, o = data.outside, sp = data.space;
   const reopen = (space, scan) => { stopScene(); showSpace(id, scan, current.key, space).catch(showError); };
-  data.onFloor = (floor) => {
-    const there = b.spaces.filter((x) => x.floor === floor);
-    if (there.length) reopen(there.find((x) => x.plan_url || x.scans.length)?.id ?? there[0].id);
-    else flash(`Nothing is on the market on floor ${floor}.`);
+  data.onFloor = (floor) => showScene("isolated", floor);
+  data.interiorAsset = requestedAsset || "";
+  let viewMode = "building", chosenFloor = Number(data.floor) || b.spaces.find(s => s.floor)?.floor || 1;
+  if (Number.isInteger(Number(requestedFloor)) && Number(requestedFloor) >= 1 && Number(requestedFloor) <= (b.stories || 1)) chosenFloor = Number(requestedFloor);
+  const rememberScene = () => {
+    const state = new URLSearchParams({ floor: chosenFloor, view: viewMode });
+    if (sp) state.set("space", sp.id);
+    if (scanId) state.set("scan", scanId);
+    if (data.interiorAsset) state.set("interior", data.interiorAsset);
+    history.replaceState(null, "", `#/space/${id}?${state}`);
   };
   let current = data.rows.find((r) => r.key === selected) || data.rows[0];
   const top = data.top_occupied_ft;
@@ -873,7 +962,16 @@ async function showSpace(id, scanId, selected, spaceId) {
   const metric = (k, v, unit = "", hot = false) => `<div class="metric ${hot ? "hot" : ""}"><div class="k">${k}</div><div class="v">${v}<small>${unit}</small></div></div>`;
   app.innerHTML = `
     <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
-    <div class="stage" id="stage"><div class="gl"></div><div class="labels"></div>
+    <div class="review-layout"><div class="scene-column">
+      <nav class="scene-toolbar" aria-label="Building views">
+        <button class="btn" data-scene-mode="building" aria-pressed="true">Building</button>
+        <button class="btn" data-scene-mode="exploded" aria-pressed="false">Separate floors</button>
+        <button class="btn" data-scene-mode="isolated" aria-pressed="false">Inside selected floor</button>
+        <label>Floor <select id="floor-picker" aria-label="Selected building floor">${Array.from({length:b.stories || 1},(_,i)=>(b.stories || 1)-i).map(n=>`<option value="${n}" ${n===chosenFloor?"selected":""}>${n}</option>`).join("")}</select></label>
+      </nav>
+      <nav id="floor-directory" class="floor-directory" aria-label="Floors and available interior sources"></nav>
+      <div class="floor-resource-bar"><label>Interior source <select id="floor-resource" aria-label="Interior source on selected floor"></select></label><span id="floor-resource-summary" class="sub" role="status"></span></div>
+      <div class="stage" id="stage"><div class="gl"></div><div class="labels"></div><div id="floor-plan-view" hidden></div>
       ${o.loaded ? "" : `<div class="empty">${esc(o.error || "No imagery for this building.")}</div>`}
       <div class="hud tl"><h1>${esc(b.name || b.address)}</h1>
         <div class="sub">${esc(b.address)}, Los Angeles · ${esc(b.property_type)} · built ${b.year_built ?? "–"} · zone ${esc(b.zone ?? "–")}</div>
@@ -894,6 +992,19 @@ async function showSpace(id, scanId, selected, spaceId) {
         ${metric("Imagery", esc(o.captured || "–"))}
       </div>
     </div>
+    <section class="panel floor-detail" id="floor-detail" hidden>
+      <h3 id="floor-title"></h3><p id="floor-note" role="status"></p><p id="floor-scope-note" class="sub"></p>
+      <p class="sub">Floor numbers follow the building record. Floor elevations and repeated outlines are approximate; the building footprint is not a surveyed outline of every floor.</p>
+      <div id="floor-source"></div><details id="floor-unassigned"><summary>Sources without a confirmed floor</summary><div></div></details>
+      <details class="plan-import"><summary>Build a draft from a 2D plan file</summary>
+        <p>Choose the original, straight-on plan image for the selected floor and suite. The file stays in this browser; this draft is cleared when leaving the scene. Crop out titles and legends, then review the blue line candidates.</p>
+        <input id="plan-file" type="file" accept="image/png,image/jpeg,image/webp" aria-label="Local floor plan image">
+        <canvas id="plan-preview" hidden aria-label="Plan line candidates; drag to crop"></canvas>
+        <p id="plan-draft-note">Image observations are read from images, not measured.</p>
+        <button class="btn" id="plan-apply" disabled>Use reviewed draft on selected floor</button>
+      </details>
+    </section></div>
+    <aside class="panel agent-panel" id="agent-panel" aria-label="Evidence agent"></aside></div>
     ${b.spaces.length ? `<h2>Spaces on the market · ${b.spaces.length}</h2>
     <div class="panel market"><table class="spaces">
       <thead><tr><th>Floor</th><th>Suite</th><th class="num">sq ft</th><th>Use</th><th class="num">Asking $/sq ft/yr</th><th>Available</th><th>Floor plan</th><th>3D scan</th></tr></thead>
@@ -914,7 +1025,7 @@ async function showSpace(id, scanId, selected, spaceId) {
             <dt>To be confirmed by</dt><dd>${esc(r.confirmed_by)}</dd>
           </dl>
         </button>`).join("")}</div>
-      <div class="panel evidence" id="evidence"></div>
+      <div class="panel evidence"><div id="evidence"></div><section id="scan-viewer" hidden></section></div>
     </div>
     <h2>Work the published rules call for</h2>
     ${changesView(data)}
@@ -925,13 +1036,66 @@ async function showSpace(id, scanId, selected, spaceId) {
       <ul>${g.items.map((i) => `<li><b>${esc(i.requirement)}</b> ${badge(i.state)}<br><span class="sub">${esc(i.evidence)}</span></li>`).join("")}</ul>`).join("")}
     </div>`;
 
+  mountAgent(document.getElementById("agent-panel"), id, spaceId || "", data.scan.model_id || "");
   data.playIntro = !introSeen.has(id); introSeen.add(id);
-  if (o.loaded) live = buildingScene(document.getElementById("stage"), data);
+  function updateFloorControls() {
+    const assets = floorAssets(data.floor_sources, chosenFloor);
+    const picked = chooseFloorAsset(data.floor_sources, chosenFloor, data.interiorAsset, sp?.floor === chosenFloor ? sp.id : "");
+    data.interiorAsset = picked?.key || "";
+    const resource = document.getElementById("floor-resource"); resource.replaceChildren();
+    const describe = a => [a.geometry_available ? (a.units === "plan_relative" ? "3D draft · relative scale" : a.reconstructed ? "3D plan draft" : a.registered ? "3D in floor frame" : "3D suite") : a.scan_id ? "Scan tour" : "", a.plan_url ? "2D plan" : ""].filter(Boolean).join(" + ");
+    for (const asset of assets) {
+      const option = new Option(`${asset.label} · ${describe(asset)}`, asset.key);
+      option.selected = asset.key === data.interiorAsset; resource.add(option);
+    }
+    if (!assets.length) resource.add(new Option("No linked interior source", ""));
+    resource.disabled = !assets.length;
+    const vectors = assets.filter(a=>a.geometry_available).length;
+    document.getElementById("floor-resource-summary").textContent = `Floor ${chosenFloor} · ${assets.length} linked source${assets.length === 1 ? "" : "s"} · ${vectors} with 3D geometry · ${assets.filter(a=>a.registered).length} in a floor frame`;
+    const directory = document.getElementById("floor-directory"); directory.replaceChildren();
+    for (const floor of [...(data.floor_sources?.floors || [])].reverse()) {
+      const button = document.createElement("button"); button.className = "btn";
+      const kinds = [floor.assets.some(a=>a.geometry_available) ? "3D" : floor.assets.some(a=>a.scan_id) ? "tour" : "", floor.assets.some(a=>a.plan_url) ? "2D" : ""].filter(Boolean).join(" + ");
+      button.textContent = `F${floor.floor} · ${kinds || "no source"}`;
+      button.setAttribute("aria-label", `Floor ${floor.floor}: ${kinds || "no linked interior source"}`);
+      button.setAttribute("aria-pressed", String(floor.floor === chosenFloor));
+      button.onclick = () => showScene("isolated", floor.floor); directory.appendChild(button);
+    }
+    document.getElementById("floor-picker").value = String(chosenFloor);
+  }
+  function showScene(mode, floor = chosenFloor) {
+    if (!o.loaded) return;
+    chosenFloor = Number(floor); viewMode = mode;
+    updateFloorControls();
+    const host = document.getElementById("stage");
+    if (mode === "building") {
+      stopScene(); host.classList.remove("floor-mode");
+      document.getElementById("floor-detail").hidden = true;
+      document.getElementById("floor-plan-view").hidden = true; host.classList.remove("plan-only");
+      live = buildingScene(host, data); data.playIntro = false;
+    } else if (live?.selectFloor) {
+      live.selectFloor(chosenFloor, mode);
+    } else {
+      stopScene(); document.getElementById("introcap").style.display = "none";
+      live = floorExplorer(host, data, makeStage, chosenFloor, (floor, mode, asset) => { chosenFloor = floor; viewMode = mode; data.interiorAsset = asset || ""; updateFloorControls(); rememberScene(); });
+      live.selectFloor(chosenFloor, mode);
+    }
+    document.querySelectorAll("[data-scene-mode]").forEach(el => el.setAttribute("aria-pressed", String(el.dataset.sceneMode === mode)));
+    rememberScene();
+  }
+  document.querySelectorAll("[data-scene-mode]").forEach(el => el.onclick = () => showScene(el.dataset.sceneMode));
+  document.getElementById("floor-resource").onchange = event => { data.interiorAsset = event.target.value; showScene("isolated"); };
+  updateFloorControls();
+  document.getElementById("floor-picker").onchange = event => showScene("isolated", event.target.value);
+  if (o.loaded) showScene(["exploded", "isolated"].includes(requestedView) ? requestedView : sp && data.floor ? "isolated" : "building");
+  const showScanViewer = mountScanViewer(document.getElementById("scan-viewer"), data);
   const select = (key) => {
     current = data.rows.find((r) => r.key === key);
     app.querySelectorAll(".row").forEach((el) => el.classList.toggle("on", el.dataset.key === key));
     document.getElementById("evidence").innerHTML = evidenceView(current, data);
-    live?.setMode?.(key);
+    showScanViewer(current.view === "scan");
+    if (viewMode === "building" && ["units", "exits", "escape", "elevator"].includes(key)) showScene("isolated");
+    else live?.setMode?.(key);
   };
   app.querySelectorAll(".row").forEach((el) => (el.onclick = () => select(el.dataset.key)));
   const picker = document.getElementById("scan");
@@ -942,6 +1106,91 @@ async function showSpace(id, scanId, selected, spaceId) {
   select(current.key);
 }
 
+function mountAgent(host, buildingId, spaceId, scanId) {
+  let timer = null, playing = false;
+  host.innerHTML = `<h2>Evidence agent</h2><p class="sub">Choose sources, gather evidence, cross-check, and record next steps.</p>
+    <p class="sub" id="agent-config">Checking local model settings…</p>
+    <div class="agent-actions"><button class="btn" id="agent-start" disabled>Run evidence review</button>
+    <button class="btn" id="agent-replay" disabled>Replay saved run</button></div>
+    <label class="sub">Saved reviews <select id="agent-history" aria-label="Saved evidence reviews"></select></label>
+    <p id="agent-status" role="status" aria-live="polite"></p>
+    <ol class="agent-log" id="agent-log"></ol><div class="agent-result" id="agent-result"></div>`;
+  const el = (id) => host.querySelector(`#agent-${id}`);
+  const query = new URLSearchParams({ space: spaceId, scan: scanId });
+  const endpoint = `/api/spaces/${buildingId}/reviews`;
+  const request = async (url, options) => {
+    const response = await fetch(url, options);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "The evidence service is unavailable.");
+    return data;
+  };
+  const showResult = (run) => {
+    if (!run.result) { el("result").innerHTML = ""; return; }
+    el("result").innerHTML = `<h3>Recorded agent checklist</h3>${counts(run.result.counts)}
+      <p class="sub">This review uses the sources gathered during this run. Image observations are read from images, not measured.</p>
+      <a class="btn" href="/api/reviews/${encodeURIComponent(run.id)}/report.md">Export this review</a>
+      <details><summary>Evidence and who confirms it</summary>${run.result.rows.map(r => `<article>
+        <b>${esc(r.requirement)}</b> ${badge(r.state)}<p>${esc(r.evidence)}</p>
+        <p class="sub">${esc(r.layer)} · To be confirmed by ${esc(r.confirmed_by)}</p></article>`).join("")}</details>`;
+  };
+  const draw = (run, limit = run.events.length) => {
+    const entries = run.events.slice(0, limit);
+    el("log").innerHTML = entries.filter(e => e.stage !== "finished").map(e => `<li>${esc(e.message)}
+      <small>${esc(new Date(e.at).toLocaleTimeString())}${e.stage ? " · tool selected" : ""}</small></li>`).join("");
+    for (const event of entries.filter(e => e.stage === "finished" && (e.observation?.unavailable || e.observation?.error))) {
+      const item = document.createElement("li");
+      item.textContent = `${event.action.replaceAll("_", " ")}: ${event.observation.unavailable || event.observation.error}`;
+      el("log").appendChild(item);
+    }
+    el("status").textContent = `${playing ? "Recorded replay" : run.mode === "live" ? "Model run" : "Test run"} · ${limit < run.events.length ? "playing" : run.status}`;
+    if (limit === run.events.length) showResult(run);
+  };
+  const history = async () => {
+    const data = await request(`${endpoint}?${query}`);
+    if (!host.isConnected) return;
+    el("history").innerHTML = data.runs.map(r => `<option value="${esc(r.id)}">${esc(new Date(r.started_at).toLocaleString())} · ${esc(r.mode)} · ${esc(r.status)}</option>`).join("");
+    el("replay").disabled = !data.runs.length;
+    return data.runs;
+  };
+  const poll = async (id) => {
+    if (!host.isConnected) return;
+    try {
+      const run = await request(`/api/reviews/${encodeURIComponent(id)}`);
+      if (!host.isConnected) return;
+      draw(run);
+      if (run.status === "running") timer = setTimeout(() => poll(id), 1000);
+      else { el("start").disabled = false; await history(); }
+    } catch (error) { if (host.isConnected) { el("status").textContent = error.message; el("start").disabled = false; } }
+  };
+  el("start").onclick = async () => {
+    clearTimeout(timer); playing = false; el("start").disabled = true; el("replay").disabled = true;
+    el("result").innerHTML = ""; el("log").innerHTML = "";
+    try {
+      const run = await request(endpoint, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({space:spaceId,scan:scanId}) });
+      await poll(run.id);
+    } catch (error) { el("status").textContent = error.message; el("start").disabled = false; await history(); }
+  };
+  el("replay").onclick = async () => {
+    clearTimeout(timer); playing = true; el("result").innerHTML = "";
+    try {
+      const run = await request(`/api/reviews/${encodeURIComponent(el("history").value)}`);
+      let n = 0;
+      const tick = () => {
+        if (!host.isConnected) return;
+        draw(run, ++n);
+        if (n < run.events.length) timer = setTimeout(tick, 550);
+      };
+      tick();
+    } catch (error) { el("status").textContent = error.message; }
+  };
+  Promise.all([request("/api/agent"), history()]).then(([config, runs]) => {
+    if (!host.isConnected) return;
+    el("config").textContent = config.message;
+    el("start").disabled = !config.ready;
+    if (runs?.[0]?.status === "running") { el("start").disabled = true; poll(runs[0].id); }
+  }).catch(error => { if (host.isConnected) el("status").textContent = error.message; });
+}
+
 async function showPlans() {
   const data = await api("/api/spaces");
   const withPlans = data.spaces.filter((s) => s.floor_plans?.length)
@@ -950,16 +1199,15 @@ async function showPlans() {
   app.innerHTML = `
     <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
     <h1>Floor plans CoStar holds for these buildings</h1>
-    <p class="sub">${total} plans on ${withPlans.length} of ${data.spaces.length} buildings. Whole-floor plans come from the building record;
-      suite plans come from spaces listed for lease. Select a plan to open it at full size.</p>
+    <p class="sub">${total} plans on ${withPlans.length} of ${data.spaces.length} buildings. Plans are attached to building records or listed spaces.
+      Check each sheet for its floor, suite and coverage. Select a plan to open it at full size.</p>
     ${withPlans.map((s) => {
-      const shown = s.floor_plans.slice(0, 12);
+      const shown = s.floor_plans;
       return `<div class="planhead"><h3>${esc(s.name || s.address)}</h3>
-        <span class="sub">${s.floor_plans.filter((p) => p.source === "building").length} whole-floor · ${s.floor_plans.filter((p) => p.source === "space").length} suite ·
+        <span class="sub">${s.floor_plans.filter((p) => p.source === "building").length} building attachments · ${s.floor_plans.filter((p) => p.source === "space").length} listing attachments ·
           <a href="#/space/${s.property_id}">open the evidence review</a></span></div>
         <div class="plans">${shown.map((p) => `<a class="plan" href="${esc(p.url)}" target="_blank" rel="noopener">
-          <img loading="lazy" src="${esc(p.url)}" alt="Floor plan"><span>${p.source === "building" ? "Whole floor" : "Suite"} · ${esc(p.caption)}</span></a>`).join("")}</div>
-        ${s.floor_plans.length > shown.length ? `<p class="legend">and ${s.floor_plans.length - shown.length} more</p>` : ""}`;
+          <img loading="lazy" src="${esc(p.url)}" alt="Floor plan"><span>${p.source === "building" ? "Building attachment" : "Listing attachment"} · ${esc(p.caption)}</span></a>`).join("")}</div>`;
     }).join("")}`;
 }
 
@@ -974,7 +1222,7 @@ async function showPlansToRead(page) {
       · ${page ? `<a href="#/plans/read/${page - 1}">previous</a> · ` : ""}${page + 1 < chosen.length ? `<a href="#/plans/read/${page + 1}">next</a>` : ""}
       · <a href="#/space/${s.property_id}">${esc(s.name || s.address)}</a></p>
     <div style="background:#fff;border-radius:8px;overflow:hidden">
-      <div style="font:600 12px var(--mono);color:#123;background:#dfe6f0;padding:4px 8px">#${s.property_id} · ${s.plan_to_read.source === "building" ? "whole floor" : "suite"} · ${s.stories ?? "?"} stories on record${r ? ` · read: ${r.stairs} stairs, ${r.elevators} elevators` : ""}</div>
+      <div style="font:600 12px var(--mono);color:#123;background:#dfe6f0;padding:4px 8px">#${s.property_id} · ${s.plan_to_read.source === "building" ? "building attachment" : "listing attachment"} · ${s.stories ?? "?"} stories on record${r ? ` · read: ${r.stairs} stairs, ${r.elevators} elevators` : ""}</div>
       <img src="${esc(s.plan_to_read.url)}" alt="Floor plan" style="width:100%;height:740px;object-fit:contain;display:block"></div>`;
 }
 
@@ -992,7 +1240,8 @@ function route() {
   stopScene();
   app.innerHTML = '<p class="loading">Reading the three data layers…</p>';
   const read = location.hash.match(/^#\/plans\/read\/(\d+)/);
-  (match ? showSpace(match[1]) : read ? showPlansToRead(Number(read[1])) : location.hash.startsWith("#/plans") ? showPlans() : showList()).catch(showError);
+  const selection = new URLSearchParams(location.hash.split("?")[1] || "");
+  (match ? showSpace(match[1], selection.get("scan"), undefined, selection.get("space"), selection.get("floor"), selection.get("view"), selection.get("interior")) : read ? showPlansToRead(Number(read[1])) : location.hash.startsWith("#/plans") ? showPlans() : showList()).catch(showError);
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", route);

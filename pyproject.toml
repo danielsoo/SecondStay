@@ -1,12 +1,13 @@
 [project]
 name = "secondstay"
 version = "0.1.0"
-description = "Agent that finds vacant offices that can become housing"
-requires-python = ">=3.10"
+description = "Preliminary evidence review for office-to-housing investigations"
+requires-python = ">=3.11"
 
 [project.optional-dependencies]
 dev = ["pytest"]
 sheets = ["pillow"]  # contact sheets of panoramas
+agent = ["deepagents==0.7.38", "langchain-groq>=1.1,<2", "langchain-openai>=1.8,<2", "langchain-google-genai>=4.5,<5", "pillow"]
 
 [tool.setuptools]
 packages = ["secondstay"]
