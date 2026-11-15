@@ -651,7 +651,7 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(url.query)
         if url.path in ("/", "/index.html"):
             return self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
-        if url.path in ("/costs.js", "/costs.css"):
+        if url.path in ("/costs.js", "/costs.css", "/theme.css"):
             kind = "text/javascript" if url.path.endswith(".js") else "text/css"
             return self._send(200, (STATIC / url.path[1:]).read_bytes(), kind + "; charset=utf-8")
         if re.fullmatch(r"/api/spaces/\d+/cost", url.path):
