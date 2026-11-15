@@ -1,10 +1,12 @@
 import * as THREE from "three";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { CSS3DObject } from "three/addons/renderers/CSS3DRenderer.js";
 import { floorPose, validFloor, sameScope, chooseFloorAsset, floorCoverage } from "./floor_motion.mjs";
 import { wallSections } from "./opening_layout.mjs";
 import { traceCandidates } from "./plan_trace.mjs";
+import { floorAccounting, gridSegments, GRID_FT } from "./floor_accounting.mjs";
 
-export function floorExplorer(host, data, makeStage, initial, onFloor) {
+export function floorExplorer(host, data, makeStage, initial, onFloor, onTour = () => {}) {
   const stage = makeStage(host, { bloom: false }), { scene, camera, controls, ticks } = stage;
   controls.autoRotate = false;
   scene.fog = null;
@@ -35,6 +37,10 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
     });
   }
   const levels = [], picks = [], vectorRoot = new THREE.Group(), planSlab = new THREE.Group();
+  // Room floors of listed suites: hovering names the suite, clicking walks into its 3D tour.
+  const roomPicks = []; let hovered = null, touring = false;
+  const scanOf = (model) => model.scan_id || (b.spaces || []).find(s => String(s.id) === String(model.space_id))?.scans?.[0] || "";
+  const marketFloors = new Set((b.spaces || []).map(s => s.floor).filter(Boolean));
   const label = document.createElement("span"); label.className = "tag3d cyan";
   const marker = new CSS2DObject(label);
   const slabGeometry = rings.map(r => new THREE.ExtrudeGeometry(new THREE.Shape(r.map(([x, y]) => new THREE.Vector2(x - cx, y - cy))), { depth: 0.45, bevelEnabled: false }).rotateX(-Math.PI / 2));
@@ -58,6 +64,31 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
   coverage.setAttribute("aria-label","Interior model coverage");
   coverage.hidden = true;
   host.before(coverage);
+  // What every part of the selected floor is, and why it is or is not drawn.
+  const ledger = document.createElement("section");
+  ledger.className = "panel floor-ledger";
+  ledger.setAttribute("aria-label", "What is on record for this floor");
+  host.before(ledger);
+  const gridRoot = new THREE.Group();
+  const gridMaterial = new THREE.LineBasicMaterial({ color: 0x8fd3e8, transparent: true, opacity: 0.38 });
+  const gridTag = document.createElement("span"); gridTag.className = "tag3d";
+  const gridLabel = new CSS2DObject(gridTag);
+  // A short card on the floor itself: what is on record here.
+  const cardEl = document.createElement("div"); cardEl.className = "floor-card";
+  const card = new CSS2DObject(cardEl);
+  // The building's whole-floor plan, laid on a floor that has no record of its own (reference only).
+  let refImage = null;
+  const reference = data.reference_plan;
+  if (reference?.url) {
+    const img = document.createElement("img"); img.alt = "Whole-floor plan on record (reference)"; img.style.opacity = "0";
+    img.onload = () => {
+      const fx = Math.max(...xs) - Math.min(...xs), fy = Math.max(...ys) - Math.min(...ys);
+      refImage.scale.setScalar(Math.min(fx / img.naturalWidth, fy / img.naturalHeight) * 0.98); refImage.userData.ready = true;
+    };
+    img.src = reference.url;
+    refImage = new CSS3DObject(img); refImage.rotation.x = -Math.PI / 2; refImage.position.set(0, 0.55, 0);
+    refImage.scale.setScalar(0.0001);
+  }
   const geometryCache = new Map(), scopeKey = s => `${s.floor}:${s.asset_key || ""}`;
   let asset = null;
   const planView = document.getElementById("floor-plan-view");
@@ -100,13 +131,83 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
     }
   }
   const clearVectors = () => {
+    roomPicks.length = 0; hovered = null;
     for (const child of [...vectorRoot.children]) {
       child.geometry?.dispose();
       if (child.material) [].concat(child.material).forEach(m => m.dispose());
       vectorRoot.remove(child);
     }
   };
+  const SQFT = n => n == null ? "area not recorded" : `${Math.round(n).toLocaleString("en-US")} sq ft`;
+  const COLORS = { drawn: "#5fe0a0", listed_unplaced: "#ffc24a", listed_plan: "#ffb36b", listed_tour: "#f59e7a",
+    listed_none: "#e46d6d", leased: "#8fb8ff", unrecorded: "#5d6b80" };
+  function showLedger(models) {
+    const a = floorAccounting({ building: b, catalog: data.floor_sources, floor: selected, shownModels: models,
+      footprintSqft: o.footprint_sqft || null });
+    ledger.replaceChildren();
+    const head = document.createElement("strong");
+    const marketCount = (b.spaces || []).filter(s => s.floor === selected).length;
+    head.textContent = `Floor ${selected} · ${marketCount ? `${marketCount} space${marketCount === 1 ? "" : "s"} on the market` : "no space on the market"}` + (a.floorSqft ? ` · floor ${SQFT(a.floorSqft)} (${a.basis})` : "");
+    const bar = document.createElement("div"); bar.className = "ledger-bar";
+    const total = Math.max(a.floorSqft || 0, a.parts.reduce((t, x) => t + (x.sqft || 0), 0)) || 1; // the empty end of the bar is the rest of the floor
+    for (const part of a.parts) {
+      if (!part.sqft) continue;
+      const seg = document.createElement("span"); seg.style.width = `${(part.sqft / total * 100).toFixed(2)}%`;
+      seg.style.background = COLORS[part.kind]; seg.className = part.kind === "unrecorded" ? "hatched" : "";
+      seg.title = `${part.label} · ${SQFT(part.sqft)}`; bar.append(seg);
+    }
+    const list = document.createElement("ul"); list.className = "ledger-list";
+    for (const part of a.parts) {
+      const li = document.createElement("li");
+      const dot = document.createElement("i"); dot.style.background = COLORS[part.kind];
+      const name = document.createElement("b"); name.textContent = part.label;
+      const size = document.createElement("span"); size.className = "num"; size.textContent = SQFT(part.sqft);
+      const why = document.createElement("span"); why.className = "sub"; why.textContent = part.reason;
+      li.append(dot, name, size, why);
+      if (part.asset) {
+        const btn = document.createElement("button"); btn.className = "btn"; btn.textContent = "Open model";
+        btn.onclick = () => { data.interiorAsset = part.asset; selectFloor(selected, "isolated"); }; li.append(btn);
+      } else if (part.url) link(li, "Open plan", part.url);
+      else if (part.scan) {
+        const btn = document.createElement("button"); btn.className = "btn"; btn.textContent = "Walk inside";
+        btn.onclick = () => onTour({ suite: part.label.replace(/^Suite /, ""), space_id: String(part.space_id || ""), scan: part.scan, name: part.label });
+        li.append(btn);
+      }
+      list.append(li);
+    }
+    const foot = document.createElement("p"); foot.className = "sub"; foot.style.margin = "6px 0 0";
+    foot.textContent = a.note + ` Where a space has no plan, the floor shows a ${GRID_FT} ft reference grid, not invented rooms.`;
+    ledger.append(head, bar, list, foot);
+    const lines = a.parts.filter(p => p.kind !== "unrecorded").slice(0, 5).map(p =>
+      `<div><b>${p.label}</b> · ${SQFT(p.sqft)} <span class="why">· ${({drawn:"drawn", listed_unplaced:"model not placed", listed_plan:"plan image only",
+        listed_tour:"tour only", listed_none:"no plan or scan", leased:"tenant plans not public"})[p.kind] || ""}</span></div>`);
+    cardEl.innerHTML = `<div><b>Floor ${selected}</b> · ${a.floorSqft ? SQFT(a.floorSqft) : "size not recorded"}</div>` +
+      (lines.join("") || '<div class="why">No space on the market on this floor.</div>');
+
+  }
+  function showGrid(value) {
+    for (const child of [...gridRoot.children]) { child.geometry?.dispose(); gridRoot.remove(child); }
+    let outlines = null, lift = 0.5;
+    if (value?.available && value.registered && value.floor_outline && value.units !== "plan_relative") {
+      outlines = [value.floor_outline]; lift = 0.3;
+    } else if (!value?.available) {
+      outlines = rings.map(r => r.map(([x, y]) => [x - cx, y - cy]));
+    }
+    if (!outlines) { card.position.set(-span * 0.6, 3, -span * 0.4); return; } // a suite model with no floor frame: no grid
+    const segs = gridSegments(outlines, GRID_FT * 0.3048);
+    const points = segs.flatMap(([x1, y1, x2, y2]) => [new THREE.Vector3(x1, lift, -y1), new THREE.Vector3(x2, lift, -y2)]);
+    // On a bare slab the grid is dark so it reads against the light surface; around drawn rooms it is light.
+    gridMaterial.color.set(value?.available ? 0x8fd3e8 : 0x1f3a48); gridMaterial.opacity = value?.available ? 0.38 : 0.9;
+    if (points.length) gridRoot.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points), gridMaterial));
+    gridTag.textContent = value?.available ? `${GRID_FT} ft reference grid · blank areas are not on the market or have no plan` : `No plan on record for the spaces here · ${GRID_FT} ft reference grid`;
+    const ox = outlines.flat().map(p => p[0]), oy = outlines.flat().map(p => p[1]);
+    gridLabel.position.set((Math.min(...ox) + Math.max(...ox)) / 2, lift + 1.2, -Math.max(...oy)); // far edge, clear of the floor label
+    card.position.set(Math.min(...ox) - 1, lift + 2.5, -Math.max(...oy)); // the far left corner, off the drawing
+    gridRoot.add(gridLabel);
+  }
   function showGeometry(value) {
+    showLedger(value?.available ? (value.assembly || [value]) : []);
+    showGrid(value);
     geometry = value; clearVectors(); geometrySpan = span; legend.replaceChildren();
     coverage.replaceChildren(); coverage.hidden = true;
     for(const child of [...planSlab.children]) { child.geometry?.dispose(); child.material?.dispose(); planSlab.remove(child); }
@@ -169,6 +270,11 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
       for(const ring of room.holes || []) shape.holes.push(new THREE.Path(ring.map(([x,y])=>new THREE.Vector2(x-mx,y-my))));
       const floor = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI/2), material(roomColors[i % roomColors.length]));
       floor.position.y = 0.48; vectorRoot.add(floor);
+      if (value.space_id) {
+        floor.userData.room = { suite: value.suite || "", space_id: String(value.space_id), scan: scanOf(value),
+          label: room.label && room.label !== "Unlabelled area" ? room.label : "" };
+        roomPicks.push(floor);
+      }
     }
     const wallData = value.wall_segments || value.walls.map(segment=>({segment,openings:[]}));
     for (const wall of wallData) {
@@ -214,7 +320,8 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
   function arrange() {
     context.visible = false; // Floor-plan coordinates have no geographic registration.
     const floor = levels[selected - 1];
-    floor.group.add(vectorRoot, marker, planSlab);
+    floor.group.add(vectorRoot, marker, planSlab, gridRoot, card);
+    if (refImage) floor.group.add(refImage);
     marker.position.set(0, 3.5, span * 0.52);
     label.textContent = `Floor ${selected}${asset ? " · " + asset.label : ""}`;
     title.textContent = label.textContent;
@@ -243,7 +350,10 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
     const cached = geometryCache.get(scopeKey(scope));
     if (cached) { showGeometry(cached); note.textContent = cached.note; showSource(); frame(); return; }
     if(!asset?.geometry_available && !asset?.scan_id) {
-      const result={available:false,note:asset?.plan_url ? "CoStar plan linked to this floor. The original image is shown without inferring walls, orientation or dimensions." : "No floor-linked plan or scan is recorded for this selection. The outline repeats the building footprint."};
+      const borrowed = asset?.plan_url ? null : await repeatedCore(selected);
+      if (!alive || mine !== request) return;
+      if (borrowed) { geometryCache.set(scopeKey(scope), borrowed); showGeometry(borrowed); note.textContent = borrowed.note; showSource(); frame(); return; }
+      const result={available:false,note:asset?.plan_url ? "CoStar plan linked to this floor. The original image is shown without inferring walls, orientation or dimensions." : "No floor-linked plan or scan is recorded for this selection. The outline repeats the building footprint." + (reference?.url ? " The building's whole-floor plan on record is laid on the floor as a reference; it is not this floor's own layout." : "")};
       geometryCache.set(scopeKey(scope),result); showGeometry(result); note.textContent=result.note; showSource(); return;
     }
     try {
@@ -259,6 +369,29 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
       if (alive && mine === request) { showGeometry(null); note.textContent = error.message; showSource(); }
     }
   }
+  // The core (stairs, elevators, restrooms) of an office tower usually repeats floor to floor.
+  async function repeatedCore(floor) {
+    const donors = (data.floor_sources?.floors || []).flatMap(f => (f.assets || [])
+      .filter(a => a.registered && a.geometry_available && a.units !== "plan_relative").map(a => ({ floor: f.floor, asset: a })))
+      .sort((p, q) => Math.abs(p.floor - floor) - Math.abs(q.floor - floor));
+    for (const { floor: from, asset: donor } of donors) {
+      if (from === floor) continue;
+      try {
+        const params = new URLSearchParams({ floor: from, space: donor.space_id || "", scan: donor.scan_id || "" });
+        const response = await fetch(`/api/spaces/${b.property_id}/floor-geometry?${params}`);
+        const result = await response.json();
+        if (!response.ok || !result.floor_outline) continue;
+        const core = (result.assembly || []).filter(m => !m.space_id && (m.walls || []).length);
+        return { available: true, registered: true, units: result.units, floor_scope: "partial", floor_outline: result.floor_outline,
+          assembly: core.length ? core.map(m => ({ ...m, suite: `Core repeated from floor ${from}` })) : [],
+          walls: core[0]?.walls || [], repeated_from: from,
+          note: core.length
+            ? `No plan or scan is on record for floor ${floor}. The shared core and floor outline are repeated from floor ${from}, assuming the core is the same on every floor; that assumption is to be confirmed.`
+            : `No plan or scan is on record for floor ${floor}. The floor outline is repeated from floor ${from}.` };
+      } catch { continue; }
+    }
+    return null;
+  }
   let last = performance.now();
   ticks.push(() => {
     const now = performance.now(), blend = 1 - Math.exp(-Math.min(100, now - last) / 180); last = now;
@@ -267,12 +400,22 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
       level.group.position.x += (p.x - level.group.position.x) * blend;
       level.group.position.y += (p.y - level.group.position.y) * blend;
       level.group.position.z += (p.z - level.group.position.z) * blend;
-      level.material.opacity += (p.opacity * (level.number === selected ? (geometry?.available && mode === "isolated" ? 0.08 : 0.95) : 0.9) - level.material.opacity) * blend;
-      level.material.color.set(level.number === selected ? 0x9dbbc0 : 0x9a9e99);
+      const dim = marketFloors.has(level.number) || level.number === selected ? 1 : 0.5; // not on the market: kept only for the building's shape
+      level.material.opacity += (p.opacity * dim * (level.number === selected ? (geometry?.available && mode === "isolated" ? 0.08 : 0.95) : 0.9) - level.material.opacity) * blend;
+      const onMarket = marketFloors.has(level.number);
+      level.material.color.set(level.number === selected ? 0x9dbbc0 : onMarket ? 0xb9c6c4 : 0x4f5862);
       level.edgeMaterial.opacity = level.number === selected ? 0.45 : 0.18;
       const physicalFrame = geometry?.registered && geometry.units !== "plan_relative";
       const showingInterior = geometry?.available && (mode === "isolated" || physicalFrame);
-      for(const child of level.group.children) if(child !== vectorRoot && child !== marker && child !== planSlab) child.visible = !(showingInterior && level.number === selected);
+      for(const child of level.group.children) if(child !== vectorRoot && child !== marker && child !== planSlab && child !== gridRoot && child !== card && child !== refImage) child.visible = !(showingInterior && level.number === selected);
+      card.visible = mode === "isolated";
+      if (refImage) {
+        // Shown only on a floor with nothing drawn: a repeated core sits in a different, plan-based frame.
+        refImage.visible = mode === "isolated" && !geometry?.available && !!refImage.userData.ready;
+        refImage.element.style.opacity = refImage.visible ? "0.82" : "0";
+      }
+      gridRoot.visible = mode === "isolated";
+      gridTag.style.display = mode === "isolated" ? "" : "none";
       level.group.visible = level.material.opacity > 0.005;
       vectorRoot.visible = !!showingInterior;
       planSlab.visible = !!geometry?.registered && !!showingInterior;
@@ -282,17 +425,58 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
       const t = Math.min(1, (now - flight.at) / (matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 900));
       const e = t * t * (3 - 2 * t);
       camera.position.lerpVectors(flight.from, flight.position, e); controls.target.lerpVectors(flight.look, flight.target, e);
+      if (flight.then && e >= flight.thenAt) { const then = flight.then; flight.then = null; then(); }
       if (t === 1) flight = null;
     }
   });
   const ray = new THREE.Raycaster(), pointer = new THREE.Vector2(); let down;
   stage.renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; flight = null; });
   stage.renderer.domElement.addEventListener("wheel", () => { flight = null; }, { passive: true });
-  stage.renderer.domElement.addEventListener("pointerup", e => {
-    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5 || mode !== "exploded") return;
+  const roomAt = (e) => {
     const r = stage.renderer.domElement.getBoundingClientRect();
     pointer.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
     ray.setFromCamera(pointer, camera);
+    return mode === "isolated" && vectorRoot.visible ? ray.intersectObjects(roomPicks)[0] : null;
+  };
+  const roomTag = document.createElement("span"); roomTag.className = "tag3d room-tag"; roomTag.style.display = "none";
+  const roomLabel = new CSS2DObject(roomTag); scene.add(roomLabel);
+  const roomName = (room) => (room.suite ? `Suite ${room.suite}` : "Listed space") + (room.label ? ` · ${room.label}` : "");
+  function highlight(hit) {
+    const mesh = hit?.object || null;
+    if (mesh === hovered) { if (hit) roomLabel.position.copy(hit.point).add(new THREE.Vector3(0, 1.4, 0)); return; }
+    if (hovered) hovered.material.emissive?.setHex(0x000000);
+    hovered = mesh;
+    stage.renderer.domElement.style.cursor = mesh ? "pointer" : "";
+    roomTag.style.display = mesh ? "" : "none";
+    if (!mesh) return;
+    const room = mesh.userData.room;
+    mesh.material.emissive?.setHex(room.scan ? 0x2f6f62 : 0x3a3a3a);
+    roomTag.textContent = roomName(room) + (room.scan ? " · click to walk inside" : " · plan only");
+    roomLabel.position.copy(hit.point).add(new THREE.Vector3(0, 1.4, 0));
+  }
+  let moveQueued = false;
+  stage.renderer.domElement.addEventListener("pointermove", e => {
+    if (moveQueued || touring) return; moveQueued = true;
+    requestAnimationFrame(() => { moveQueued = false; if (!down) highlight(roomAt(e)); });
+  });
+  stage.renderer.domElement.addEventListener("pointerleave", () => highlight(null));
+  // Dive into the room, then hand over to the tour while the camera is still moving.
+  function enterRoom(hit) {
+    const room = hit.object.userData.room;
+    if (!room.scan) { onTour({ ...room, name: roomName(room) }); return; }
+    touring = true; highlight(null);
+    const target = hit.point.clone();
+    controls.minDistance = 0.5;
+    flight = { at: performance.now(), from: camera.position.clone(), look: controls.target.clone(),
+      position: target.clone().add(new THREE.Vector3(0.6, 1.6, 1.2)), target,
+      thenAt: 0.6, then: () => onTour({ ...room, name: roomName(room) }) };
+  }
+  stage.renderer.domElement.addEventListener("pointerup", e => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) { down = null; return; }
+    down = null;
+    const roomHit = roomAt(e); // also aims the ray for the floor pick below
+    if (roomHit && !touring) { enterRoom(roomHit); return; }
+    if (mode !== "exploded") return;
     const hit = ray.intersectObjects(picks.filter(m => m.parent.visible))[0];
     if (hit) selectFloor(hit.object.userData.floor, "isolated");
   });
@@ -347,5 +531,7 @@ export function floorExplorer(host, data, makeStage, initial, onFloor) {
     note.textContent = value.note;
   };
   return { selectFloor, setMode() {}, get floor() { return selected; },
-    dispose() { planView.hidden=true; planView.replaceChildren(); host.classList.remove("plan-only"); legend.remove(); coverage.remove(); alive = false; request++; clearVectors(); bitmap?.close(); file.onchange = null; apply.onclick = null; preview.onpointerdown = preview.onpointerup = null; preview.hidden = true; apply.disabled = true; host.classList.remove("floor-mode"); stage.dispose(); } };
+    // Back from the tour: rise out of the room to the whole floor again.
+    leaveTour() { touring = false; controls.minDistance = 5; frame(); },
+    dispose() { planView.hidden=true; planView.replaceChildren(); host.classList.remove("plan-only"); legend.remove(); coverage.remove(); ledger.remove(); gridMaterial.dispose(); scene.remove(roomLabel); roomTag.remove(); alive = false; request++; clearVectors(); bitmap?.close(); file.onchange = null; apply.onclick = null; preview.onpointerdown = preview.onpointerup = null; preview.hidden = true; apply.disabled = true; host.classList.remove("floor-mode"); stage.dispose(); } };
 }

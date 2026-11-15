@@ -8,7 +8,7 @@ to retry them.
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 
-from . import costar, matterport, panoramas, streets, vexcel, web
+from . import costar, evidence, matterport, panoramas, permits, public_records, streets, vexcel, web
 from .checklist import STATES, build_checklist, stairs_by_floor
 
 
@@ -65,7 +65,9 @@ def best_rows(result: dict) -> tuple:
         vexcel.to_facts(outside, facts)
     found = web.read_streets(b, outside)
     web.add_street_facts(facts, found, bool(found))
-    return best, build_checklist(facts, datetime.date.today().year)
+    rows = build_checklist(facts, datetime.date.today().year)
+    summary, records, plans = evidence.load(b)
+    return best, evidence.apply(rows, facts, summary, records, plans=plans)
 
 
 def main() -> None:
@@ -74,6 +76,11 @@ def main() -> None:
     with ThreadPoolExecutor(max_workers=3) as pool:
         results = list(pool.map(read_building, buildings))
     read_all_streets(buildings)
+    for name, read in (("permits", permits.fetch_all), ("public records", public_records.fetch_all)):
+        try:
+            read(buildings)
+        except Exception as error:  # a portal being down must not stop the rest
+            print(f"{name.capitalize()} not read: {error}")
 
     scans = [s for r in results for s in r["scans"]]
     readable = [s for s in scans if "facts" in s]

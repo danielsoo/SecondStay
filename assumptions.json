@@ -1,129 +1,457 @@
 {
-  "_about": "Cost and operating assumptions for Los Angeles. Filled in by research (person A). Every value needs a source. Leave a value as null until it has one; the code refuses to calculate with nulls.",
-  "_confidence_values": [
-    "observed",
-    "estimated",
-    "needs inspection"
-  ],
-  "fitout_cost_per_sqft": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "$/sq ft",
-    "source": "",
-    "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "Interior fit-out for residential use. State what it excludes."
+  "_about": "Los Angeles preliminary cost inputs. Null means not priced. Published figures and Team assumptions are distinguished in notes; partial totals omit work and are not full project budgets.",
+  "_notice": "This is a preliminary evidence review, not a legal or code determination. Final decisions are made by LADBS and licensed professionals.",
+  "sprinklers.install": {
+    "unit": "sqft",
+    "fixed": {
+      "low": 0,
+      "typical": 0,
+      "high": 0
+    },
+    "rate": {
+      "low": 2.3076923076923075,
+      "typical": 3.846153846153846,
+      "high": 5.384615384615384
+    },
+    "source": "https://sfpsherpas.com/fire-sprinkler-code-upgrade-retrofit-california/",
+    "published": "not stated",
+    "accessed": "2026-11-14",
+    "confidence": "estimated",
+    "excludes": "No separate high-rise package, water-service capacity expansion or extraordinary access allowance is established. Confirm included engineering, testing, pumps and tanks with the contractor.",
+    "notes": "Source reports approximately $3-$7/sqft for LA commercial retrofits. Team assumption: midpoint $5; treat the published range as including a 30% soft-cost allowance and divide by 1.30 before adding scenario soft costs. This allocation is not a contractor breakdown. No time or location adjustment; publication date unavailable. Confirm scope before budgeting."
   },
-  "cost_per_bathroom": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "$/bathroom",
+  "sprinklers.verify_coverage": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
     "source": "",
     "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "One new bathroom with shower, fixtures and finishes."
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Coverage survey needs a site-specific fire-protection quote; installation rates do not price a survey."
   },
-  "plumbing_cost_per_ft": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "$/linear ft",
+  "fire_alarm.install": {
+    "unit": "sqft",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
     "source": "",
     "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "Extending supply and waste lines from the nearest existing wet wall."
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "No isolated Los Angeles retrofit alarm rate verified; the bundled conversion benchmark includes multiple systems."
   },
-  "cost_per_kitchen": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "$/kitchen",
+  "seismic.evaluate": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
     "source": "",
     "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "One kitchenette."
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Engineering investigation scope and testing are not known; obtain a structural engineer quote."
   },
-  "sprinkler_cost_per_sqft": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "$/sq ft",
+  "seismic.strengthen": {
+    "unit": "sqft",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
     "source": "",
     "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "Full sprinkler coverage where none exists."
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Structural system and strengthening design are unknown; no building-specific rate established."
   },
-  "fire_alarm_cost_per_sqft": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "$/sq ft",
+  "egress.add_stair": {
+    "unit": "story",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
     "source": "",
     "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "Fire alarm throughout."
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "No per-story Los Angeles conversion rate isolated from structural and enclosure work."
   },
-  "seismic_cost_per_sqft": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "$/sq ft",
+  "escape.add_openings": {
+    "unit": "each",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
     "source": "",
     "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "Seismic evaluation and strengthening. Wide range expected."
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Opening size, wall construction and structural work are unknown; a per-opening quote is needed."
   },
-  "permit_design_share": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "share of construction cost (0-1)",
+  "historic.review": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
     "source": "",
     "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "Architect, engineer and permit fees as a share of construction cost."
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Review scope and consultant hours need a project-specific quote."
+  },
+  "units.fitout": {
+    "unit": "sqft",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Published Los Angeles conversion totals bundle kitchens, bathrooms, MEP, soft costs and contingency; no nonoverlapping residual rate established."
+  },
+  "units.bathroom": {
+    "unit": "each",
+    "fixed": {
+      "low": 0,
+      "typical": 0,
+      "high": 0
+    },
+    "rate": {
+      "low": 19230.76923076923,
+      "typical": 28846.153846153844,
+      "high": 38461.53846153846
+    },
+    "source": "https://dn-builders-group.com/blog/bathroom-addition-cost-los-angeles/",
+    "published": "2026-07-18",
+    "accessed": "2026-11-14",
+    "confidence": "estimated",
+    "excludes": "New building footprint, new central risers and main utility capacity work are outside this proxy. Multifamily repetition and accessibility requirements are not separately quantified.",
+    "notes": "Source is an all-in full bathroom addition within an existing LA house footprint. Team assumption: use as a conversion proxy; midpoint $37,500; allocate a 30% soft-cost allowance by dividing by 1.30. No inflation or location adjustment. Local bathroom plumbing stays in this line; do not also price it as a plumbing run."
+  },
+  "units.kitchen": {
+    "unit": "each",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Residential kitchen remodel guides do not isolate new conversion kitchenettes from fit-out and utility work."
+  },
+  "units.plumbing_run": {
+    "unit": "linear_ft",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Bathroom allowance includes local connections; separate trunk and riser lengths, routing and capacity need a quote."
+  },
+  "soft_cost_share": {
+    "low": 0.25,
+    "typical": 0.3,
+    "high": 0.3333333333333333,
+    "unit": "share",
+    "source": "https://cityclerk.lacity.org/onlinedocs/2022/22-1205_rpt_mayor_10-07-22.pdf",
+    "published": "2022-10-07",
+    "accessed": "2026-11-14",
+    "confidence": "estimated",
+    "notes": "City CDBG construction guidance p.11 recommends adding 30% to construction estimates. Team assumption: low 25%, high one-third; reuse the 2022 ratio unchanged in 2026. Published 25% of a total is one-third of hard cost, not 25% of hard cost. Do not include financed acquisition or interest here."
+  },
+  "contingency": {
+    "low": 0.15,
+    "typical": 0.175,
+    "high": 0.2,
+    "unit": "share",
+    "source": "https://cityclerk.lacity.org/onlinedocs/2022/22-1205_rpt_mayor_10-07-22.pdf",
+    "published": "2022-10-07",
+    "accessed": "2026-11-14",
+    "confidence": "estimated",
+    "notes": "City CDBG rehabilitation guidance p.11 gives 15%-20%. Team assumption: midpoint 17.5%; reuse ratio unchanged in 2026 and apply it to hard plus soft cost as specified by the project formula. This does not fund omitted line items."
   },
   "months_to_convert": {
-    "low": null,
-    "typical": null,
-    "high": null,
+    "low": 21,
+    "typical": 27.5,
+    "high": 34,
     "unit": "months",
-    "source": "",
-    "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "Design, permit and construction time before the first rent."
+    "source": "https://cityclerk.lacity.org/onlinedocs/2022/22-1205_rpt_mayor_10-07-22.pdf",
+    "published": "2022-10-07",
+    "accessed": "2026-11-14",
+    "confidence": "estimated",
+    "notes": "Team assumption: community-center schedule proxy, not an office conversion forecast: 12 months design + 3-4 bidding + 6-18 construction = 21-34 months, midpoint 27.5. Reuse 2022 durations unchanged in 2026. Replace with a site-specific schedule; permitting and lease-up may extend it."
   },
   "occupancy": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "share (0-1)",
-    "source": "",
-    "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "Share of the year units are rented."
+    "low": 0.9,
+    "typical": 0.95,
+    "high": 0.98,
+    "unit": "share",
+    "source": "https://planning.lacity.gov/odocument/572f2af1-6d0c-4950-8d86-b21d65634aba/CPC-2023-5986-CA%20Citywide%20Adaptive%20Reuse%20Recommendation%20Report%20-%20full.pdf",
+    "published": "2024-07-31",
+    "accessed": "2026-11-14",
+    "confidence": "estimated",
+    "notes": "AECOM LA adaptive reuse analysis Table 5 p.17 uses 5% vacancy, giving typical occupancy 95%. Team assumption: 90%-98% sensitivity band; no time adjustment to the 2024 typical in 2026. No lease-up ramp."
   },
   "operating_cost_share": {
-    "low": null,
-    "typical": null,
-    "high": null,
-    "unit": "share of rent (0-1)",
+    "low": 0.25,
+    "typical": 0.3,
+    "high": 0.35,
+    "unit": "share",
+    "source": "https://planning.lacity.gov/odocument/572f2af1-6d0c-4950-8d86-b21d65634aba/CPC-2023-5986-CA%20Citywide%20Adaptive%20Reuse%20Recommendation%20Report%20-%20full.pdf",
+    "published": "2024-07-31",
+    "accessed": "2026-11-14",
+    "confidence": "estimated",
+    "notes": "AECOM LA adaptive reuse analysis Table 5 p.17 uses 30% operating expense ratio. Team assumption: 25%-35% sensitivity band; reuse the 2024 ratio unchanged in 2026. Interest, acquisition and capital replacements are outside this simple model."
+  },
+  "planning.conditional_use_permit": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
     "source": "",
     "published": "",
-    "accessed": "",
-    "confidence": "",
-    "notes": "Running costs as a share of rent."
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.smokeproof_stairs": {
+    "unit": "each",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.fire_pump_water_supply": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.emergency_power": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.fire_command_center": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "highrise.smoke_control": {
+    "unit": "lump",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "elevator.gurney_car": {
+    "unit": "each",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
+  },
+  "elevator.fire_service_access": {
+    "unit": "each",
+    "fixed": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "rate": {
+      "low": null,
+      "typical": null,
+      "high": null
+    },
+    "source": "",
+    "published": "",
+    "accessed": "2026-11-14",
+    "confidence": "needs inspection",
+    "excludes": "No amount included in totals.",
+    "notes": "See docs/cost-sources.md.",
+    "unpriced_reason": "Scope and quantity require professional review and a site-specific quote; no isolated sourced rate verified."
   }
 }

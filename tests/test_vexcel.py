@@ -44,3 +44,14 @@ def test_height_that_does_not_fit_the_stories_on_record_is_flagged():
     facts.height_ft = 36.0
     row = {r.key: r for r in build_checklist(facts, 2026)}["height"]
     assert row.state == ISSUE and "do not fit together" in row.evidence
+
+
+def test_drawn_outline_drops_tracing_jitter_but_keeps_corners():
+    from secondstay.vexcel import simplify_ring
+    k = 1 / 111320.0  # about a metre in degrees near the equator
+    jagged = [(0, 0), (40 * k, 0)] + [((40 - i) * k, (20 + (0.8 if i % 2 else 0)) * k) for i in range(0, 41)] + [(0, 0)]
+    clean = simplify_ring(jagged)
+    assert len(clean) == 5  # a 40 m x 20 m box: four corners and the closing point
+    assert clean[0] == clean[-1]
+    square = [(0, 0), (10 * k, 0), (10 * k, 10 * k), (0, 10 * k), (0, 0)]
+    assert simplify_ring(square) == square  # nothing to remove

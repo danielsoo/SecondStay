@@ -415,7 +415,7 @@ def main():
     web.load_env()
     if not configuration()['ready']:
         parser.error(configuration()['message'])
-    buildings = {b.property_id: b for b in costar.load_buildings()}
+    buildings = {b.property_id: b for b in costar.published(costar.load_buildings())}
     if any(i not in buildings for i in args.building_ids):
         parser.error('Choose buildings from the local collection.')
     for i in args.building_ids:

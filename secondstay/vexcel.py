@@ -121,6 +121,47 @@ def _area(ring) -> float:
     return abs(sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(ring, ring[1:]))) / 2
 
 
+DRAW_TOLERANCE_M = 1.2  # footprint wobble below this is image-tracing noise, not a wall
+
+
+def _douglas_peucker(points, tol):
+    if len(points) < 3:
+        return list(points)
+    first, last = points[0], points[-1]
+    far, index = -1.0, 0
+    for i in range(1, len(points) - 1):
+        d = _to_segment(points[i], first, last)
+        if d > far:
+            far, index = d, i
+    if far <= tol:
+        return [first, last]
+    return _douglas_peucker(points[:index + 1], tol)[:-1] + _douglas_peucker(points[index:], tol)
+
+
+def simplify_ring(ring, tolerance_m: float = DRAW_TOLERANCE_M) -> list:
+    """A closed lon/lat ring with tracing jitter removed, for drawing only.
+
+    Footprints traced from aerial imagery zigzag about a metre along straight walls; stacked
+    once per floor, that reads as a torn edge. Areas and distances keep using the original ring.
+    """
+    if len(ring) < 5:
+        return [tuple(p) for p in ring]
+    to_m = _grid(ring[0][1], ring[0][0])
+    pts = [to_m(p) for p in ring[:-1]]
+    # Split the loop at the vertex farthest from the first, so both halves have fixed ends.
+    split = max(range(len(pts)), key=lambda i: math.dist(pts[0], pts[i]))
+    order = list(range(len(pts))) + [0]
+    halves = (order[:split + 1], order[split:])
+    keep = []
+    for half in halves:
+        sub = _douglas_peucker([pts[i] for i in half], tolerance_m)
+        lookup = {pts[i]: i for i in half}
+        keep.extend(lookup[p] for p in sub[:-1])
+    if len(keep) < 3:
+        return [tuple(p) for p in ring]
+    return [tuple(ring[i]) for i in keep] + [tuple(ring[keep[0]])]
+
+
 def _centroid(ring):
     xs, ys = [p[0] for p in ring[:-1]], [p[1] for p in ring[:-1]]
     return sum(xs) / len(xs), sum(ys) / len(ys)

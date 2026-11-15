@@ -157,3 +157,15 @@ def test_spaces_on_the_market_carry_floor_plan_and_scan(tmp_path, monkeypatch):
     assert [f["floor"] for f in b.floors] == [1, 3]
     scan = next(s for s in b.scans if s.model_id == "MODEL0300")
     assert (scan.floor, scan.floor_basis) == (3, "the floor of that suite in the listing")
+
+
+def test_only_spaces_published_with_a_plan_or_tour_are_kept():
+    def space(i, plan="", scans=()):
+        return {"id": i, "suite": str(i), "floor": 1, "sqft": 1000, "plan_url": plan, "scans": list(scans)}
+    shown = costar.Building(property_id=1, name="", address="", spaces=[space(1, plan="p"), space(2), space(3, scans=["m"])])
+    hidden = costar.Building(property_id=2, name="", address="", spaces=[space(4)])
+    kept = costar.published([shown, hidden])
+    assert [b.property_id for b in kept] == [1]  # no published space: the building is not shown
+    assert [s["id"] for s in kept[0].spaces] == [1, 3]
+    assert (kept[0].available_spaces, kept[0].available_sqft) == (2, 2000)
+    assert len(shown.spaces) == 3  # the loaded record is not changed

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SecondStay · evidence pre-check</title>
+<link rel="stylesheet" href="/costs.css">
 <script type="importmap">
 { "imports": {
     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -105,6 +106,37 @@
   .market { max-height: 262px; overflow: auto; }
   .market thead th { position: sticky; top: 0; background: var(--panel); }
   .yes { color: var(--found); font-weight: 600; font-size: 12.5px; }
+  .floor-ledger { padding: 12px 16px; margin: 0 0 12px; }
+  #tour-view { position: absolute; inset: 0; z-index: 4; background: #000; display: flex; flex-direction: column;
+    opacity: 0; transform: scale(0.94); transition: opacity 0.6s ease, transform 0.6s ease; }
+  #tour-view.shown { opacity: 1; transform: none; }
+  /* Kept loaded after leaving, behind the floor view; a tour first loaded while invisible stays black, so none is preloaded. */
+  #tour-view.warming { opacity: 0; pointer-events: none; z-index: -1; transform: none; transition: none; }
+  #tour-view.warming * { pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { #tour-view { transition: none; } }
+  .stage.tour-over .hud { display: none; }
+  .room-tag { pointer-events: none; background: rgba(6, 10, 17, 0.88); border: 1px solid #2f6f62; }
+  #tour-view[hidden] { display: none; }
+  #tour-view iframe { flex: 1; width: 100%; border: 0; }
+  #tour-view .tour-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px;
+    background: rgba(6, 10, 17, 0.92); font-size: 13px; color: var(--muted); }
+  #tour-view .tour-bar b { color: var(--ink); }
+  .stage.tour-mode { height: 640px; }
+  .stage.tour-mode .hud, .stage.tour-mode .gl, .stage.tour-mode .labels, .stage.tour-mode .flat { display: none; }
+  .stage .flat { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+  .stage .flat img { display: block; background: #fff; border-radius: 4px; }
+  .stage .labels { z-index: 2; }
+  .floor-card { font: 11px var(--mono); line-height: 1.45; padding: 6px 9px; transform-origin: right bottom; border-radius: 8px; background: rgba(6, 10, 17, 0.86);
+    border: 1px solid #2a3a52; color: var(--ink); white-space: nowrap; }
+  .floor-card b { color: var(--accent); }
+  .floor-card .why { color: var(--muted); }
+  .ledger-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 8px 0; background: #1a2230; }
+  .ledger-bar span { display: block; height: 100%; }
+  .ledger-bar .hatched { background-image: repeating-linear-gradient(45deg, #5d6b80 0 4px, #2a3446 4px 8px) !important; }
+  .ledger-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .ledger-list li { display: grid; grid-template-columns: 10px minmax(110px, auto) 110px 1fr auto; gap: 10px; align-items: baseline; font-size: 13px; }
+  .ledger-list i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .ledger-list .num { font-family: var(--mono); text-align: right; }
   .tag3d { font: 600 11px var(--mono); padding: 3px 7px; border-radius: 6px; white-space: nowrap;
     background: rgba(6, 10, 17, 0.8); border: 1px solid #2a3a52; color: var(--ink); }
   .tag3d.amber { border-color: #6b5320; color: var(--amber); }
@@ -236,6 +268,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { CSS3DRenderer } from "three/addons/renderers/CSS3DRenderer.js";
 import { floorExplorer } from "/static/floor_explorer.mjs";
 import { floorAssets, chooseFloorAsset } from "/static/floor_motion.mjs";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
@@ -282,6 +315,9 @@ function makeStage(host, options = {}) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   gl.appendChild(renderer.domElement);
   const labels = new CSS2DRenderer({ element: labelHost });
+  // Plan images cannot be read as textures (their host sends no cross-origin header), so they are laid in as page elements.
+  const flatHost = document.createElement("div"); flatHost.className = "flat"; host.insertBefore(flatHost, labelHost);
+  const flat = new CSS3DRenderer({ element: flatHost });
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x060a11, 0.0016);
   const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 6000);
@@ -298,7 +334,7 @@ function makeStage(host, options = {}) {
 
   const size = () => {
     const w = host.clientWidth, h = host.clientHeight;
-    renderer.setSize(w, h); composer.setSize(w, h); labels.setSize(w, h);
+    renderer.setSize(w, h); composer.setSize(w, h); labels.setSize(w, h); flat.setSize(w, h);
     camera.aspect = w / h; camera.updateProjectionMatrix();
   };
   const watcher = new ResizeObserver(size); watcher.observe(host); size();
@@ -312,13 +348,13 @@ function makeStage(host, options = {}) {
     frame = requestAnimationFrame(loop);
     const t = clock.getElapsedTime();
     ticks.forEach((fn) => fn(t));
-    controls.update(); composer.render(); labels.render(scene, camera);
+    controls.update(); composer.render(); flat.render(scene, camera); labels.render(scene, camera);
   };
   loop();
   const dispose = () => {
     alive = false; cancelAnimationFrame(frame); watcher.disconnect(); controls.dispose();
     scene.traverse((o) => { o.geometry?.dispose(); if (o.material) [].concat(o.material).forEach((m) => { m.map?.dispose(); m.dispose(); }); });
-    composer.dispose(); renderer.dispose(); gl.replaceChildren(); labelHost.replaceChildren();
+    composer.dispose(); renderer.dispose(); gl.replaceChildren(); labelHost.replaceChildren(); flatHost.remove();
   };
   return { scene, camera, controls, renderer, ticks, dispose };
 }
@@ -932,7 +968,7 @@ function changesView(data) {
         <span class="q ${c.quantity == null ? "none" : ""}">${c.quantity == null ? "quantity not known" : num(c.quantity) + UNIT_WORDS[c.unit]}</span></div>
         <div class="r">${esc(c.reason)}</div><div class="w">${esc(c.quantity_basis)} · confirm with ${esc(c.confirmed_by)}</div></div>`).join("")}</div>`;
   }).join("")}</div>
-  <p class="note">Each item carries the quantity it would be priced on. The cost model is not connected yet, so no figures are shown.</p>`;
+  <p class="note">Each item carries the quantity it is priced on. Costs, unknown prices and assumptions are in the cost panel under the tour.</p>`;
 }
 
 async function showSpace(id, scanId, selected, spaceId, requestedFloor, requestedView, requestedAsset) {
@@ -945,7 +981,9 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
   const reopen = (space, scan) => { stopScene(); showSpace(id, scan, current.key, space).catch(showError); };
   data.onFloor = (floor) => showScene("isolated", floor);
   data.interiorAsset = requestedAsset || "";
-  let viewMode = "building", chosenFloor = Number(data.floor) || b.spaces.find(s => s.floor)?.floor || 1;
+  // Floors with space on the market, highest first; other floors are not part of the review.
+  const marketFloors = [...new Set(b.spaces.map(s => s.floor).filter(n => n >= 1 && n <= (b.stories || 1)))].sort((p, q) => q - p);
+  let viewMode = "building", chosenFloor = Number(data.floor) || marketFloors[0] || 1;
   if (Number.isInteger(Number(requestedFloor)) && Number(requestedFloor) >= 1 && Number(requestedFloor) <= (b.stories || 1)) chosenFloor = Number(requestedFloor);
   const rememberScene = () => {
     const state = new URLSearchParams({ floor: chosenFloor, view: viewMode });
@@ -964,14 +1002,15 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     <p style="margin:0 0 10px"><a href="#/">← All buildings</a></p>
     <div class="review-layout"><div class="scene-column">
       <nav class="scene-toolbar" aria-label="Building views">
+        <button class="btn" data-scene-mode="tour" aria-pressed="false" ${data.scan.model_id ? "" : 'disabled title="No 3D tour is on record for this space"'}>3D tour (photos)</button>
         <button class="btn" data-scene-mode="building" aria-pressed="true">Building</button>
         <button class="btn" data-scene-mode="exploded" aria-pressed="false">Separate floors</button>
         <button class="btn" data-scene-mode="isolated" aria-pressed="false">Inside selected floor</button>
-        <label>Floor <select id="floor-picker" aria-label="Selected building floor">${Array.from({length:b.stories || 1},(_,i)=>(b.stories || 1)-i).map(n=>`<option value="${n}" ${n===chosenFloor?"selected":""}>${n}</option>`).join("")}</select></label>
+        <label>Floor <select id="floor-picker" aria-label="Selected building floor">${(marketFloors.length ? marketFloors : Array.from({length:b.stories || 1},(_,i)=>(b.stories || 1)-i)).map(n=>`<option value="${n}" ${n===chosenFloor?"selected":""}>${n}</option>`).join("")}</select></label>
       </nav>
       <nav id="floor-directory" class="floor-directory" aria-label="Floors and available interior sources"></nav>
       <div class="floor-resource-bar"><label>Interior source <select id="floor-resource" aria-label="Interior source on selected floor"></select></label><span id="floor-resource-summary" class="sub" role="status"></span></div>
-      <div class="stage" id="stage"><div class="gl"></div><div class="labels"></div><div id="floor-plan-view" hidden></div>
+      <div class="stage" id="stage"><div class="gl"></div><div class="labels"></div><div id="floor-plan-view" hidden></div><div id="tour-view" hidden></div>
       ${o.loaded ? "" : `<div class="empty">${esc(o.error || "No imagery for this building.")}</div>`}
       <div class="hud tl"><h1>${esc(b.name || b.address)}</h1>
         <div class="sub">${esc(b.address)}, Los Angeles · ${esc(b.property_type)} · built ${b.year_built ?? "–"} · zone ${esc(b.zone ?? "–")}</div>
@@ -981,7 +1020,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
         <div class="spacechip" id="flash" style="display:none"></div></div>
       <div class="hud tr">${counts(data.counts)}${scanPicker}</div>
       <div class="hud mid" id="introcap"></div>
-      <div class="hud br">drag to orbit · scroll to zoom<br>select a requirement to bring its evidence forward<br><a href="#" id="replay" style="pointer-events:auto">replay: aerial photo to model</a></div>
+      <div class="hud br">drag to orbit · scroll to zoom<br>select a requirement to bring its evidence forward<br>on a floor, click a suite's room to walk inside its 3D tour<br><a href="#" id="replay" style="pointer-events:auto">replay: aerial photo to model</a></div>
       <div class="hud bl">
         ${metric("Roof height", o.height_ft ? Math.round(o.height_ft) : "–", " ft")}
         ${metric("Highest occupied level", top != null ? "≈ " + Math.round(top) : "–", " ft", top != null && top >= HIGH_RISE_FT)}
@@ -1005,6 +1044,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
       </details>
     </section></div>
     <aside class="panel agent-panel" id="agent-panel" aria-label="Evidence agent"></aside></div>
+    <section class="panel costs" id="costs" aria-label="Conversion cost and housing income"></section>
     ${b.spaces.length ? `<h2>Spaces on the market · ${b.spaces.length}</h2>
     <div class="panel market"><table class="spaces">
       <thead><tr><th>Floor</th><th>Suite</th><th class="num">sq ft</th><th>Use</th><th class="num">Asking $/sq ft/yr</th><th>Available</th><th>Floor plan</th><th>3D scan</th></tr></thead>
@@ -1037,6 +1077,10 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     </div>`;
 
   mountAgent(document.getElementById("agent-panel"), id, spaceId || "", data.scan.model_id || "");
+  const costRoot = document.getElementById("costs");
+  import("/costs.js").then(({ mountCosts }) => mountCosts(costRoot, `/api/spaces/${id}/cost${query}`)).catch(error => {
+    if (costRoot.isConnected) costRoot.textContent = `Cost inputs unavailable: ${error.message}`;
+  });
   data.playIntro = !introSeen.has(id); introSeen.add(id);
   function updateFloorControls() {
     const assets = floorAssets(data.floor_sources, chosenFloor);
@@ -1053,17 +1097,70 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     const vectors = assets.filter(a=>a.geometry_available).length;
     document.getElementById("floor-resource-summary").textContent = `Floor ${chosenFloor} · ${assets.length} linked source${assets.length === 1 ? "" : "s"} · ${vectors} with 3D geometry · ${assets.filter(a=>a.registered).length} in a floor frame`;
     const directory = document.getElementById("floor-directory"); directory.replaceChildren();
-    for (const floor of [...(data.floor_sources?.floors || [])].reverse()) {
+    const onMarket = (n) => b.spaces.filter(s => s.floor === n).length;
+    const listed = [...(data.floor_sources?.floors || [])].reverse().filter(f => onMarket(f.floor));
+    if (!listed.length) { const none = document.createElement("span"); none.className = "sub"; none.textContent = "No space in this building is on the market."; directory.appendChild(none); }
+    for (const floor of listed) {
       const button = document.createElement("button"); button.className = "btn";
       const kinds = [floor.assets.some(a=>a.geometry_available) ? "3D" : floor.assets.some(a=>a.scan_id) ? "tour" : "", floor.assets.some(a=>a.plan_url) ? "2D" : ""].filter(Boolean).join(" + ");
-      button.textContent = `F${floor.floor} · ${kinds || "no source"}`;
+      const n = onMarket(floor.floor);
+      button.textContent = `F${floor.floor} · ${n} space${n === 1 ? "" : "s"} · ${kinds || "no plan"}`;
       button.setAttribute("aria-label", `Floor ${floor.floor}: ${kinds || "no linked interior source"}`);
       button.setAttribute("aria-pressed", String(floor.floor === chosenFloor));
       button.onclick = () => showScene("isolated", floor.floor); directory.appendChild(button);
     }
     document.getElementById("floor-picker").value = String(chosenFloor);
   }
+  // One tour frame, kept loaded while switching views. No SDK key: with one, the embedded tour waits for an SDK connection.
+  let tourScan = "";
+  function loadTour(scan, name) {
+    const view = document.getElementById("tour-view");
+    if (scan === tourScan && view.firstChild) return;
+    tourScan = scan;
+    const url = `https://my.matterport.com/show/?m=${encodeURIComponent(scan)}&qs=1&brand=0&help=0&play=1`;
+    view.innerHTML = `<iframe title="Matterport 3D tour" allow="xr-spatial-tracking; fullscreen" allowfullscreen src="${esc(url)}"></iframe>
+      <div class="tour-bar"><span><button class="btn" data-tour-back>← Back to floor plan</button>
+        <b>Matterport 3D tour</b>${name ? " · " + esc(name) : ""} · photographed as listed</span>
+        <span><a class="btn" href="#costs">Cost and income estimate ↓</a> <a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Open in new tab</a></span></div>`;
+    view.querySelector('a[href="#costs"]').onclick = event => { event.preventDefault(); document.getElementById("costs")?.scrollIntoView({ behavior: "smooth" }); };
+    view.querySelector("[data-tour-back]").onclick = () => leaveTour();
+  }
+  const selectedName = () => data.scan.suite ? `Suite ${data.scan.suite}` : (sp?.suite ? `Suite ${sp.suite}` : "");
+  function showTour(on) {
+    const host = document.getElementById("stage"), view = document.getElementById("tour-view");
+    if (!on && host.classList.contains("tour-over")) live?.leaveTour?.();
+    host.classList.toggle("tour-mode", on); host.classList.remove("tour-over");
+    view.hidden = !on; view.classList.toggle("shown", on); view.classList.remove("warming");
+    for (const el of [document.getElementById("floor-directory"), document.querySelector(".floor-resource-bar")]) if (el) el.style.display = on ? "none" : "";
+    if (on) loadTour(data.scan.model_id, selectedName());
+  }
+  // From the floor view: the camera dives into the room and the tour fades in over it.
+  function enterTour(room) {
+    if (!room.scan) { flash(`${room.name}: plan only, no 3D tour on record`); return; }
+    const host = document.getElementById("stage"), view = document.getElementById("tour-view");
+    loadTour(room.scan, room.name);
+    host.classList.add("tour-over"); view.hidden = false; view.classList.remove("warming");
+    requestAnimationFrame(() => view.classList.add("shown"));
+  }
+  function leaveTour() {
+    const host = document.getElementById("stage"), view = document.getElementById("tour-view");
+    if (viewMode === "tour") { showScene(sp && data.floor ? "isolated" : "building"); return; }
+    view.classList.remove("shown");
+    setTimeout(() => { if (!view.classList.contains("shown")) { view.classList.add("warming"); host.classList.remove("tour-over"); } }, 650);
+    live?.leaveTour?.();
+  }
   function showScene(mode, floor = chosenFloor) {
+    if (mode === "tour" && !data.scan.model_id) mode = "building";
+    if (mode === "tour") {
+      stopScene(); viewMode = "tour"; updateFloorControls();
+      document.getElementById("floor-detail").hidden = true;
+      document.getElementById("floor-plan-view").hidden = true;
+      document.getElementById("stage").classList.remove("floor-mode", "plan-only");
+      showTour(true);
+      document.querySelectorAll("[data-scene-mode]").forEach(el => el.setAttribute("aria-pressed", String(el.dataset.sceneMode === "tour")));
+      rememberScene(); return;
+    }
+    showTour(false);
     if (!o.loaded) return;
     chosenFloor = Number(floor); viewMode = mode;
     updateFloorControls();
@@ -1077,7 +1174,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
       live.selectFloor(chosenFloor, mode);
     } else {
       stopScene(); document.getElementById("introcap").style.display = "none";
-      live = floorExplorer(host, data, makeStage, chosenFloor, (floor, mode, asset) => { chosenFloor = floor; viewMode = mode; data.interiorAsset = asset || ""; updateFloorControls(); rememberScene(); });
+      live = floorExplorer(host, data, makeStage, chosenFloor, (floor, mode, asset) => { chosenFloor = floor; viewMode = mode; data.interiorAsset = asset || ""; updateFloorControls(); rememberScene(); }, enterTour);
       live.selectFloor(chosenFloor, mode);
     }
     document.querySelectorAll("[data-scene-mode]").forEach(el => el.setAttribute("aria-pressed", String(el.dataset.sceneMode === mode)));
@@ -1087,7 +1184,8 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
   document.getElementById("floor-resource").onchange = event => { data.interiorAsset = event.target.value; showScene("isolated"); };
   updateFloorControls();
   document.getElementById("floor-picker").onchange = event => showScene("isolated", event.target.value);
-  if (o.loaded) showScene(["exploded", "isolated"].includes(requestedView) ? requestedView : sp && data.floor ? "isolated" : "building");
+  showScene(["exploded", "isolated", "building", "tour"].includes(requestedView) ? requestedView
+    : sp && data.floor ? "isolated" : "building");
   const showScanViewer = mountScanViewer(document.getElementById("scan-viewer"), data);
   const select = (key) => {
     current = data.rows.find((r) => r.key === key);
@@ -1095,6 +1193,7 @@ async function showSpace(id, scanId, selected, spaceId, requestedFloor, requeste
     document.getElementById("evidence").innerHTML = evidenceView(current, data);
     showScanViewer(current.view === "scan");
     if (viewMode === "building" && ["units", "exits", "escape", "elevator"].includes(key)) showScene("isolated");
+    else if (viewMode === "tour") return;
     else live?.setMode?.(key);
   };
   app.querySelectorAll(".row").forEach((el) => (el.onclick = () => select(el.dataset.key)));

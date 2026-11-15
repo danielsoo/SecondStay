@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass, fields
 from typing import Optional
 
 from .checklist import (
-    ISSUE, NO_DATA, DIRECT_AGE_YEARS, HIGH_RISE_FT, MIN_AGE_YEARS, SpaceFacts, stairs_by_floor, top_occupied_ft,
+    FOUND, ISSUE, NO_DATA, DIRECT_AGE_YEARS, HIGH_RISE_FT, MIN_AGE_YEARS, SpaceFacts, stairs_by_floor, top_occupied_ft,
     window_share,
 )
 
@@ -147,7 +147,10 @@ def changes_for(facts: SpaceFacts, rows: list, current_year: int) -> list:
         "building", "Historic status is not in our data.")
 
     # Sprinklers and fire alarm
-    if facts.has_sprinklers is False:
+    if row["sprinklers"].state == FOUND:
+        add("sprinklers.verify_coverage", "sprinklers", "Confirm and adapt sprinkler coverage", POSSIBLE, 1,
+            "One study", "building", row["sprinklers"].evidence)
+    elif facts.has_sprinklers is False:
         add("sprinklers.install", "sprinklers", "Install sprinkler coverage", CALLED_FOR, whole, whole_basis,
             "building", "The record shows no sprinkler system.")
     elif facts.has_sprinklers:
@@ -157,8 +160,12 @@ def changes_for(facts: SpaceFacts, rows: list, current_year: int) -> list:
     else:
         add("sprinklers.install", "sprinklers", "Install sprinkler coverage", UNKNOWN, whole, whole_basis,
             "building", "The record does not say whether the building has sprinklers.")
-    add("fire_alarm.install", "alarm", "Fire alarm throughout the building", UNKNOWN, whole, whole_basis,
-        "building", "The existing fire alarm, if any, is not in our data.")
+    if row["alarm"].state == FOUND:
+        add("fire_alarm.install", "alarm", "Extend the fire alarm to residential use", POSSIBLE, whole, whole_basis,
+            "building", row["alarm"].evidence)
+    else:
+        add("fire_alarm.install", "alarm", "Fire alarm throughout the building", UNKNOWN, whole, whole_basis,
+            "building", "The existing fire alarm, if any, is not in our data.")
 
     # High-rise provisions. The rule measures to the highest occupied level, which we estimate.
     top = top_occupied_ft(facts)
@@ -223,7 +230,8 @@ def changes_for(facts: SpaceFacts, rows: list, current_year: int) -> list:
     # Building the homes
     scanned = sum(a for a in facts.floor_areas_sqft if a)
     area, scope, basis = (scanned, "space", "Floor area measured in the scan") if scanned else (
-        whole, "building", whole_basis)
+        (facts.space_sqft, "space", f"{facts.space_label or 'Selected space'} area on record")
+        if facts.space_label else (whole, "building", whole_basis))
     if area:
         units = int(area * USABLE_SHARE / facts.planning_unit_sqft)
         sized = (f"{units} units at our planning assumption of {facts.planning_unit_sqft:.0f} sq ft each "

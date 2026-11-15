@@ -22,7 +22,7 @@ Where the fields live (see docs/costar-data-notes.md):
 import json
 import os
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Optional
 
@@ -106,9 +106,13 @@ def base_zone(recorded: Optional[str]) -> Optional[str]:
     if not recorded:
         return None
     text = recorded.upper()
-    new_code = re.search(r"\.\[([A-Z]+\d*)-([A-Z0-9]+)\]", text)  # [form].[use-density] in the new code
+    # New zoning code: [form-frontage-standards][use-density][overlays], with or without dots between
+    new_code = re.search(r"\[([A-Z]{2}\d)-(FA|\d+)\]", text)
     if new_code:
         return f"{new_code.group(1)}-{new_code.group(2)}"
+    plan_zone = re.match(r"\s*([A-Z]{2})\(([A-Z]{2,4})\)", text)  # specific plan zones such as MU(EC)
+    if plan_zone:
+        return f"{plan_zone.group(1)}({plan_zone.group(2)})"
     text = re.sub(r"[\[(][A-Z]+[\])]", " ", text)  # [Q], (T) qualifiers
     token = re.split(r"[,\s&/]+", text.strip())[0] if text.strip() else ""
     token = token.split("-")[0].rstrip("*")
@@ -154,7 +158,8 @@ class Building:
     # Spaces on the market, one per suite: {"id", "suite", "floor", "floor_label", "sqft", "use",
     # "rent_per_sqft_year", "plan_url", "full_floor", "available_on", "scans": [model ids]}
     spaces: list = field(default_factory=list)
-    # Floors on record: {"floor", "label", "sqft"}
+    # Floors on record: {"id", "floor", "label", "sqft", "occupied_sqft", "tenancies"}; occupancy is
+    # summed from current tenancies whose space names that floor
     floors: list = field(default_factory=list)
     # Leasing picture. "Available" is marketed space, which is not the same as vacant.
     available_sqft: float = 0.0
@@ -228,8 +233,8 @@ def _building(record: dict) -> Building:
         scan.suite, scan.floor, scan.floor_basis = scan_place(scan.caption, stories)
     floors = sorted(
         (
-            {"floor": floor_number(f.get("floorName")), "label": floor_label(f.get("floorName")),
-             "sqft": (f.get("floorSize") or {}).get("squareFeet")}
+            {"id": f.get("propertyFloorId"), "floor": floor_number(f.get("floorName")), "label": floor_label(f.get("floorName")),
+             "sqft": (f.get("floorSize") or {}).get("squareFeet"), "occupied_sqft": 0.0, "tenancies": 0}
             for f in record.get("floors") or []
         ),
         key=lambda f: (f["floor"] is None, f["floor"] or 0),
@@ -330,6 +335,12 @@ def _add_occupancy(buildings: dict, kit: Path) -> None:
             continue
         b.current_tenancies += 1
         b.occupied_sqft += sum(s.get("squareFeetOccupied") or 0 for s in tenancy.get("spaces") or [])
+        by_id = {f["id"]: f for f in b.floors if f.get("id")}
+        for space in tenancy.get("spaces") or []:
+            floor = by_id.get(space.get("propertyFloorId"))
+            if floor:
+                floor["tenancies"] += 1
+                floor["occupied_sqft"] += space.get("squareFeetOccupied") or 0
 
 
 def load_buildings(property_types=(OFFICE,), use_cache: bool = True) -> list:
@@ -378,3 +389,17 @@ def to_facts(b: Building, scan: Optional[SpaceFacts] = None) -> SpaceFacts:
     facts.building_sqft = b.rentable_sqft
     facts.typical_floor_sqft = b.typical_floor_sqft
     return facts
+
+
+def published(buildings: list) -> list:
+    """Only spaces the owner published a plan or a 3D tour for, and only buildings left with one.
+
+    A listing with neither is read as not offered for this review.
+    """
+    kept = []
+    for b in buildings:
+        spaces = [s for s in b.spaces if s["plan_url"] or s["scans"]]
+        if spaces:
+            kept.append(replace(b, spaces=spaces, available_spaces=len(spaces),
+                                available_sqft=sum(s["sqft"] or 0 for s in spaces)))
+    return kept

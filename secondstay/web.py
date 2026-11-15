@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import costar, matterport, panoramas, streets, vexcel
+from . import costar, evidence, finances, matterport, panoramas, streets, vexcel
 from .changes import CERTAINTIES, changes_for, to_dicts
 from .checklist import NOTICE, STATES, build_checklist, next_steps, stairs_by_floor, summary, top_occupied_ft
 
@@ -248,7 +248,8 @@ def space_payload(b: costar.Building, model_id: str = "", space_id: str = "") ->
     found = read_streets(b, outside)
     add_street_facts(facts, found, bool(found) or (STREET_CACHE / f"{b.property_id}.json").exists())
     year = datetime.date.today().year
-    rows = build_checklist(facts, year)
+    permit_summary, public, plan_summary = evidence.load(b)
+    rows = evidence.apply(build_checklist(facts, year), facts, permit_summary, public, space, plan_summary)
     changes = changes_for(facts, rows, year)
     fields = record_fields(b)
     for key, extra in outside_fields(outside).items():
@@ -284,7 +285,11 @@ def space_payload(b: costar.Building, model_id: str = "", space_id: str = "") ->
         "floor_sources": source_catalog(b),
         "scan": scan,
         "sdk_key": os.environ.get("MATTERPORT_SDK_KEY", ""),
-        "outside": {**asdict(outside), "loaded": outside.loaded, "context_bbox": context_bbox(outside.bbox)},
+        # Outlines are drawn without tracing jitter; measurements above used the original rings.
+        "outside": {**asdict(outside), "loaded": outside.loaded, "context_bbox": context_bbox(outside.bbox),
+                    "footprint": [vexcel.simplify_ring(r) for r in outside.footprint],
+                    "neighbors": [vexcel.simplify_ring(r) for r in outside.neighbors]},
+        "reference_plan": reference_plan(b),
         "plan": {
             "image": image, "reading": reading, "count": len(b.floor_plans),
             "reading_from": stand_in if reading and (not image or image["url"] != stand_in["url"]) else None,
@@ -292,6 +297,9 @@ def space_payload(b: costar.Building, model_id: str = "", space_id: str = "") ->
         "top_occupied_ft": top_occupied_ft(facts),
         "streets": [asdict(s) | {"public": s.public} for s in found],
         "changes": to_dicts(changes),
+        "permits": permit_summary,
+        "public_records": public,
+        "plan_readings": plan_summary,
         "change_counts": {c: sum(1 for x in changes if x.certainty == c) for c in CERTAINTIES},
         "counts": summary(rows),
         "rows": [
@@ -346,6 +354,28 @@ def plan_reading(b: costar.Building):
     return data if isinstance(data.get("stairs"), int) else None
 
 
+def reference_plan(b: costar.Building):
+    """A whole-floor plan of this building, read as showing the full floor with its core.
+
+    Used only as a labelled reference on floors that have no record of their own.
+    """
+    candidates = []
+    first = plan_to_read(b)
+    path = PLAN_READING_DIR / f"{b.property_id}.json"
+    if first and path.exists():
+        candidates.append((first, json.loads(path.read_text())))
+    whole = [p for p in b.floor_plans if p["source"] == "building"]
+    for k, plan in enumerate(whole):
+        read = REPO_ROOT / "data" / "raw" / "plan_readings_all" / f"{b.property_id}__{k}.json"
+        if read.exists():
+            candidates.append((plan, json.loads(read.read_text())))
+    for plan, reading in candidates:
+        if reading.get("covers") == "floor":
+            return {"url": plan["url"], "caption": plan.get("caption") or "", "floor_named": reading.get("floor_named"),
+                    "stairs": reading.get("stairs"), "elevators": reading.get("elevators")}
+    return None
+
+
 PLANS_IN_LIST = True  # the plan gallery reads them from the list
 
 
@@ -370,7 +400,8 @@ def list_payload(buildings: list) -> dict:
         add_street_facts(facts, read_streets(b, outside, fetch=False), (STREET_CACHE / f"{b.property_id}.json").exists())
         card["height_ft"] = outside.height_ft
         card["footprint_sqft"] = outside.footprint_sqft
-        card["counts"] = summary(build_checklist(facts, year))
+        permit_summary, public, plan_summary = evidence.load(b)
+        card["counts"] = summary(evidence.apply(build_checklist(facts, year), facts, permit_summary, public, None, plan_summary))
         spaces.append(card)
     return {"notice": NOTICE, "states": STATES, "spaces": spaces}
 
@@ -423,6 +454,21 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, data, status: int = 200):
         self._send(status, json.dumps(data).encode(), "application/json")
 
+    def _cost(self, url, options):
+        """Conversion cost and housing income for one space, from its change list (the teammate's cost model)."""
+        match = re.fullmatch(r"/api/spaces/(\d+)/cost", url.path)
+        building = self.buildings.get(int(match.group(1))) if match else None
+        if building is None:
+            return self._json({"error": "Not found"}, 404)
+        query = parse_qs(url.query)
+        scan, space = (query.get("scan") or [""])[0], (query.get("space") or [""])[0]
+        if space and not any(str(s["id"]) == space for s in building.spaces):
+            return self._json({"error": "Selected space not found"}, 404)
+        try:
+            return self._json(finances.calculate(space_payload(building, scan, space), options))
+        except ValueError as error:
+            return self._json({"error": str(error)}, 400)
+
     def do_POST(self):
         from . import agent
         # A browser on another origin must not initiate billable local runs.
@@ -432,6 +478,15 @@ class Handler(BaseHTTPRequestHandler):
                 or (origin and origin != "http://" + host)
                 or self.headers.get("Content-Type") != "application/json"):
             return self._json({"error": "Use the local evidence review screen."}, 403)
+        if re.fullmatch(r"/api/spaces/\d+/cost", urlparse(self.path).path):
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if not 0 < length <= 65536:
+                    raise ValueError("Request must contain 1–65536 bytes")
+                options = json.loads(self.rfile.read(length))
+            except (ValueError, UnicodeError) as error:
+                return self._json({"error": str(error)}, 400)
+            return self._cost(urlparse(self.path), options)
         match = re.fullmatch(r"/api/spaces/(\d+)/reviews", self.path)
         building = self.buildings.get(int(match.group(1))) if match else None
         if building is None:
@@ -459,7 +514,12 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(url.query)
         if url.path in ("/", "/index.html"):
             return self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
-        if url.path in ("/static/floor_explorer.mjs", "/static/floor_motion.mjs", "/static/plan_trace.mjs", "/static/opening_layout.mjs"):
+        if url.path in ("/costs.js", "/costs.css"):
+            kind = "text/javascript" if url.path.endswith(".js") else "text/css"
+            return self._send(200, (STATIC / url.path[1:]).read_bytes(), kind + "; charset=utf-8")
+        if re.fullmatch(r"/api/spaces/\d+/cost", url.path):
+            return self._cost(url, {})
+        if url.path in ("/static/floor_explorer.mjs", "/static/floor_motion.mjs", "/static/plan_trace.mjs", "/static/opening_layout.mjs", "/static/floor_accounting.mjs"):
             return self._send(200, (STATIC / url.path.rsplit("/", 1)[1]).read_bytes(), "text/javascript; charset=utf-8")
         floor_route = re.fullmatch(r"/api/spaces/(\d+)/floor-geometry", url.path)
         if floor_route:
@@ -542,7 +602,7 @@ class Handler(BaseHTTPRequestHandler):
 def main(port: int = 8000) -> None:
     load_env()
     try:
-        buildings = costar.load_buildings()
+        buildings = costar.published(costar.load_buildings())
     except FileNotFoundError as error:
         sys.exit(f"CoStar kit not found ({error.filename}). Set COSTAR_KIT_DIR in .env.")
     Handler.buildings = {b.property_id: b for b in buildings}
